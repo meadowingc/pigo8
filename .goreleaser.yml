@@ -1,0 +1,14 @@
+project_name: pigo8
+
+builds:
+  skip: true
+
+archives:
+  skip: true
+
+nfpms:
+  skip: true
+
+release:
+  changelog:
+    sort: asc

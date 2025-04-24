@@ -1,0 +1,133 @@
+{
+    "sprites": [
+        {
+            "id": 0,
+            "x": 0,
+            "y": 0,
+            "width": 8,
+            "height": 8,
+            "used": true,
+            "flags": {
+                "bitfield": 0,
+                "individual": [
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false
+                ]
+            },
+            "pixels": [
+                [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    7,
+                    7,
+                    0,
+                    0,
+                    7,
+                    7,
+                    0
+                ],
+                [
+                    0,
+                    7,
+                    7,
+                    7,
+                    7,
+                    7,
+                    7,
+                    0
+                ],
+                [
+                    0,
+                    7,
+                    15,
+                    7,
+                    7,
+                    15,
+                    7,
+                    0
+                ],
+                [
+                    0,
+                    7,
+                    7,
+                    7,
+                    7,
+                    7,
+                    7,
+                    0
+                ],
+                [
+                    0,
+                    0,
+                    7,
+                    7,
+                    7,
+                    7,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    0,
+                    0,
+                    7,
+                    7,
+                    0,
+                    0,
+                    0
+                ],
+                [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            ]
+        },
+        {
+            "id": 1,
+            "x": 8,
+            "y": 0,
+            "width": 8,
+            "height": 8,
+            "used": false,
+            "flags": {
+                "bitfield": 0,
+                "individual": [
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    false
+                ]
+            },
+            "pixels": [
+                [
+                    0
+                ]
+            ]
+        }
+    ]
+}
