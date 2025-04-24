@@ -1,3 +1,4 @@
+// Package main basic hello world example using clear screen and print statements
 package main
 
 import p8 "github.com/drpaneas/pigo8"
