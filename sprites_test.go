@@ -56,6 +56,24 @@ func TestSprArguments(t *testing.T) {
 		})
 	})
 
+	t.Run("Basic call with float sprite number", func(t *testing.T) {
+		// Floats should be truncated to ints (0.5 -> 0, 5.9 -> 5)
+		assert.NotPanics(t, func() {
+			Spr(0.5, 1, 1)
+		})
+		assert.NotPanics(t, func() {
+			Spr(5.9, 2, 2)
+		})
+		// Should find sprite ID 5 when using 5.9
+		assert.NotPanics(t, func() {
+			Spr(5.9, 10, 10)
+		})
+		// Non-existent sprite ID after truncation (e.g., 1.5 -> 1)
+		assert.NotPanics(t, func() {
+			Spr(1.5, 15, 15)
+		})
+	})
+
 	t.Run("Call with w/h options (float)", func(t *testing.T) {
 		assert.NotPanics(t, func() {
 			Spr(0, 1, 1, 2.0, 0.5)

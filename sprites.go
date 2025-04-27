@@ -63,10 +63,17 @@ type Number interface {
 //	// Draw the same 1.5 x 1.5 block, flipped horizontally
 //	Spr(0, 90, 20, 1.5, 1.5, true)
 //
+//	// Draw sprite 0 using a float sprite number (truncated to 0)
+//	Spr(0.7, 110, 20)
+//
 //	// Explicitly specify generic types if needed (rarely necessary)
 //	Spr[int, float64](1, 10, 20.5)
-func Spr[X Number, Y Number](spriteNumber int, x X, y Y, options ...interface{}) {
-	// Convert generic x, y to float64 for internal calculations
+//
+//	// Explicitly specify all generic types
+//	Spr[float64, int, float64](1.2, 10, 20.5) // spriteNumber becomes 1
+func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...interface{}) {
+	// Convert generic spriteNumber, x, y to required types
+	spriteNumInt := int(spriteNumber) // Cast sprite number to int
 	fx := float64(x)
 	fy := float64(y)
 
@@ -91,14 +98,14 @@ func Spr[X Number, Y Number](spriteNumber int, x X, y Y, options ...interface{})
 	// --- Find the Sprite by ID ---
 	var spriteInfo *SpriteInfo
 	for i := range currentSprites {
-		if currentSprites[i].ID == spriteNumber {
+		if currentSprites[i].ID == spriteNumInt { // Use the integer version
 			spriteInfo = &currentSprites[i]
 			break
 		}
 	}
 
 	if spriteInfo == nil || spriteInfo.Image == nil {
-		// log.Printf("Warning: Spr() called for non-existent or unloaded sprite ID %d.", spriteNumber)
+		// log.Printf("Warning: Spr() called for non-existent or unloaded sprite ID %d.", spriteNumInt) // Use the integer version
 		// Don't log by default, PICO-8 doesn't warn for drawing non-existent sprites
 		return // Sprite ID not found or image wasn't loaded
 	}
