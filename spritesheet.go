@@ -2,8 +2,7 @@ package pigo8
 
 import (
 	"encoding/json" // Keep color import
-	"fmt"           // Add fmt for error wrapping
-
+	"fmt"
 	"log"
 	"os"
 
@@ -70,13 +69,17 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 	// Add a check to see if sprites were loaded
 	if len(sheet.Sprites) == 0 {
 		// Log warning here as it's about content, not file loading
-		log.Printf("Warning: No sprites found after unmarshalling spritesheet data. Check JSON format and tags.")
+		log.Printf(
+			"Warning: No sprites found after unmarshalling spritesheet data. Check JSON format and tags.",
+		)
 		// Return empty slice, not necessarily an error
 		return []SpriteInfo{}, nil
 	}
 	// Check if pixel data is present for the first sprite (if any)
 	if len(sheet.Sprites) > 0 && len(sheet.Sprites[0].Pixels) == 0 {
-		log.Printf("Warning: First sprite has empty pixel data after unmarshalling. Check JSON tags, especially for 'pixels'.")
+		log.Printf(
+			"Warning: First sprite has empty pixel data after unmarshalling. Check JSON tags, especially for 'pixels'.",
+		)
 	}
 
 	// Process used sprites
@@ -87,8 +90,12 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		}
 
 		// Check if pixel data is empty for this specific sprite
-		if len(spriteData.Pixels) == 0 || (len(spriteData.Pixels) > 0 && len(spriteData.Pixels[0]) == 0) {
-			log.Printf("Warning: Skipping sprite %d due to missing or empty pixel data.", spriteData.ID)
+		if len(spriteData.Pixels) == 0 ||
+			(len(spriteData.Pixels) > 0 && len(spriteData.Pixels[0]) == 0) {
+			log.Printf(
+				"Warning: Skipping sprite %d due to missing or empty pixel data.",
+				spriteData.ID,
+			)
 			continue
 		}
 
@@ -119,8 +126,11 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		loadedSprites = append(loadedSprites, info)
 	}
 
-	if len(loadedSprites) == 0 && len(sheet.Sprites) > 0 { // Only warn if sprites existed but none were 'used'
-		log.Printf("Warning: No 'used' sprites were processed. Check the 'used' field in your spritesheet data.")
+	if len(loadedSprites) == 0 &&
+		len(sheet.Sprites) > 0 { // Only warn if sprites existed but none were 'used'
+		log.Printf(
+			"Warning: No 'used' sprites were processed. Check the 'used' field in your spritesheet data.",
+		)
 	}
 
 	return loadedSprites, nil
@@ -144,7 +154,11 @@ func loadSpritesheet() ([]SpriteInfo, error) {
 		}
 		// Handle other potential read errors - log here as it's unexpected at runtime
 		log.Printf("Error reading %s: %v", spritesheetFilename, err)
-		return nil, fmt.Errorf("error reading %s: %w", spritesheetFilename, err) // Wrap other errors
+		return nil, fmt.Errorf(
+			"error reading %s: %w",
+			spritesheetFilename,
+			err,
+		) // Wrap other errors
 	}
 
 	// Call the data-processing function
