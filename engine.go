@@ -40,8 +40,9 @@ const (
 // These hold the current context for the user's draw callback.
 // They are set by the engine's Draw method each frame.
 var (
-	currentScreen  *ebiten.Image // Internal: Current screen image
-	currentSprites []SpriteInfo  // Internal: Loaded sprites
+	currentScreen    *ebiten.Image // Internal: Current screen image
+	currentSprites   []SpriteInfo  // Internal: Loaded sprites
+	currentDrawColor int           // Internal: Current draw color (0-15)
 )
 
 // --- Cartridge Definition and Loading ---

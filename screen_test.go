@@ -252,7 +252,7 @@ func TestPrint(t *testing.T) {
 		// Verify cursor update
 		assert.Equal(t, 6, cursorX)
 		assert.Equal(t, 11+expectedYAdvance, cursorY)
-		assert.Equal(t, 7, cursorColor, "Global cursorColor should not change")
+		assert.Equal(t, 8, cursorColor, "Global cursorColor should change to match the specified color")
 		// Note: Cannot easily verify the color used for the actual draw call
 	})
 
@@ -286,7 +286,7 @@ func TestPrint(t *testing.T) {
 		// Verify cursor update
 		assert.Equal(t, printX, cursorX)
 		assert.Equal(t, printY+expectedYAdvance, cursorY)
-		assert.Equal(t, 3, cursorColor, "Global cursorColor should not change")
+		assert.Equal(t, 14, cursorColor, "Global cursorColor should change to match the specified color")
 	})
 
 	t.Run("Print with invalid explicit color", func(t *testing.T) {

@@ -8,15 +8,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// TODO: Implement a global state for the current drawing color, settable by a Color(c) function.
-var currentDrawingColorIndex = 7 // Default to white for now if not specified
+// Note: The global currentDrawColor is defined in engine.go and set by the Color() function
 
 // parseRectArgs parses common arguments for Rect and Rectfill.
 // It returns the calculated top-left corner (x, y), dimensions (w, h),
 // the PICO-8 color index to use, and whether parsing was successful.
 func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, float32, float32, float32, int, bool) {
 	// Determine drawing color
-	drawColorIndex := currentDrawingColorIndex // TODO: Use actual global current color
+	drawColorIndex := currentDrawColor // Use the global current draw color set by Color()
 	if len(options) >= 1 {
 		if cIdx, ok := options[0].(int); ok {
 			if cIdx >= 0 && cIdx < len(Pico8Palette) {

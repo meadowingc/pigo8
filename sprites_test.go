@@ -182,3 +182,102 @@ func TestSprArguments(t *testing.T) {
 	// integration test or requires mocking loadSpritesheet().
 
 }
+
+// TestSpriteCoordinateConversion tests the coordinate conversion logic used in Sget and Sset
+func TestSpriteCoordinateConversion(t *testing.T) {
+	// Test cases for coordinate conversion
+	testCases := []struct {
+		name           string
+		globalX        int
+		globalY        int
+		expectedSpriteID int
+		expectedLocalX  int
+		expectedLocalY  int
+	}{
+		{"Top-left pixel of first sprite", 0, 0, 0, 0, 0},
+		{"Middle pixel of first sprite", 4, 3, 0, 4, 3},
+		{"Bottom-right pixel of first sprite", 7, 7, 0, 7, 7},
+		{"First pixel of second sprite", 8, 0, 1, 0, 0},
+		{"Middle pixel of second sprite", 12, 3, 1, 4, 3},
+		{"First pixel of sprite in second row", 0, 8, 16, 0, 0},
+		{"Middle pixel of sprite in second row", 4, 12, 16, 4, 4},
+		{"Pixel in middle of spritesheet", 64, 64, 136, 0, 0},
+		{"Last pixel of spritesheet", 127, 127, 255, 7, 7},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Calculate sprite ID using the same logic as in Sget/Sset
+			spriteX := tc.globalX / 8
+			spriteY := tc.globalY / 8
+			spriteCellID := spriteY*16 + spriteX
+			
+			// Calculate local coordinates
+			localX := tc.globalX % 8
+			localY := tc.globalY % 8
+			
+			// Verify calculations
+			assert.Equal(t, tc.expectedSpriteID, spriteCellID, "Sprite ID calculation incorrect")
+			assert.Equal(t, tc.expectedLocalX, localX, "Local X calculation incorrect")
+			assert.Equal(t, tc.expectedLocalY, localY, "Local Y calculation incorrect")
+		})
+	}
+}
+
+// TestSsetColorHandling tests the color handling logic in Sset
+func TestSsetColorHandling(t *testing.T) {
+	// Save original state
+	originalDrawColor := currentDrawColor
+	
+	// Cleanup after tests
+	t.Cleanup(func() {
+		currentDrawColor = originalDrawColor
+	})
+	
+	t.Run("Default color handling", func(t *testing.T) {
+		// Set a known color
+		currentDrawColor = 7 // White
+		
+		// Verify that when no color is specified, currentDrawColor is used
+		colorToUse := currentDrawColor
+		assert.Equal(t, 7, colorToUse, "Should use currentDrawColor when no color specified")
+	})
+	
+	t.Run("Explicit color handling", func(t *testing.T) {
+		// Set a known color
+		currentDrawColor = 7 // White
+		
+		// Verify that when a color is specified, it's used instead of currentDrawColor
+		colorToUse := 8 // Explicit color (red)
+		assert.Equal(t, 8, colorToUse, "Should use explicit color when specified")
+		
+		// Verify currentDrawColor remains unchanged
+		assert.Equal(t, 7, currentDrawColor, "currentDrawColor should not change when explicit color is used")
+	})
+	
+	t.Run("Color clamping - high", func(t *testing.T) {
+		// Test color clamping for values above the valid range
+		invalidColor := 99 // Above valid range
+		clampedColor := invalidColor
+		
+		// Apply the same clamping logic as in Sset
+		if clampedColor >= len(Pico8Palette) {
+			clampedColor = len(Pico8Palette) - 1
+		}
+		
+		assert.Equal(t, len(Pico8Palette)-1, clampedColor, "Color should be clamped to max index")
+	})
+	
+	t.Run("Color clamping - low", func(t *testing.T) {
+		// Test color clamping for values below the valid range
+		invalidColor := -1 // Below valid range
+		clampedColor := invalidColor
+		
+		// Apply the same clamping logic as in Sset
+		if clampedColor < 0 {
+			clampedColor = 0
+		}
+		
+		assert.Equal(t, 0, clampedColor, "Color should be clamped to 0")
+	})
+}

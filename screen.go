@@ -49,7 +49,7 @@ var (
 	// They were moved from main.go.
 	cursorX     int
 	cursorY     int
-	cursorColor = 7 // PICO-8 White
+	cursorColor = 7 // Default to white (PICO-8 color 7)
 )
 
 func init() {
@@ -194,7 +194,7 @@ const (
 //   - args: Optional arguments interpreted as [x, y] or [x, y, colorIndex].
 //   - If len(args) == 0: Resets cursor position to (0, 0).
 //   - If len(args) == 2: Sets cursor position to (args[0], args[1]).
-//   - If len(args) >= 3: Sets cursor position to (args[0], args[1]) and sets cursorColor to args[2].
+//   - If len(args) >= 3: Sets cursor position to (args[0], args[1]) and sets currentDrawColor to args[2].
 //
 // Example:
 //
@@ -217,7 +217,9 @@ func Cursor(args ...int) {
 		if col < 0 || col >= len(Pico8Palette) {
 			log.Printf("Warning: Cursor() called with invalid color index %d. Color not changed.", col)
 		} else {
+			// Update both color variables to keep them in sync
 			cursorColor = col
+			currentDrawColor = col
 		}
 	default:
 		log.Printf("Warning: Cursor() called with invalid number of arguments (%d). Expected 0, 2, or 3.", len(args))
@@ -279,6 +281,11 @@ func Print(str string, args ...int) (int, int) {
 	// or len(args)==3 for position and color), use the last argument.
 	if len(args) == 1 || len(args) == 3 {
 		col = args[len(args)-1]
+		// Update both color variables to keep them in sync
+		if col >= 0 && col < len(Pico8Palette) {
+			cursorColor = col
+			currentDrawColor = col
+		}
 	}
 
 	// Validate the color index.

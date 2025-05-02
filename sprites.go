@@ -1,6 +1,7 @@
 package pigo8
 
 import (
+	"image/color"
 	"log"
 	"math"
 
@@ -14,6 +15,8 @@ import (
 type Number interface {
 	constraints.Integer | constraints.Float
 }
+
+// Note: currentScreen, currentSprites, and currentDrawColor are defined in engine.go
 
 // Spr draws a potentially fractional rectangular region of sprites,
 // using the internal `currentScreen` and `currentSprites` variables.
@@ -211,4 +214,150 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 
 	// Draw the image
 	currentScreen.DrawImage(tileImage, op)
+}
+
+// Sget returns the color number (0-15) of a pixel at the specified coordinates on the spritesheet.
+// If the coordinates are outside the spritesheet bounds, it returns 0.
+//
+// x: the distance from the left side of the spritesheet (in pixels).
+// y: the distance from the top side of the spritesheet (in pixels).
+//
+// Example:
+//
+//	// Get the color of pixel at (10,20) on the spritesheet
+//	pixel_color := Sget(10, 20) // Returns color index (0-15) if pixel exists
+func Sget[X Number, Y Number](x X, y Y) int {
+	// Convert generic x, y to required types
+	px := int(x)
+	py := int(y)
+
+	// Ensure spritesheet is loaded
+	if currentSprites == nil {
+		loaded, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: Failed to load spritesheet for Sget(): %v", err)
+			return 0 // Return 0 if spritesheet couldn't be loaded
+		}
+		currentSprites = loaded
+	}
+
+	// In PICO-8, sprites are arranged in a grid on the spritesheet
+	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
+	// Find which sprite contains the specified pixel coordinates
+	spriteX := px / 8 // Determine which sprite column contains the pixel
+	spriteY := py / 8 // Determine which sprite row contains the pixel
+	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
+
+	// Calculate the pixel position within the sprite
+	localX := px % 8 // X position within the sprite (0-7)
+	localY := py % 8 // Y position within the sprite (0-7)
+
+	// Find the sprite with the matching ID
+	for _, sprite := range currentSprites {
+		if sprite.ID == spriteCellID {
+			// Get the color at the specified pixel within this sprite
+			pixelColor := sprite.Image.At(localX, localY)
+
+			// Find the matching color in the PICO-8 palette
+			for i, color := range Pico8Palette {
+				if colorEquals(pixelColor, color) {
+					return i // Return the color index (0-15)
+				}
+			}
+			// If no matching color found, return 0 (transparent/black)
+			return 0
+		}
+	}
+
+	// If no matching pixel was found, return 0
+	return 0
+}
+
+// colorEquals compares two colors for equality
+func colorEquals(c1, c2 color.Color) bool {
+	r1, g1, b1, a1 := c1.RGBA()
+	r2, g2, b2, a2 := c2.RGBA()
+	return r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2
+}
+
+// Color sets the current draw color to be used by subsequent drawing operations.
+// The color parameter should be a number from 0 to 15 corresponding to the PICO-8 palette.
+//
+// Example:
+//
+//	Color(8) // Set current draw color to red (color 8)
+//	Sset(10, 20) // Draw a red pixel at (10, 20) on the spritesheet
+func Color(colorIndex int) {
+	// Clamp color index to valid range (0-15)
+	if colorIndex < 0 {
+		colorIndex = 0
+	} else if colorIndex >= len(Pico8Palette) {
+		colorIndex = len(Pico8Palette) - 1
+	}
+	
+	currentDrawColor = colorIndex
+}
+
+// Sset sets the color of a pixel at the specified coordinates on the spritesheet.
+// If the optional color parameter is not provided, it uses the current draw color.
+//
+// x: the distance from the left side of the spritesheet (in pixels).
+// y: the distance from the top side of the spritesheet (in pixels).
+// color: (optional) a color number from 0 to 15.
+//
+// Example:
+//
+//	Sset(10, 0, 8) // Draw a red pixel at (10,0) on the spritesheet
+//	Color(12)
+//	Sset(16, 0) // Draw a blue pixel at (16,0) using the current draw color
+func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
+	// Convert generic x, y to required types
+	px := int(x)
+	py := int(y)
+	
+	// Determine which color to use
+	colorToUse := currentDrawColor
+	if len(colorIndex) > 0 {
+		colorToUse = colorIndex[0]
+		// Clamp color index to valid range (0-15)
+		if colorToUse < 0 {
+			colorToUse = 0
+		} else if colorToUse >= len(Pico8Palette) {
+			colorToUse = len(Pico8Palette) - 1
+		}
+	}
+	
+	// Ensure spritesheet is loaded
+	if currentSprites == nil {
+		loaded, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: Failed to load spritesheet for Sset(): %v", err)
+			return // Can't set pixel if spritesheet couldn't be loaded
+		}
+		currentSprites = loaded
+	}
+	
+	// In PICO-8, sprites are arranged in a grid on the spritesheet
+	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
+	// Find which sprite contains the specified pixel coordinates
+	spriteX := px / 8 // Determine which sprite column contains the pixel
+	spriteY := py / 8 // Determine which sprite row contains the pixel
+	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
+	
+	// Calculate the pixel position within the sprite
+	localX := px % 8 // X position within the sprite (0-7)
+	localY := py % 8 // Y position within the sprite (0-7)
+	
+	// Find the sprite with the matching ID
+	for i := range currentSprites {
+		sprite := &currentSprites[i]
+		if sprite.ID == spriteCellID {
+			// Set the pixel color within this sprite
+			sprite.Image.Set(localX, localY, Pico8Palette[colorToUse])
+			return
+		}
+	}
+	
+	// If no sprite with the matching ID was found, log a warning
+	log.Printf("Warning: Sset() called for non-existent sprite ID %d at position (%d, %d)", spriteCellID, px, py)
 }
