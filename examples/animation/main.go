@@ -1,13 +1,16 @@
+// Package main provides a simple animation example using the pigo8 library
 package main
 
 import (
 	p8 "github.com/drpaneas/pigo8"
 )
 
+// Entity represents a game entity with animation capabilities
 type Entity struct {
 	sprite, x, y, timing, speed, first, last float64
 }
 
+// NewEntity creates a new animated entity with the given parameters
 func NewEntity(sprite, x, y, timing, speed, first, last float64) Entity {
 	return Entity{
 		sprite: sprite,
@@ -20,6 +23,7 @@ func NewEntity(sprite, x, y, timing, speed, first, last float64) Entity {
 	}
 }
 
+// Animate updates the sprite index based on timing to create animation
 func (ae *Entity) Animate() {
 	ae.sprite += ae.timing
 	if ae.sprite >= ae.last {
@@ -27,6 +31,7 @@ func (ae *Entity) Animate() {
 	}
 }
 
+// Move changes the entity's position by the given offset
 func (ae *Entity) Move(offset float64) {
 	ae.x += offset
 	if ae.x > 128 {
@@ -34,6 +39,7 @@ func (ae *Entity) Move(offset float64) {
 	}
 }
 
+// Draw renders the entity to the screen
 func (ae *Entity) Draw() {
 	p8.Spr(ae.sprite, ae.x, ae.y)
 }
