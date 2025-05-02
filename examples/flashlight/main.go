@@ -20,13 +20,14 @@ func (m *myGame) Update() {
 	m.counter += 0.1
 
 	// Create a flashing effect by alternating colors
-	if m.counter < 1 {
+	switch {
+	case m.counter < 1:
 		// Red light
 		p8.Sset(12, 0, 8) // Red pixel at position (12,0) on the spritesheet
-	} else if m.counter < 2 {
+	case m.counter < 2:
 		// Blue light
 		p8.Sset(12, 0, 12) // Blue pixel at position (12,0) on the spritesheet
-	} else {
+	default:
 		// Reset counter
 		m.counter = 0
 	}

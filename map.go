@@ -31,7 +31,7 @@ var (
 	spriteInfoMap map[int]*SpriteInfo
 
 	// Memory monitoring
-	lastMemoryUsage uint64 = 0
+	lastMemoryUsage uint64
 	memoryMutex     sync.Mutex
 )
 
@@ -151,10 +151,32 @@ func Map(args ...any) {
 //	MapG(mx, my, sx, sy, w, h) // Draw map with custom dimensions
 //	MapG(mx, my, sx, sy, w, h, layers) // Draw map with layer filtering
 func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
-	if currentScreen == nil {
-		log.Println("Warning: Map() called before screen was ready.")
+	if !ensureMapResources() {
 		return
 	}
+
+	// Convert generic mx, my to required types
+	mapX := int(mx)
+	mapY := int(my)
+
+	// Parse arguments
+	sx, sy, wTiles, hTiles, layers := parseMapArgs(args)
+	if wTiles <= 0 || hTiles <= 0 {
+		return
+	}
+
+	// Draw the map region
+	drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers)
+}
+
+// ensureMapResources ensures all required resources for map rendering are loaded
+// Returns false if resources couldn't be loaded or screen isn't ready
+func ensureMapResources() bool {
+	if currentScreen == nil {
+		log.Println("Warning: Map() called before screen was ready.")
+		return false
+	}
+
 	// Lazy-load map data
 	if currentMap == nil {
 		m, err := loadMap()
@@ -163,6 +185,7 @@ func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 		}
 		currentMap = m
 	}
+
 	// Lazy-load sprite info for layer filtering
 	if currentSprites == nil {
 		sprites, err := loadSpritesheet()
@@ -171,6 +194,7 @@ func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 		}
 		currentSprites = sprites
 	}
+
 	// Build lookup map from sprite ID to SpriteInfo
 	if spriteInfoMap == nil {
 		spriteInfoMap = make(map[int]*SpriteInfo, len(currentSprites))
@@ -180,15 +204,17 @@ func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 		}
 	}
 
-	// Convert generic mx, my to required types
-	mapX := int(mx)
-	mapY := int(my)
+	return true
+}
 
+// parseMapArgs parses the optional arguments for the Map functions
+// Returns screen x, screen y, width in tiles, height in tiles, and layers bitfield
+func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 	// Default parameters
-	sx, sy := 0, 0
-	wTiles := LogicalWidth / 8
-	hTiles := LogicalHeight / 8
-	layers := 0
+	sx, sy = 0, 0
+	wTiles = LogicalWidth / 8
+	hTiles = LogicalHeight / 8
+	layers = 0
 
 	// Process optional arguments
 	if len(args) >= 1 {
@@ -229,28 +255,37 @@ func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 	if len(args) > 5 {
 		log.Printf("Warning: Map() called with too many arguments (%d), expected max 5 ([sx,sy,w,h,layers]).", len(args))
 	}
-	if wTiles <= 0 || hTiles <= 0 {
-		return
-	}
 
+	return sx, sy, wTiles, hTiles, layers
+}
+
+// drawMapRegion draws a region of the map to the screen
+func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
 	// Determine region bounds in map coordinates
 	xMin, xMax := mapX, mapX+wTiles
 	yMin, yMax := mapY, mapY+hTiles
+
 	for _, cell := range currentMap.Cells {
+		// Skip cells outside the visible region
 		if cell.X < xMin || cell.X >= xMax || cell.Y < yMin || cell.Y >= yMax {
 			continue
 		}
+
+		// Get sprite info
 		info, ok := spriteInfoMap[cell.Sprite]
 		if !ok {
 			continue
 		}
+
 		// Filter by layers bitfield
 		if layers != 0 && (info.Flags.Bitfield&layers) == 0 {
 			continue
 		}
+
 		// Calculate screen position (8 pixels per tile)
 		dx := sx + (cell.X-mapX)*8
 		dy := sy + (cell.Y-mapY)*8
+
 		// Draw sprite
 		Spr(cell.Sprite, dx, dy)
 	}

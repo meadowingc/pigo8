@@ -1,3 +1,4 @@
+// Package main demonstrates the map functionality of the PICO-8 engine
 package main
 
 import (

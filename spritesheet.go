@@ -141,10 +141,10 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 // consider using go:embed in your application code and calling LoadSpritesheetFromData.
 func loadSpritesheet() ([]SpriteInfo, error) {
 	const spritesheetFilename = "spritesheet.json"
-	
+
 	// Log memory before loading spritesheet
 	logMemory("before spritesheet load", false)
-	
+
 	data, err := os.ReadFile(spritesheetFilename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -164,20 +164,20 @@ func loadSpritesheet() ([]SpriteInfo, error) {
 			err,
 		) // Wrap other errors
 	}
-	
+
 	// Log memory after reading file
 	logMemory("after reading spritesheet file", false)
-	
+
 	// Call the data-processing function
 	sprites, err := loadSpritesheetFromData(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Always log when spritesheet is loaded, regardless of memory change
 	fileSize := float64(len(data)) / 1024
 	log.Printf("Spritesheet: %d sprites (%.1f KB)", len(sprites), fileSize)
 	logMemory("after spritesheet load", true)
-	
+
 	return sprites, nil
 }

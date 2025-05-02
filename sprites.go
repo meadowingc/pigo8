@@ -244,8 +244,8 @@ func Sget[X Number, Y Number](x X, y Y) int {
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8 // Determine which sprite column contains the pixel
-	spriteY := py / 8 // Determine which sprite row contains the pixel
+	spriteX := px / 8                    // Determine which sprite column contains the pixel
+	spriteY := py / 8                    // Determine which sprite row contains the pixel
 	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
 
 	// Calculate the pixel position within the sprite
@@ -294,7 +294,7 @@ func Color(colorIndex int) {
 	} else if colorIndex >= len(Pico8Palette) {
 		colorIndex = len(Pico8Palette) - 1
 	}
-	
+
 	currentDrawColor = colorIndex
 }
 
@@ -314,7 +314,7 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 	// Convert generic x, y to required types
 	px := int(x)
 	py := int(y)
-	
+
 	// Determine which color to use
 	colorToUse := currentDrawColor
 	if len(colorIndex) > 0 {
@@ -326,7 +326,7 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 			colorToUse = len(Pico8Palette) - 1
 		}
 	}
-	
+
 	// Ensure spritesheet is loaded
 	if currentSprites == nil {
 		loaded, err := loadSpritesheet()
@@ -336,18 +336,18 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 		}
 		currentSprites = loaded
 	}
-	
+
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8 // Determine which sprite column contains the pixel
-	spriteY := py / 8 // Determine which sprite row contains the pixel
+	spriteX := px / 8                    // Determine which sprite column contains the pixel
+	spriteY := py / 8                    // Determine which sprite row contains the pixel
 	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
-	
+
 	// Calculate the pixel position within the sprite
 	localX := px % 8 // X position within the sprite (0-7)
 	localY := py % 8 // Y position within the sprite (0-7)
-	
+
 	// Find the sprite with the matching ID
 	for i := range currentSprites {
 		sprite := &currentSprites[i]
@@ -357,7 +357,7 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 			return
 		}
 	}
-	
+
 	// If no sprite with the matching ID was found, log a warning
 	log.Printf("Warning: Sset() called for non-existent sprite ID %d at position (%d, %d)", spriteCellID, px, py)
 }
