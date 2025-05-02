@@ -71,7 +71,7 @@ type Number interface {
 //
 //	// Explicitly specify all generic types
 //	Spr[float64, int, float64](1.2, 10, 20.5) // spriteNumber becomes 1
-func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...interface{}) {
+func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...any) {
 	// Convert generic spriteNumber, x, y to required types
 	spriteNumInt := int(spriteNumber) // Cast sprite number to int
 	fx := float64(x)
@@ -85,14 +85,11 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...in
 
 	// --- Lazy Loading Logic ---
 	if currentSprites == nil {
-		log.Println("Spr(): Attempting to load spritesheet...")
 		loaded, err := loadSpritesheet() // Call the loading function from spritesheet.go
 		if err != nil {
 			log.Fatalf("Fatal: Failed to load required spritesheet for Spr(): %v", err)
 		}
-		log.Printf("Spr(): Successfully loaded %d sprites.", len(loaded))
 		currentSprites = loaded // Store successfully loaded sprites
-
 	}
 
 	// --- Find the Sprite by ID ---

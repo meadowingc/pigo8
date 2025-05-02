@@ -3,6 +3,7 @@ package pigo8
 import (
 	"log"
 	"os"
+	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -89,6 +90,8 @@ func (g *game) Layout(_, _ int) (screenWidth, screenHeight int) {
 func (g *game) Update() error {
 	if !g.initialized {
 		log.Println("Cartridge Initializing...")
+		// Log initial memory usage
+		logInitialMemory()
 		loadedCartridge.Init()
 		g.initialized = true
 	}
@@ -112,6 +115,13 @@ func CurrentSprites() []SpriteInfo {
 }
 
 // --- Play Functions ---
+
+// logInitialMemory logs the initial memory usage of the PICO-8 console
+func logInitialMemory() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	log.Printf("PICO-8 Memory: %.2f MB", float64(m.Alloc)/1024/1024)
+}
 
 // PlayGameWith initializes Ebitengine, loads resources, and starts the main game loop.
 // It uses the provided Settings and runs the Cartridge previously loaded via Insert.
