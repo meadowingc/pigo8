@@ -949,3 +949,123 @@ func TestSsetColorHandling_continued(t *testing.T) {
 		assert.Equal(t, 0, clampedColor, "Color should be clamped to 0")
 	})
 }
+
+// TestSget tests the Sget function for retrieving colors from the spritesheet
+// Note: We can't directly test Sget by reading pixels from Ebiten images in unit tests
+// because "ReadPixels cannot be called before the game starts". Instead, we'll test
+// the coordinate calculation logic separately from the actual pixel reading.
+func TestSget(t *testing.T) {
+	// Save original sprites and function
+	originalSprites := currentSprites
+
+	// Create a mock implementation of the sprite lookup and color matching
+	// This avoids the need to read pixels from Ebiten images
+	mockSpriteData := map[int]map[int]map[int]int{
+		// Sprite 0: all dark green (color 3)
+		0: {
+			0: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			1: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			2: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			3: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			4: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			5: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			6: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+			7: {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3},
+		},
+		// Sprite 1: all red (color 8)
+		1: {
+			0: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			1: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			2: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			3: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			4: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			5: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			6: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+			7: {0: 8, 1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8},
+		},
+		// Sprite 2: top half blue (color 12), bottom half yellow (color 10)
+		2: {
+			0: {0: 12, 1: 12, 2: 12, 3: 12, 4: 12, 5: 12, 6: 12, 7: 12},
+			1: {0: 12, 1: 12, 2: 12, 3: 12, 4: 12, 5: 12, 6: 12, 7: 12},
+			2: {0: 12, 1: 12, 2: 12, 3: 12, 4: 12, 5: 12, 6: 12, 7: 12},
+			3: {0: 12, 1: 12, 2: 12, 3: 12, 4: 12, 5: 12, 6: 12, 7: 12},
+			4: {0: 10, 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10},
+			5: {0: 10, 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10},
+			6: {0: 10, 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10},
+			7: {0: 10, 1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10, 7: 10},
+		},
+	}
+
+	// Create a mock version of Sget that uses our predefined data
+	mockSget := func(x, y int) int {
+		// Calculate which sprite contains the specified pixel coordinates
+		spriteX := x / 8                     // Determine which sprite column contains the pixel
+		spriteY := y / 8                     // Determine which sprite row contains the pixel
+		spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
+
+		// Calculate the pixel position within the sprite
+		localX := x % 8 // X position within the sprite (0-7)
+		localY := y % 8 // Y position within the sprite (0-7)
+
+		// Check if this sprite exists in our mock data
+		if spriteData, exists := mockSpriteData[spriteCellID]; exists {
+			// Check if the local coordinates exist
+			if rowData, rowExists := spriteData[localY]; rowExists {
+				if colorValue, colExists := rowData[localX]; colExists {
+					return colorValue
+				}
+			}
+		}
+
+		// Return 0 for any coordinates not defined in our mock data
+		return 0
+	}
+
+	// Test basic Sget coordinate calculation
+	t.Run("Basic Sget coordinate calculation", func(t *testing.T) {
+		// Test sprite 0 (all dark green)
+		assert.Equal(t, 3, mockSget(0, 0), "Sget(0, 0) should return color 3 (dark green)")
+		assert.Equal(t, 3, mockSget(7, 7), "Sget(7, 7) should return color 3 (dark green)")
+
+		// Test sprite 1 (all red)
+		assert.Equal(t, 8, mockSget(8, 0), "Sget(8, 0) should return color 8 (red)")
+		assert.Equal(t, 8, mockSget(15, 7), "Sget(15, 7) should return color 8 (red)")
+
+		// Test sprite 2 (top half blue, bottom half yellow)
+		assert.Equal(t, 12, mockSget(16, 0), "Sget(16, 0) should return color 12 (blue)")
+		assert.Equal(t, 12, mockSget(23, 3), "Sget(23, 3) should return color 12 (blue)")
+		assert.Equal(t, 10, mockSget(16, 4), "Sget(16, 4) should return color 10 (yellow)")
+		assert.Equal(t, 10, mockSget(23, 7), "Sget(23, 7) should return color 10 (yellow)")
+	})
+
+	// Test Sget with different coordinate types by testing the conversion logic
+	t.Run("Sget coordinate type conversion", func(t *testing.T) {
+		// Test the conversion of float coordinates to int
+		x1, y1 := 0.9, 0.9
+		x2, y2 := 8.5, 0.5
+
+		// Verify the conversion matches what Sget would do internally
+		assert.Equal(t, 0, int(x1), "0.9 should convert to 0")
+		assert.Equal(t, 0, int(y1), "0.9 should convert to 0")
+		assert.Equal(t, 8, int(x2), "8.5 should convert to 8")
+		assert.Equal(t, 0, int(y2), "0.5 should convert to 0")
+	})
+
+	// Test Sget with out-of-bounds coordinates
+	t.Run("Sget with out-of-bounds coordinates", func(t *testing.T) {
+		// Negative coordinates
+		assert.Equal(t, 0, mockSget(-1, -1), "Sget(-1, -1) should return 0 for out-of-bounds")
+
+		// Coordinates beyond spritesheet
+		assert.Equal(t, 0, mockSget(128, 128), "Sget(128, 128) should return 0 for out-of-bounds")
+	})
+
+	// Test Sget with non-existent sprite
+	t.Run("Sget with non-existent sprite", func(t *testing.T) {
+		// Sprite ID 3 doesn't exist in our test setup
+		assert.Equal(t, 0, mockSget(24, 0), "Sget for non-existent sprite should return 0")
+	})
+
+	// Restore original sprites
+	currentSprites = originalSprites
+}

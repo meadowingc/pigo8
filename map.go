@@ -261,32 +261,159 @@ func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 
 // drawMapRegion draws a region of the map to the screen
 func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
-	// Determine region bounds in map coordinates
-	xMin, xMax := mapX, mapX+wTiles
-	yMin, yMax := mapY, mapY+hTiles
-
-	for _, cell := range currentMap.Cells {
-		// Skip cells outside the visible region
-		if cell.X < xMin || cell.X >= xMax || cell.Y < yMin || cell.Y >= yMax {
-			continue
-		}
-
-		// Get sprite info
-		info, ok := spriteInfoMap[cell.Sprite]
-		if !ok {
-			continue
-		}
-
-		// Filter by layers bitfield
-		if layers != 0 && (info.Flags.Bitfield&layers) == 0 {
-			continue
-		}
-
-		// Calculate screen position (8 pixels per tile)
-		dx := sx + (cell.X-mapX)*8
-		dy := sy + (cell.Y-mapY)*8
-
-		// Draw sprite
-		Spr(cell.Sprite, dx, dy)
+	// Ensure map is loaded
+	if currentMap == nil {
+		log.Println("Warning: Map not loaded for drawing")
+		return
 	}
+
+	// Iterate through the cells in the specified region
+	for _, cell := range currentMap.Cells {
+		// Check if the cell is within our view region
+		if cell.X >= mapX && cell.X < mapX+wTiles &&
+			cell.Y >= mapY && cell.Y < mapY+hTiles {
+
+			// Skip empty cells (sprite 0 is typically empty)
+			if cell.Sprite == 0 {
+				continue
+			}
+
+			// Apply layer filtering if specified
+			if layers > 0 {
+				// Get the sprite's flags
+				flagBits, _ := Fget(cell.Sprite)
+				// Check if any of the requested layers match this sprite's flags
+				if flagBits&layers == 0 {
+					continue // Skip this sprite if it doesn't match any requested layers
+				}
+			}
+
+			// Calculate screen position
+			screenX := sx + (cell.X-mapX)*8 // 8 pixels per tile
+			screenY := sy + (cell.Y-mapY)*8
+
+			// Draw the sprite
+			Spr(cell.Sprite, screenX, screenY)
+		}
+	}
+}
+
+// Mget returns the sprite number at the specified map coordinates.
+// This mimics PICO-8's mget(column, row) function.
+//
+// column: number of tiles from the left (each tile is 8 pixels wide)
+// row: number of tiles from the top (each tile is 8 pixels tall)
+// returns: the sprite number at the specified tile position, or 0 if no sprite is found
+//
+// Example:
+//
+//	// Get the sprite at map position (5,7)
+//	sprite := Mget(5, 7)
+//
+//	// Convert pixel coordinates to tile coordinates
+//	playerColumn := playerX / 8
+//	playerRow := playerY / 8
+//
+//	// Check what sprite is to the right of the player
+//	spriteToRight := Mget(playerColumn + 1, playerRow)
+//
+//	// Check sprite flag in one operation
+//	flagBits, isSet := Fget(Mget(tileX, tileY))
+func Mget[C Number, R Number](column C, row R) int {
+	// Convert generic column, row to required types
+	col := int(column)
+	r := int(row)
+
+	// Ensure map is loaded
+	if currentMap == nil {
+		loaded, err := loadMap()
+		if err != nil {
+			log.Printf("Warning: Failed to load map for Mget(): %v", err)
+			return 0 // Return 0 if map couldn't be loaded
+		}
+		currentMap = loaded
+	}
+
+	// Iterate through the cells to find the matching position
+	for _, cell := range currentMap.Cells {
+		if cell.X == col && cell.Y == r {
+			return cell.Sprite
+		}
+	}
+
+	// If no cell is found at the specified position, return 0 (empty/transparent)
+	return 0
+}
+
+// MgetG is an alias for Mget to maintain naming consistency with other functions
+func MgetG[C Number, R Number](column C, row R) int {
+	return Mget(column, row)
+}
+
+// Mset sets the sprite number at the specified map coordinates.
+// This mimics PICO-8's mset(column, row, sprite) function.
+//
+// column: number of tiles from the left (each tile is 8 pixels wide)
+// row: number of tiles from the top (each tile is 8 pixels tall)
+// sprite: the sprite number to set at the specified tile position
+//
+// Example:
+//
+//	// Set sprite #21 at map position (5,7)
+//	Mset(5, 7, 21)
+//
+//	// Convert pixel coordinates to tile coordinates
+//	playerColumn := playerX / 8
+//	playerRow := playerY / 8
+//
+//	// Change a flower sprite to a flowerless sprite when player is nearby
+//	if playerColumn+1 == flowerColumn && playerRow == flowerRow && btnPressed {
+//		Mset(flowerColumn, flowerRow, flowerlessSprite)
+//		flowerInventory++
+//	}
+func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
+	// Convert generic column, row, sprite to required types
+	col := int(column)
+	r := int(row)
+	spriteNum := int(sprite)
+
+	// Ensure map is loaded
+	if currentMap == nil {
+		loaded, err := loadMap()
+		if err != nil {
+			log.Printf("Warning: Failed to load map for Mset(): %v", err)
+			return // Return if map couldn't be loaded
+		}
+		currentMap = loaded
+	}
+
+	// Validate sprite number
+	if spriteNum < 0 {
+		log.Printf("Warning: Invalid sprite number %d (must be >= 0)", spriteNum)
+		return
+	}
+
+	// Check if the cell already exists at the specified position
+	for i, cell := range currentMap.Cells {
+		if cell.X == col && cell.Y == r {
+			// Update existing cell
+			currentMap.Cells[i].Sprite = spriteNum
+			return
+		}
+	}
+
+	// If no cell exists at the specified position, create a new one
+	newCell := mapCell{
+		X:      col,
+		Y:      r,
+		Sprite: spriteNum,
+	}
+
+	// Add the new cell to the map
+	currentMap.Cells = append(currentMap.Cells, newCell)
+}
+
+// MsetG is an alias for Mset to maintain naming consistency with other functions
+func MsetG[C Number, R Number, S Number](column C, row R, sprite S) {
+	Mset(column, row, sprite)
 }
