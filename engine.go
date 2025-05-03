@@ -130,7 +130,7 @@ func PlayGameWith(settings *Settings) {
 	// Use default settings if nil is passed
 	cfg := settings
 	if cfg == nil {
-		log.Println("Warning: pico8.PlayGameWith called with nil Settings, using defaults.")
+		log.Println("Warning: pigo8.PlayGameWith called with nil Settings, using defaults.")
 		cfg = NewSettings()
 	}
 

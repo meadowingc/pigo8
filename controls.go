@@ -10,39 +10,39 @@ import (
 
 // PICO-8 Button Index Constants
 const (
-	ButtonLeft = iota
-	ButtonRight
-	ButtonUp
-	ButtonDown
-	ButtonO // Often mapped to A/Cross on standard controllers
-	ButtonX // Often mapped to B/Circle on standard controllers
-	ButtonStart
-	ButtonSelect
+	LEFT = iota
+	RIGHT
+	UP
+	DOWN
+	O // Often mapped to A/Cross on standard controllers
+	X // Often mapped to B/Circle on standard controllers
+	START
+	SELECT
 )
 
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
 // This assumes a standard layout mapping common on many controllers.
 var pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
-	ButtonLeft:   ebiten.StandardGamepadButtonLeftLeft,
-	ButtonRight:  ebiten.StandardGamepadButtonLeftRight,
-	ButtonUp:     ebiten.StandardGamepadButtonLeftTop,
-	ButtonDown:   ebiten.StandardGamepadButtonLeftBottom,
-	ButtonO:      ebiten.StandardGamepadButtonRightBottom, // A / Cross
-	ButtonX:      ebiten.StandardGamepadButtonRightLeft,   // B / Circle
-	ButtonStart:  ebiten.StandardGamepadButtonCenterRight, // Start / Options
-	ButtonSelect: ebiten.StandardGamepadButtonCenterLeft,  // Select / Back / Share
+	LEFT:   ebiten.StandardGamepadButtonLeftLeft,
+	RIGHT:  ebiten.StandardGamepadButtonLeftRight,
+	UP:     ebiten.StandardGamepadButtonLeftTop,
+	DOWN:   ebiten.StandardGamepadButtonLeftBottom,
+	O:      ebiten.StandardGamepadButtonRightBottom, // A / Cross
+	X:      ebiten.StandardGamepadButtonRightLeft,   // B / Circle
+	START:  ebiten.StandardGamepadButtonCenterRight, // Start / Options
+	SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select / Back / Share
 }
 
 // pico8ButtonToKeyboardP0 maps PICO-8 button indices to default keyboard keys for Player 0.
 var pico8ButtonToKeyboardP0 = map[int]ebiten.Key{
-	ButtonLeft:   ebiten.KeyLeft,
-	ButtonRight:  ebiten.KeyRight,
-	ButtonUp:     ebiten.KeyUp,
-	ButtonDown:   ebiten.KeyDown,
-	ButtonO:      ebiten.KeyZ,          // PICO-8 O button ('Z' key)
-	ButtonX:      ebiten.KeyX,          // PICO-8 X button ('X' key)
-	ButtonStart:  ebiten.KeyEnter,      // Often mapped to Enter/Return
-	ButtonSelect: ebiten.KeyShiftRight, // Often mapped to Shift (Right)
+	LEFT:   ebiten.KeyLeft,
+	RIGHT:  ebiten.KeyRight,
+	UP:     ebiten.KeyUp,
+	DOWN:   ebiten.KeyDown,
+	O:      ebiten.KeyZ,          // PICO-8 O button ('Z' key)
+	X:      ebiten.KeyX,          // PICO-8 X button ('X' key)
+	START:  ebiten.KeyEnter,      // Often mapped to Enter/Return
+	SELECT: ebiten.KeyShiftRight, // Often mapped to Shift (Right)
 }
 
 // connectedGamepadIDs stores the currently connected gamepad IDs.

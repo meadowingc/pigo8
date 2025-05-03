@@ -1,6 +1,7 @@
 package pigo8
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -10,6 +11,18 @@ import (
 
 // Note: The global currentDrawColor is defined in engine.go and set by the Color() function
 
+// warningsSeen tracks which warning messages have already been shown
+var warningsSeen = make(map[string]bool)
+
+// logWarningOnce logs a warning message only once, even if called multiple times with the same message
+func logWarningOnce(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if !warningsSeen[msg] {
+		log.Print(msg)
+		warningsSeen[msg] = true
+	}
+}
+
 // parseRectArgs parses common arguments for Rect and Rectfill.
 // It returns the calculated top-left corner (x, y), dimensions (w, h),
 // the PICO-8 color index to use, and whether parsing was successful.
@@ -17,20 +30,43 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 	// Determine drawing color
 	drawColorIndex := currentDrawColor // Use the global current draw color set by Color()
 	if len(options) >= 1 {
-		if cIdx, ok := options[0].(int); ok {
-			if cIdx >= 0 && cIdx < len(Pico8Palette) {
-				drawColorIndex = cIdx
+		// Try to handle different numeric types for color
+		switch v := options[0].(type) {
+		case int:
+			// Handle integer color directly
+			if v >= 0 && v < len(Pico8Palette) {
+				drawColorIndex = v
 				// Update the global drawing color to match PICO-8 behavior
-				currentDrawColor = cIdx
+				currentDrawColor = v
 			} else {
-				log.Printf("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", cIdx, drawColorIndex)
+				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", v, drawColorIndex)
 			}
-		} else {
-			log.Printf("Warning: Rect/Rectfill optional color argument expected int, got %T. Using current color %d.", options[0], drawColorIndex)
+		case float64:
+			// Convert float64 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = intVal
+			} else {
+				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		case float32:
+			// Convert float32 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = intVal
+			} else {
+				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		default:
+			logWarningOnce("Warning: Rect/Rectfill optional color argument expected numeric type, got %T. Using current color %d.", options[0], drawColorIndex)
 		}
 	}
 	if len(options) > 1 {
-		log.Printf("Warning: Rect/Rectfill called with too many arguments (%d), expected max 5.", len(options)+4)
+		logWarningOnce("Warning: Rect/Rectfill called with too many arguments (%d), expected max 5.", len(options)+4)
 	}
 
 	// Calculate top-left corner (x, y) and dimensions (width, height)
@@ -138,5 +174,98 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 		rectH,
 		actualColor,
 		false, // No anti-aliasing
+	)
+}
+
+// parseLineArgs parses common arguments for Line function.
+// It returns the PICO-8 color index to use and whether parsing was successful.
+func parseLineArgs(options []interface{}) (int, bool) {
+	// Determine drawing color
+	drawColorIndex := currentDrawColor // Use the global current draw color set by Color()
+	if len(options) >= 1 {
+		// Try to handle different numeric types for color
+		switch v := options[0].(type) {
+		case int:
+			// Handle integer color directly
+			if v >= 0 && v < len(Pico8Palette) {
+				drawColorIndex = v
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = v
+			} else {
+				logWarningOnce("Warning: Line optional color %d out of range (0-15). Using current color %d.", v, drawColorIndex)
+			}
+		case float64:
+			// Convert float64 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = intVal
+			} else {
+				logWarningOnce("Warning: Line optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		case float32:
+			// Convert float32 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = intVal
+			} else {
+				logWarningOnce("Warning: Line optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		default:
+			logWarningOnce("Warning: Line optional color argument expected numeric type, got %T. Using current color %d.", options[0], drawColorIndex)
+		}
+	}
+	if len(options) > 1 {
+		logWarningOnce("Warning: Line called with too many arguments (%d), expected max 5.", len(options)+4)
+	}
+
+	return drawColorIndex, true
+}
+
+// Line draws a line between two points.
+// Mimics PICO-8's line(x1, y1, x2, y2, [color]) function.
+//
+// x1, y1: Coordinates of the starting point (any Number type).
+// x2, y2: Coordinates of the ending point (any Number type).
+// options...:
+//   - color (int): Optional PICO-8 color index (0-15). If omitted or invalid,
+//     uses the current drawing color (defaults to 7 - white currently).
+func Line[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2, options ...interface{}) {
+	if currentScreen == nil {
+		log.Println("Warning: Line() called before screen was ready.")
+		return
+	}
+
+	// Convert to float64 for calculations
+	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
+
+	// Parse optional color argument
+	drawColorIndex, ok := parseLineArgs(options)
+	if !ok {
+		return // Argument parsing logged an issue
+	}
+
+	// Get the actual color from the palette
+	var actualColor color.Color
+	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
+		actualColor = Pico8Palette[drawColorIndex]
+	} else {
+		actualColor = Pico8Palette[0] // Fallback to black
+		log.Printf("Error: Invalid effective drawing color index %d for Line(). Defaulting to black.", drawColorIndex)
+	}
+
+	// Draw the line using Ebitengine's vector package
+	vector.StrokeLine(
+		currentScreen,
+		float32(fx1),
+		float32(fy1),
+		float32(fx2),
+		float32(fy2),
+		1.0, // Line width of 1 pixel to match PICO-8
+		actualColor,
+		false, // No anti-aliasing to match PICO-8's pixel-perfect style
 	)
 }
