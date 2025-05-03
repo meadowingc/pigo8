@@ -101,7 +101,7 @@ func autoDetectResources() {
 			break
 		}
 	}
-	
+
 	// Log module detection status
 	if hasModule {
 		log.Printf("Running in a Go module, checking for resources")

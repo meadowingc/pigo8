@@ -67,7 +67,7 @@ func init() {
 		content += "map.json"
 	}
 	content += `")`
-	
+
 	content += `
 }
 `

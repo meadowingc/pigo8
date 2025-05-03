@@ -76,9 +76,9 @@ If you prefer to manually control the embedding process, you can create an `embe
 package main
 
 import (
-	"embed"
-	
-	p8 "github.com/drpaneas/pigo8"
+ "embed"
+ 
+ p8 "github.com/drpaneas/pigo8"
 )
 
 // Embed the game-specific resources
@@ -87,8 +87,8 @@ import (
 var resources embed.FS
 
 func init() {
-	// Register the embedded resources with PIGO8
-	p8.RegisterEmbeddedResources(resources, "spritesheet.json", "map.json")
+ // Register the embedded resources with PIGO8
+ p8.RegisterEmbeddedResources(resources, "spritesheet.json", "map.json")
 }
 ```
 
@@ -103,39 +103,7 @@ PIGO8 uses the following priority order when looking for resources:
 3. Default embedded resources in the PIGO8 library (lowest priority)
 
 This allows you to:
+
 - Develop with local files for quick iteration
 - Distribute with embedded resources for portability
 - Always have fallback resources from the library
-
-## Additional Features
-
-### Using Flag Constants for Map Layers
-
-When rendering maps, you can use the built-in flag constants to filter layers:
-
-```go
-// Render only sprites with Flag0 set
-p8.Map(0, 0, 0, 0, 16, 16, p8.Flag0)
-
-// Render sprites with either Flag1 or Flag2 set
-p8.Map(0, 0, 0, 0, 16, 16, p8.Flag1|p8.Flag2)
-```
-
-### Sprite Manipulation Functions
-
-PIGO8 provides several functions for runtime sprite manipulation:
-
-- `Color(colorIndex)` - Sets the current draw color (0-15) for subsequent operations
-- `Sset(x, y, [colorIndex])` - Sets a pixel color on the spritesheet
-- `Sget(x, y)` - Gets the color index of a pixel on the spritesheet
-
-These are useful for dynamic animations that only require changing a few pixels:
-
-```go
-// Change a single pixel in sprite #0
-p8.Color(8) // Set color to red
-p8.Sset(0, 0) // Set top-left pixel of spritesheet
-
-// Get a pixel color
-colorIndex := p8.Sget(4, 5)
-```
