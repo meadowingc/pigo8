@@ -224,6 +224,245 @@ func TestSpriteCoordinateConversion(t *testing.T) {
 	}
 }
 
+// TestFget tests the Fget function for retrieving sprite flags
+func TestFget(t *testing.T) {
+	// Save original state
+	originalSprites := currentSprites
+
+	// Setup test sprites with different flag configurations
+	currentSprites = []SpriteInfo{
+		{ID: 1, Flags: FlagsData{Bitfield: 1, Individual: []bool{true, false, false, false, false, false, false, false}}},  // Only flag 0 is set
+		{ID: 2, Flags: FlagsData{Bitfield: 170, Individual: []bool{false, true, false, true, false, true, false, true}}},   // Flags 1,3,5,7 are set
+		{ID: 3, Flags: FlagsData{Bitfield: 0, Individual: []bool{false, false, false, false, false, false, false, false}}}, // No flags set
+		{ID: 4, Flags: FlagsData{Bitfield: 255, Individual: []bool{true, true, true, true, true, true, true, true}}},       // All flags set
+	}
+
+	// Cleanup after tests
+	t.Cleanup(func() {
+		currentSprites = originalSprites
+	})
+
+	tests := []struct {
+		name     string
+		spriteID int
+		flag     []int
+		wantBF   int
+		wantSet  bool
+	}{
+		{"Get specific flag - true case", 1, []int{0}, 1, true},
+		{"Get specific flag - false case", 1, []int{1}, 1, false},
+		{"Get entire bitfield", 2, []int{}, 170, false},
+		{"Invalid sprite ID", 99, []int{}, 0, false},
+		{"Invalid flag number", 1, []int{-1}, 1, false},
+		{"Invalid flag number", 1, []int{8}, 1, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotBF int
+			var gotSet bool
+
+			if len(tt.flag) > 0 {
+				gotBF, gotSet = Fget(tt.spriteID, tt.flag[0])
+			} else {
+				gotBF, gotSet = Fget(tt.spriteID)
+			}
+
+			if gotBF != tt.wantBF {
+				t.Errorf("Fget() bitfield = %v, want %v", gotBF, tt.wantBF)
+			}
+			if gotSet != tt.wantSet {
+				t.Errorf("Fget() isSet = %v, want %v", gotSet, tt.wantSet)
+			}
+		})
+	}
+}
+
+// TestFset tests the Fset function for setting sprite flags
+func TestFset(t *testing.T) {
+	// Save original state
+	originalSprites := currentSprites
+
+	// Setup test sprites with different flag configurations
+	currentSprites = []SpriteInfo{
+		{ID: 1, Flags: FlagsData{Bitfield: 1, Individual: []bool{true, false, false, false, false, false, false, false}}},  // Only flag 0 is set
+		{ID: 2, Flags: FlagsData{Bitfield: 170, Individual: []bool{false, true, false, true, false, true, false, true}}},   // Flags 1,3,5,7 are set
+		{ID: 3, Flags: FlagsData{Bitfield: 0, Individual: []bool{false, false, false, false, false, false, false, false}}}, // No flags set
+		{ID: 4, Flags: FlagsData{Bitfield: 255, Individual: []bool{true, true, true, true, true, true, true, true}}},       // All flags set
+		{ID: 5, Flags: FlagsData{Bitfield: 0, Individual: []bool{false, false, false, false, false, false, false, false}}}, // For testing setting specific flags
+	}
+
+	// Cleanup after tests
+	t.Cleanup(func() {
+		currentSprites = originalSprites
+	})
+
+	tests := []struct {
+		name   string
+		setup  func()
+		verify func(t *testing.T)
+	}{
+		{
+			name: "Set specific flag to true",
+			setup: func() {
+				// Set flag 2 to true on sprite 5
+				Fset(5, 2, true)
+			},
+			verify: func(t *testing.T) {
+				// Verify flag 2 is set and bitfield is updated
+				bitfield, isSet := Fget(5, 2)
+				if !isSet {
+					t.Errorf("Flag 2 should be set to true")
+				}
+				if bitfield != 4 { // 2^2 = 4
+					t.Errorf("Bitfield should be 4, got %d", bitfield)
+				}
+			},
+		},
+		{
+			name: "Set specific flag to false",
+			setup: func() {
+				// First set flag 3 to true
+				Fset(5, 3, true)
+				// Then set it back to false
+				Fset(5, 3, false)
+			},
+			verify: func(t *testing.T) {
+				// Verify flag 3 is not set
+				_, isSet := Fget(5, 3)
+				if isSet {
+					t.Errorf("Flag 3 should be set to false")
+				}
+				// Verify bitfield doesn't have flag 3 set
+				bitfield, _ := Fget(5)
+				if bitfield&8 != 0 { // 2^3 = 8
+					t.Errorf("Bitfield should not have flag 3 set, got %d", bitfield)
+				}
+			},
+		},
+		{
+			name: "Set all flags to true",
+			setup: func() {
+				// Set all flags to true
+				Fset(5, true)
+			},
+			verify: func(t *testing.T) {
+				// Verify all flags are set
+				bitfield, _ := Fget(5)
+				if bitfield != 255 {
+					t.Errorf("All flags should be set, bitfield should be 255, got %d", bitfield)
+				}
+				// Check individual flags
+				for i := 0; i < 8; i++ {
+					_, isSet := Fget(5, i)
+					if !isSet {
+						t.Errorf("Flag %d should be set to true", i)
+					}
+				}
+			},
+		},
+		{
+			name: "Set all flags to false",
+			setup: func() {
+				// First set all flags to true
+				Fset(5, true)
+				// Then set all to false
+				Fset(5, false)
+			},
+			verify: func(t *testing.T) {
+				// Verify all flags are cleared
+				bitfield, _ := Fget(5)
+				if bitfield != 0 {
+					t.Errorf("All flags should be cleared, bitfield should be 0, got %d", bitfield)
+				}
+				// Check individual flags
+				for i := 0; i < 8; i++ {
+					_, isSet := Fget(5, i)
+					if isSet {
+						t.Errorf("Flag %d should be set to false", i)
+					}
+				}
+			},
+		},
+		{
+			name: "Set flags using bitfield",
+			setup: func() {
+				// Set flags 1,3,5,7 using bitfield 170 (2+8+32+128)
+				Fset(5, 170)
+			},
+			verify: func(t *testing.T) {
+				// Verify bitfield is set correctly
+				bitfield, _ := Fget(5)
+				if bitfield != 170 {
+					t.Errorf("Bitfield should be 170, got %d", bitfield)
+				}
+				// Check that flags 1,3,5,7 are set
+				flagIndices := []int{1, 3, 5, 7}
+				for _, idx := range flagIndices {
+					_, isSet := Fget(5, idx)
+					if !isSet {
+						t.Errorf("Flag %d should be set to true", idx)
+					}
+				}
+				// Check that flags 0,2,4,6 are not set
+				flagIndices = []int{0, 2, 4, 6}
+				for _, idx := range flagIndices {
+					_, isSet := Fget(5, idx)
+					if isSet {
+						t.Errorf("Flag %d should be set to false", idx)
+					}
+				}
+			},
+		},
+		{
+			name: "Invalid sprite ID",
+			setup: func() {
+				// Try to set flags on non-existent sprite
+				Fset(99, 0, true)
+			},
+			verify: func(_ *testing.T) {
+				// Nothing to verify, just make sure it doesn't crash
+			},
+		},
+		{
+			name: "Invalid flag number",
+			setup: func() {
+				// Try to set invalid flag number
+				Fset(5, -1, true)
+				Fset(5, 8, true)
+			},
+			verify: func(t *testing.T) {
+				// Verify sprite 5's bitfield is still 0 (unchanged)
+				bitfield, _ := Fget(5)
+				if bitfield != 0 {
+					t.Errorf("Bitfield should remain 0, got %d", bitfield)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset sprite 5 for each test
+			for i := range currentSprites {
+				if currentSprites[i].ID == 5 {
+					currentSprites[i].Flags.Bitfield = 0
+					for j := range currentSprites[i].Flags.Individual {
+						currentSprites[i].Flags.Individual[j] = false
+					}
+					break
+				}
+			}
+
+			// Run the test setup
+			tt.setup()
+
+			// Verify the results
+			tt.verify(t)
+		})
+	}
+}
+
 // TestSsetColorHandling tests the color handling logic in Sset
 func TestSsetColorHandling(t *testing.T) {
 	// Save original state

@@ -310,6 +310,235 @@ func Color(colorIndex int) {
 //	Sset(10, 0, 8) // Draw a red pixel at (10,0) on the spritesheet
 //	Color(12)
 //	Sset(16, 0) // Draw a blue pixel at (16,0) using the current draw color
+
+// Fget returns the flag status of a sprite.
+// If flag is provided, returns true if that specific flag is set, false otherwise.
+// If flag is not provided, returns the entire bitfield of all flags.
+//
+// spriteNum: the sprite number to check.
+// flag: (optional) the flag number (0-7) to check.
+//
+// Example:
+//
+//	// Check if flag 0 is set on sprite 1
+//	isSet := Fget(1, 0) // Returns true or false
+//
+//	// Get all flags for sprite 2 as a bitfield
+//	allFlags := Fget(2) // Returns an integer (0-255)
+
+// Fget returns the flag status of a sprite.
+// Returns:
+// - bitfield: the entire bitfield of all flags (0-255)
+// - isSet: true if the specific flag is set (only meaningful when a flag is provided)
+//
+// When no flag is specified, only check the bitfield value and ignore isSet.
+// When a flag is specified, check isSet for that specific flag's status.
+
+// Fset sets the flag status of a sprite.
+// If flag is provided, sets that specific flag to the value.
+// If flag is not provided, sets all flags according to the value (either a boolean or a bitfield).
+//
+// spriteNum: the sprite number to modify.
+// flag: (optional) the flag number (0-7) to set.
+// value: true/false to turn the flag on/off, or a bitfield (0-255) to set multiple flags at once.
+//
+// Example:
+//
+//	// Set flag 0 to true on sprite 1
+//	Fset(1, 0, true)
+//
+//	// Set all flags off on sprite 2
+//	Fset(2, false)
+//
+//	// Set flags 1,3,5,7 on sprite 2 using a bitfield (170 = 2+8+32+128)
+//	Fset(2, 170)
+
+// Fset sets the flag status of a sprite.
+// If flag is provided, sets that specific flag to the value.
+// If flag is not provided, sets all flags according to the value (either a boolean or a bitfield).
+//
+// spriteNum: the sprite number to modify.
+// flagOrValue: either the flag number (0-7) or a boolean/bitfield value.
+// value: (optional) true/false to turn the flag on/off.
+func Fset(spriteNum int, flagOrValue interface{}, value ...interface{}) {
+	// Lazy-load sprites if needed
+	if currentSprites == nil {
+		sprites, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: Fset() called but failed to load spritesheet: %v", err)
+			return
+		}
+		currentSprites = sprites
+	}
+
+	// Find the sprite with the matching ID
+	var spriteInfo *SpriteInfo
+	var spriteIndex int
+	for i := range currentSprites {
+		if currentSprites[i].ID == spriteNum {
+			spriteInfo = &currentSprites[i]
+			spriteIndex = i
+			break
+		}
+	}
+
+	// If sprite not found, log warning and return
+	if spriteInfo == nil {
+		log.Printf("Warning: Fset() called for non-existent sprite ID %d", spriteNum)
+		return
+	}
+
+	// Case 1: fset(spriteNum, flagNum, boolValue) - Set specific flag
+	if len(value) > 0 {
+		// Get flag number
+		flagNum, ok := flagOrValue.(int)
+		if !ok {
+			log.Printf("Warning: Fset() called with invalid flag number type. Expected int, got %T", flagOrValue)
+			return
+		}
+
+		// Validate flag number (0-7)
+		if flagNum < 0 || flagNum > 7 {
+			log.Printf("Warning: Fset() called with invalid flag number %d. Valid range is 0-7.", flagNum)
+			return
+		}
+
+		// Get boolean value
+		boolValue, ok := value[0].(bool)
+		if !ok {
+			log.Printf("Warning: Fset() called with invalid value type. Expected bool, got %T", value[0])
+			return
+		}
+
+		// Set or clear the specific flag
+		bitMask := 1 << flagNum
+		if boolValue {
+			// Set the flag (OR with bitmask)
+			currentSprites[spriteIndex].Flags.Bitfield |= bitMask
+			// Also update the individual flags array if it exists
+			if len(currentSprites[spriteIndex].Flags.Individual) > flagNum {
+				currentSprites[spriteIndex].Flags.Individual[flagNum] = true
+			}
+		} else {
+			// Clear the flag (AND with inverted bitmask)
+			currentSprites[spriteIndex].Flags.Bitfield &= ^bitMask
+			// Also update the individual flags array if it exists
+			if len(currentSprites[spriteIndex].Flags.Individual) > flagNum {
+				currentSprites[spriteIndex].Flags.Individual[flagNum] = false
+			}
+		}
+		return
+	}
+
+	// Case 2: fset(spriteNum, boolValue) - Set all flags on/off
+	if boolValue, ok := flagOrValue.(bool); ok {
+		if boolValue {
+			// Set all flags (bitfield = 255)
+			currentSprites[spriteIndex].Flags.Bitfield = 255
+			// Update individual flags array if it exists
+			for i := range currentSprites[spriteIndex].Flags.Individual {
+				currentSprites[spriteIndex].Flags.Individual[i] = true
+			}
+		} else {
+			// Clear all flags (bitfield = 0)
+			currentSprites[spriteIndex].Flags.Bitfield = 0
+			// Update individual flags array if it exists
+			for i := range currentSprites[spriteIndex].Flags.Individual {
+				currentSprites[spriteIndex].Flags.Individual[i] = false
+			}
+		}
+		return
+	}
+
+	// Case 3: fset(spriteNum, bitfield) - Set flags using bitfield
+	if bitfield, ok := flagOrValue.(int); ok {
+		// Validate bitfield (0-255)
+		if bitfield < 0 {
+			bitfield = 0
+		} else if bitfield > 255 {
+			bitfield = 255
+		}
+
+		// Set the bitfield directly
+		currentSprites[spriteIndex].Flags.Bitfield = bitfield
+
+		// Update individual flags array if it exists
+		for i := range currentSprites[spriteIndex].Flags.Individual {
+			if i < 8 { // Only update flags 0-7
+				bitMask := 1 << i
+				currentSprites[spriteIndex].Flags.Individual[i] = (bitfield & bitMask) != 0
+			}
+		}
+		return
+	}
+
+	// If we get here, the arguments were invalid
+	log.Printf("Warning: Fset() called with invalid arguments. Expected (spriteNum, flagNum, bool) or (spriteNum, bool) or (spriteNum, bitfield)")
+}
+
+// Fget returns the flag status of a sprite.
+// Returns:
+// - bitfield: the entire bitfield of all flags (0-255)
+// - isSet: true if the specific flag is set (only meaningful when a flag is provided)
+//
+// spriteNum: the sprite number to check.
+// flag: (optional) the flag number (0-7) to check.
+//
+// When no flag is specified, only check the bitfield value and ignore isSet.
+// When a flag is specified, check isSet for that specific flag's status.
+func Fget(spriteNum int, flag ...int) (bitfield int, isSet bool) {
+	// Lazy-load sprites if needed
+	if currentSprites == nil {
+		sprites, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: Fget() called but failed to load spritesheet: %v", err)
+			return 0, false
+		}
+		currentSprites = sprites
+	}
+
+	// Find the sprite with the matching ID
+	var spriteInfo *SpriteInfo
+	for i := range currentSprites {
+		if currentSprites[i].ID == spriteNum {
+			spriteInfo = &currentSprites[i]
+			break
+		}
+	}
+
+	// If sprite not found, return zero values
+	if spriteInfo == nil {
+		log.Printf("Warning: Fget() called for non-existent sprite ID %d", spriteNum)
+		return 0, false
+	}
+
+	// Get the entire bitfield
+	bitfield = spriteInfo.Flags.Bitfield
+
+	// If a specific flag is requested, check that flag
+	if len(flag) > 0 {
+		flagNum := flag[0]
+
+		// Validate flag number (0-7)
+		if flagNum < 0 || flagNum > 7 {
+			log.Printf("Warning: Fget() called with invalid flag number %d. Valid range is 0-7.", flagNum)
+			return bitfield, false
+		}
+
+		// Check if the specific flag is set
+		bitMask := 1 << flagNum
+		isSet = (bitfield & bitMask) != 0
+	}
+
+	return bitfield, isSet
+}
+
+// Sset sets the color of a pixel at the specified coordinates on the spritesheet.
+// If the optional color parameter is not provided, it uses the current draw color.
+//
+// x: the distance from the left side of the spritesheet (in pixels).
+// y: the distance from the top side of the spritesheet (in pixels).
+// colorIndex: (optional) a color number from 0 to 15.
 func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 	// Convert generic x, y to required types
 	px := int(x)
