@@ -1,4 +1,5 @@
 // Package main demonstrates the map functionality of the PICO-8 engine
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
 import (
