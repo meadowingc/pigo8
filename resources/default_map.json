@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "description": "Default PIGO8 map",
+  "width": 16,
+  "height": 16,
+  "name": "default",
+  "cells": [
+    {
+      "x": 0,
+      "y": 0,
+      "sprite": 0
+    }
+  ]
+}

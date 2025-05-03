@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -136,48 +137,55 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 	return loadedSprites, nil
 }
 
-// loadSpritesheet loads sprite data from spritesheet.json in the current directory.
-// This performs a runtime check for the file. For build-time verification,
-// consider using go:embed in your application code and calling LoadSpritesheetFromData.
+// loadSpritesheet tries to load spritesheet.json from the current directory, then from common locations,
+// then from custom embedded resources, and finally falls back to default embedded resources.
 func loadSpritesheet() ([]SpriteInfo, error) {
 	const spritesheetFilename = "spritesheet.json"
 
-	// Log memory before loading spritesheet
-	logMemory("before spritesheet load", false)
-
+	// First try to load from the file system
 	data, err := os.ReadFile(spritesheetFilename)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// Create the detailed error for file not found
-			detailedError := fmt.Errorf(
-				"%w. Ensure '%s' exists in your game's base directory. "+
-					"This file is required for sprite functionality and can be generated using the 'parsepico' tool (found at https://github.com/drpaneas/parsepico)",
-				err, spritesheetFilename,
-			)
-			return nil, detailedError // Return the specific error
+		// Check common alternative locations
+		commonLocations := []string{
+			filepath.Join("assets", spritesheetFilename),
+			filepath.Join("resources", spritesheetFilename),
+			filepath.Join("data", spritesheetFilename),
+			filepath.Join("static", spritesheetFilename),
 		}
-		// Handle other potential read errors - log here as it's unexpected at runtime
-		log.Printf("Error reading %s: %v", spritesheetFilename, err)
-		return nil, fmt.Errorf(
-			"error reading %s: %w",
-			spritesheetFilename,
-			err,
-		) // Wrap other errors
+
+		for _, location := range commonLocations {
+			data, err = os.ReadFile(location)
+			if err == nil {
+				log.Printf("Loaded spritesheet from %s", location)
+				break
+			}
+		}
+
+		// If still not found, try embedded resources
+		if err != nil {
+			log.Printf("Spritesheet file not found in common locations, trying embedded resources")
+			embeddedData, embErr := tryLoadEmbeddedSpritesheet()
+			if embErr != nil {
+				return nil, fmt.Errorf("failed to load embedded spritesheet: %w", embErr)
+			}
+			data = embeddedData
+		}
+	} else {
+		log.Printf("Using spritesheet file from current directory: %s", spritesheetFilename)
 	}
 
 	// Log memory after reading file
 	logMemory("after reading spritesheet file", false)
 
-	// Call the data-processing function
+	// Process the spritesheet data
 	sprites, err := loadSpritesheetFromData(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error processing spritesheet data: %w", err)
 	}
 
-	// Always log when spritesheet is loaded, regardless of memory change
+	// Log when spritesheet is loaded
 	fileSize := float64(len(data)) / 1024
 	log.Printf("Spritesheet: %d sprites (%.1f KB)", len(sprites), fileSize)
-	logMemory("after spritesheet load", true)
 
 	return sprites, nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 )
@@ -64,20 +65,44 @@ func logMemory(label string, forceLog bool) {
 	}
 }
 
-// loadMap reads and unmarshals "map.json" from the current directory.
+// loadMap tries to load map.json from the current directory, then from common locations,
+// then from custom embedded resources, and finally falls back to default embedded resources.
 func loadMap() (*MapData, error) {
 	const mapFilename = "map.json"
 
 	// Log memory before loading map
 	logMemory("before map load", false)
 
+	// First try to load from the file system
 	data, err := os.ReadFile(mapFilename)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("%w: ensure '%s' exists in your game's base directory; this file is required for map functionality", err, mapFilename)
+		// Check common alternative locations
+		commonLocations := []string{
+			filepath.Join("assets", mapFilename),
+			filepath.Join("resources", mapFilename),
+			filepath.Join("data", mapFilename),
+			filepath.Join("static", mapFilename),
 		}
-		log.Printf("Error reading %s: %v", mapFilename, err)
-		return nil, fmt.Errorf("error reading %s: %w", mapFilename, err)
+
+		for _, location := range commonLocations {
+			data, err = os.ReadFile(location)
+			if err == nil {
+				log.Printf("Loaded map from %s", location)
+				break
+			}
+		}
+
+		// If still not found, try embedded resources
+		if err != nil {
+			log.Printf("Map file not found in common locations, trying embedded resources")
+			embeddedData, embErr := tryLoadEmbeddedMap()
+			if embErr != nil {
+				return nil, fmt.Errorf("failed to load embedded map: %w", embErr)
+			}
+			data = embeddedData
+		}
+	} else {
+		log.Printf("Using map file from current directory: %s", mapFilename)
 	}
 
 	// Log memory after reading file
