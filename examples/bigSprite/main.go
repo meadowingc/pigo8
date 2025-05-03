@@ -5,9 +5,12 @@ import p8 "github.com/drpaneas/pigo8"
 
 type myGame struct{}
 
-func (m *myGame) Init() {}
+func (m *myGame) Init() {
+	p8.Palt(4, true)
+}
 
-func (m *myGame) Update() {}
+func (m *myGame) Update() {
+}
 
 func (m *myGame) Draw() {
 	p8.Cls(1)
@@ -18,6 +21,7 @@ func (m *myGame) Draw() {
 	dx := 10
 	dy := 20
 	p8.Sspr(sx, sy, sw, sh, dx, dy)
+	p8.Rectfill(60, 60, 70, 70, 4)
 }
 
 func main() {
