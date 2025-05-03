@@ -8,9 +8,9 @@ import (
 	p8 "github.com/drpaneas/pigo8"
 )
 
-type myGame struct{
-	frame     int
-	changed   bool
+type myGame struct {
+	frame      int
+	changed    bool
 	origSprite int
 }
 
@@ -26,7 +26,7 @@ func (m *myGame) Update() {
 	if m.frame >= 60 {
 		m.frame = 0
 		m.changed = !m.changed
-		
+
 		// Toggle between original sprite and sprite #67
 		if m.changed {
 			p8.Mset(0, 5, 67)
@@ -41,10 +41,10 @@ func (m *myGame) Update() {
 func (m *myGame) Draw() {
 	p8.Cls(1)
 	p8.Map()
-	
+
 	// Display current sprite number
 	currentSprite := p8.Mget(0, 5)
-	p8.Print("Sprite: " + strconv.Itoa(currentSprite), 5, 5, 7)
+	p8.Print("Sprite: "+strconv.Itoa(currentSprite), 5, 5, 7)
 }
 
 func main() {
