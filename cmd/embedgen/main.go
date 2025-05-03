@@ -45,12 +45,8 @@ import (
 		embedDirective += " map.json"
 	}
 	if spritesheetExists {
-		if mapExists {
-			embedDirective += " "
-		} else {
-			embedDirective += " "
-		}
-		embedDirective += "spritesheet.json"
+		// Always add a space before the filename
+		embedDirective += " spritesheet.json"
 	}
 	content += embedDirective + "\n"
 	content += `var resources embed.FS
