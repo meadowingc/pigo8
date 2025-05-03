@@ -10,7 +10,7 @@ import (
 
 // Embed the game-specific resources
 //
-//go:embedspritesheet.json
+//go:embed spritesheet.json
 var resources embed.FS
 
 func init() {

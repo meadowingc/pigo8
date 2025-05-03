@@ -47,6 +47,8 @@ import (
 	if spritesheetExists {
 		if mapExists {
 			embedDirective += " "
+		} else {
+			embedDirective += " "
 		}
 		embedDirective += "spritesheet.json"
 	}
