@@ -14,7 +14,7 @@ func (m *myGame) Update() {
 }
 
 func (m *myGame) Draw() {
-	p8.Cls(0)
+	p8.Cls(1)
 	p8.Map(18, 7, 40, 70, 5, 4)
 }
 

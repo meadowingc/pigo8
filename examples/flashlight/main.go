@@ -43,7 +43,7 @@ func (m *myGame) Update() {
 
 func (m *myGame) Draw() {
 	// Clear screen with dark blue
-	p8.Cls(1)
+	p8.Cls(3)
 
 	// Draw sprite 1 (which contains our modified pixel)
 	p8.Spr(1, 20, 30)

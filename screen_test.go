@@ -208,12 +208,12 @@ func TestCls(t *testing.T) {
 
 func TestPrint(t *testing.T) {
 	// --- Setup --- Manage global state
-	originalX, originalY, originalColor := cursorX, cursorY, cursorColor
+	originalCursorX, originalCursorY, originalCursorColor := cursorX, cursorY, cursorColor
 	originalScreen := currentScreen       // Need screen for calculations, even if not drawing
 	testScreen := ebiten.NewImage(10, 10) // Dummy needed for non-nil check
 	currentScreen = testScreen
 	t.Cleanup(func() {
-		cursorX, cursorY, cursorColor = originalX, originalY, originalColor
+		cursorX, cursorY, cursorColor = originalCursorX, originalCursorY, originalCursorColor
 		currentScreen = originalScreen
 	})
 
@@ -323,5 +323,159 @@ func TestPrint(t *testing.T) {
 
 		currentScreen = savedScreen // Restore
 		// TODO: Check log warning (requires capture)
+	})
+}
+
+// TestPalt tests the palette transparency function
+func TestPalt(t *testing.T) {
+	// Save original transparency settings
+	originalTransparency := PaletteTransparency
+
+	// Cleanup after tests
+	t.Cleanup(func() {
+		PaletteTransparency = originalTransparency
+	})
+
+	// Test default state (only black is transparent)
+	t.Run("Default state", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Verify default state
+		assert.True(t, PaletteTransparency[0], "Color 0 (black) should be transparent by default")
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent by default", i)
+		}
+	})
+
+	// Test setting a specific color to transparent
+	t.Run("Set color transparent", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Make color 8 (red) transparent
+		Palt(8, true)
+
+		// Verify state
+		assert.True(t, PaletteTransparency[0], "Color 0 (black) should still be transparent")
+		assert.True(t, PaletteTransparency[8], "Color 8 (red) should now be transparent")
+
+		// Check other colors remain unchanged
+		for i := 1; i < len(PaletteTransparency); i++ {
+			if i != 8 {
+				assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+			}
+		}
+	})
+
+	// Test setting a specific color to opaque
+	t.Run("Set color opaque", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Make color 0 (black) opaque
+		Palt(0, false)
+
+		// Verify state
+		assert.False(t, PaletteTransparency[0], "Color 0 (black) should now be opaque")
+
+		// Check other colors remain unchanged
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+		}
+	})
+
+	// Test multiple transparency changes
+	t.Run("Multiple transparency changes", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Make several changes
+		Palt(0, false) // Black opaque
+		Palt(5, true)  // Dark gray transparent
+		Palt(12, true) // Blue transparent
+
+		// Verify state
+		assert.False(t, PaletteTransparency[0], "Color 0 (black) should be opaque")
+		assert.True(t, PaletteTransparency[5], "Color 5 (dark gray) should be transparent")
+		assert.True(t, PaletteTransparency[12], "Color 12 (blue) should be transparent")
+
+		// Check other colors remain unchanged
+		for i := 1; i < len(PaletteTransparency); i++ {
+			if i != 5 && i != 12 {
+				assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+			}
+		}
+	})
+
+	// Test reset to defaults
+	t.Run("Reset to defaults", func(t *testing.T) {
+		// Set a non-default state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = true // All transparent
+		}
+
+		// Reset to defaults
+		Palt()
+
+		// Verify default state is restored
+		assert.True(t, PaletteTransparency[0], "Color 0 (black) should be transparent after reset")
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent after reset", i)
+		}
+	})
+
+	// Test with invalid arguments
+	t.Run("Invalid arguments", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Test with out-of-range color index
+		Palt(99, true)
+		// State should remain unchanged
+		assert.True(t, PaletteTransparency[0], "Color 0 should still be transparent")
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+		}
+
+		// Test with invalid color type
+		Palt("not a color", true)
+		// State should remain unchanged
+		assert.True(t, PaletteTransparency[0], "Color 0 should still be transparent")
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+		}
+
+		// Test with invalid transparency type
+		Palt(5, "not a boolean")
+		// State should remain unchanged
+		assert.True(t, PaletteTransparency[0], "Color 0 should still be transparent")
+		for i := 1; i < len(PaletteTransparency); i++ {
+			assert.False(t, PaletteTransparency[i], "Color %d should not be transparent", i)
+		}
+	})
+
+	// Test with float color index (should be converted to int)
+	t.Run("Float color index", func(t *testing.T) {
+		// Reset to known state
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+
+		// Use float64 for color index
+		Palt(8.7, true)
+
+		// Should convert to int (8)
+		assert.True(t, PaletteTransparency[8], "Color 8 should be transparent (from float 8.7)")
 	})
 }

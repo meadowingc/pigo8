@@ -38,6 +38,10 @@ var (
 		color.RGBA{R: 255, G: 204, B: 170, A: 255}, // 15 peach
 	}
 
+	// PaletteTransparency defines which colors in the Pico8Palette should be treated as transparent
+	// By default, only color 0 (black) is transparent
+	PaletteTransparency = [16]bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
+
 	// pico8FaceSource is the loaded source for the PICO-8 TTF font.
 	pico8FaceSource *text.GoTextFaceSource
 
@@ -321,4 +325,62 @@ func Print(str string, args ...int) (int, int) {
 	cursorY = endY
 
 	return endX, endY
+}
+
+// Palt sets the transparency for a specific color in the palette.
+// When called with no arguments, it resets all colors to default transparency
+// (only black is transparent).
+//
+// Args:
+//   - color: A color number from the PICO-8 palette (0-15).
+//   - transparent: true to make the color transparent, false to make it opaque.
+//
+// Example:
+//
+//	Spr(1, 10, 10)  // Draw sprite with default transparency (black is transparent)
+//	Palt(8, true)   // Make red (color 8) transparent
+//	Spr(1, 20, 10)  // Draw sprite with red transparent
+//	Palt()          // Reset to default transparency
+func Palt(args ...interface{}) {
+	// If called with no arguments, reset to default transparency settings
+	if len(args) == 0 {
+		// Default: only black (color 0) is transparent
+		for i := range PaletteTransparency {
+			PaletteTransparency[i] = (i == 0)
+		}
+		return
+	}
+
+	// Extract color argument
+	colorIndex, ok := args[0].(int)
+	if !ok {
+		// Try to convert from float64 if provided
+		if colorFloat, floatOk := args[0].(float64); floatOk {
+			colorIndex = int(colorFloat)
+		} else {
+			log.Printf("Warning: Palt() called with invalid color type: %T", args[0])
+			return
+		}
+	}
+
+	// Validate color index
+	if colorIndex < 0 || colorIndex >= len(PaletteTransparency) {
+		log.Printf("Warning: Palt() called with out-of-range color index: %d", colorIndex)
+		return
+	}
+
+	// Extract transparent argument
+	if len(args) < 2 {
+		log.Printf("Warning: Palt() called without transparency value")
+		return
+	}
+
+	transparent, ok := args[1].(bool)
+	if !ok {
+		log.Printf("Warning: Palt() called with invalid transparency type: %T", args[1])
+		return
+	}
+
+	// Set the transparency for the specified color
+	PaletteTransparency[colorIndex] = transparent
 }

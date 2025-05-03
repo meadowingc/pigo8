@@ -95,6 +95,37 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 		currentSprites = loaded // Store successfully loaded sprites
 	}
 
+	// Find the sprite by ID or index
+	spriteInfo := findSpriteByID(spriteNumInt)
+	if spriteInfo == nil {
+		// No sprite found with this ID or at this index
+		return
+	}
+
+	// Parse optional arguments
+	scaleW, scaleH, flipX, flipY := parseSprOptions(options)
+
+	// Get sprite dimensions
+	tileImage := spriteInfo.Image
+	spriteWidth := float64(tileImage.Bounds().Dx())
+	spriteHeight := float64(tileImage.Bounds().Dy())
+
+	// Create a transparent version of the sprite
+	tempImage := createTransparentSpriteImage(tileImage)
+
+	// Calculate final dimensions
+	destWidth := spriteWidth * scaleW
+	destHeight := spriteHeight * scaleH
+
+	// Setup drawing options
+	opts := setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH, flipX, flipY)
+
+	// Draw the sprite
+	currentScreen.DrawImage(tempImage, opts)
+}
+
+// findSpriteByID finds a sprite by its ID or falls back to using the index if ID not found
+func findSpriteByID(spriteNumInt int) *SpriteInfo {
 	// --- Find the Sprite by ID ---
 	var spriteInfo *SpriteInfo
 	for i := range currentSprites {
@@ -104,116 +135,138 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 		}
 	}
 
-	if spriteInfo == nil || spriteInfo.Image == nil {
-		// log.Printf("Warning: Spr() called for non-existent or unloaded sprite ID %d.", spriteNumInt) // Use the integer version
-		// Don't log by default, PICO-8 doesn't warn for drawing non-existent sprites
-		return // Sprite ID not found or image wasn't loaded
+	if spriteInfo == nil {
+		// If we can't find a sprite with the exact ID, try to use the array index as a fallback
+		if spriteNumInt >= 0 && spriteNumInt < len(currentSprites) {
+			spriteInfo = &currentSprites[spriteNumInt]
+		}
 	}
 
-	// Default values for optional arguments
-	wMultiplier := 1.0
-	hMultiplier := 1.0
-	flipX := false
-	flipY := false
+	return spriteInfo
+}
 
-	// --- Argument Processing ---
-	argError := func(pos int, expected string, val interface{}) {
-		log.Printf("Warning: Spr() optional arg %d: expected %s, got %T (%v)", pos+1, expected, val, val)
+// parseSprOptions parses the optional arguments for the Spr function
+func parseSprOptions(options []any) (scaleW float64, scaleH float64, flipX bool, flipY bool) {
+	// Default values
+	scaleW = 1.0
+	scaleH = 1.0
+	flipX = false
+	flipY = false
+
+	// Process optional width multiplier (arg 1)
+	if len(options) > 0 && options[0] != nil {
+		switch val := options[0].(type) {
+		case int:
+			scaleW = float64(val)
+		case float64:
+			scaleW = val
+		default:
+			log.Printf("Warning: Spr() optional arg 1: expected float64 or int (width multiplier), got %T (%v)", options[0], options[0])
+		}
 	}
 
-	if len(options) >= 1 {
-		wVal, ok := options[0].(float64)
-		if !ok {
-			if wInt, intOk := options[0].(int); intOk {
-				wVal = float64(wInt)
-				ok = true
-			}
-		}
-		if !ok {
-			argError(0, "float64 or int (width multiplier)", options[0])
-			// Don't return on error, just use default
-		} else {
-			wMultiplier = wVal
+	// Process optional height multiplier (arg 2)
+	if len(options) > 1 && options[1] != nil {
+		switch val := options[1].(type) {
+		case int:
+			scaleH = float64(val)
+		case float64:
+			scaleH = val
+		default:
+			log.Printf("Warning: Spr() optional arg 2: expected float64 or int (height multiplier), got %T (%v)", options[1], options[1])
 		}
 	}
-	if len(options) >= 2 {
-		hVal, ok := options[1].(float64)
-		if !ok {
-			if hInt, intOk := options[1].(int); intOk {
-				hVal = float64(hInt)
-				ok = true
-			}
-		}
-		if !ok {
-			argError(1, "float64 or int (height multiplier)", options[1])
-			// Don't return on error, just use default
-		} else {
-			hMultiplier = hVal
+
+	// Process optional flipX (arg 3)
+	if len(options) > 2 && options[2] != nil {
+		switch val := options[2].(type) {
+		case bool:
+			flipX = val
+		default:
+			log.Printf("Warning: Spr() optional arg 3: expected bool (flipX), got %T (%v)", options[2], options[2])
 		}
 	}
-	if len(options) >= 3 {
-		flipXVal, ok := options[2].(bool)
-		if !ok {
-			argError(2, "bool (flipX)", options[2])
-		} else {
-			flipX = flipXVal
+
+	// Process optional flipY (arg 4)
+	if len(options) > 3 && options[3] != nil {
+		switch val := options[3].(type) {
+		case bool:
+			flipY = val
+		default:
+			log.Printf("Warning: Spr() optional arg 4: expected bool (flipY), got %T (%v)", options[3], options[3])
 		}
 	}
-	if len(options) >= 4 {
-		flipYVal, ok := options[3].(bool)
-		if !ok {
-			argError(3, "bool (flipY)", options[3])
-		} else {
-			flipY = flipYVal
-		}
-	}
+
+	// Warn if too many arguments
 	if len(options) > 4 {
 		log.Printf("Warning: Spr() called with too many arguments (%d), expected max 6 (num, x, y, w, h, fx, fy).", len(options)+3)
 	}
 
-	// Clamp multipliers to be non-negative
-	wMultiplier = math.Max(0, wMultiplier)
-	hMultiplier = math.Max(0, hMultiplier)
-	if wMultiplier == 0 || hMultiplier == 0 {
-		return // Don't draw if scaled to zero size
+	return scaleW, scaleH, flipX, flipY
+}
+
+// createTransparentSpriteImage creates a new image from the sprite with transparent pixels applied
+func createTransparentSpriteImage(tileImage *ebiten.Image) *ebiten.Image {
+	// Create a temporary image with transparency for the transparent color
+	tempImage := ebiten.NewImage(tileImage.Bounds().Dx(), tileImage.Bounds().Dy())
+
+	// Copy the sprite image to the temporary image, applying transparency
+	for y := 0; y < tileImage.Bounds().Dy(); y++ {
+		for x := 0; x < tileImage.Bounds().Dx(); x++ {
+			// Get the color at this position
+			pixelColor := tileImage.At(x, y)
+
+			// Check if this pixel is transparent based on the palette transparency settings
+			isTransparent := false
+
+			// Find which color index this pixel matches
+			for i, paletteColor := range Pico8Palette {
+				if colorEquals(pixelColor, paletteColor) {
+					// Check if this color is set to be transparent
+					if i < len(PaletteTransparency) && PaletteTransparency[i] {
+						isTransparent = true
+					}
+					break
+				}
+			}
+
+			// Only draw non-transparent pixels
+			if !isTransparent {
+				tempImage.Set(x, y, pixelColor)
+			}
+		}
 	}
 
-	// --- Drawing Logic ---
-	tileImage := spriteInfo.Image
-	spriteWidth := float64(tileImage.Bounds().Dx())
-	spriteHeight := float64(tileImage.Bounds().Dy())
+	return tempImage
+}
 
-	op := &ebiten.DrawImageOptions{}
+// setupDrawOptions creates and configures the drawing options for a sprite
+func setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH float64, flipX, flipY bool) *ebiten.DrawImageOptions {
+	// Create drawing options
+	opts := &ebiten.DrawImageOptions{}
 
 	// Apply scaling
-	// Note: PICO-8's w/h arguments are multipliers for the base 8x8 sprite size.
-	// Our sprites might technically not be 8x8 if the JSON differs, but we assume they are loaded as such.
-	// The scaling factor multiplies the sprite's *actual* loaded dimensions.
-	scaleX := wMultiplier
-	scaleY := hMultiplier
+	if scaleW != 1.0 || scaleH != 1.0 {
+		opts.GeoM.Scale(scaleW, scaleH)
+	}
 
-	// Centre point for flipping (relative to the sprite's top-left corner)
-	centerX := spriteWidth / 2.0
-	centerY := spriteHeight / 2.0
-
-	// Apply flip transformations by scaling around the center
+	// Apply flipping if needed
 	if flipX {
-		scaleX *= -1.0
+		// For X flip: Scale by -1 on X axis, then translate to compensate
+		opts.GeoM.Scale(-1, 1)
+		opts.GeoM.Translate(destWidth, 0)
 	}
+
 	if flipY {
-		scaleY *= -1.0
+		// For Y flip: Scale by -1 on Y axis, then translate to compensate
+		opts.GeoM.Scale(1, -1)
+		opts.GeoM.Translate(0, destHeight)
 	}
 
-	// Translate to center, scale (applies scaling and flip), translate back
-	op.GeoM.Translate(-centerX, -centerY)
-	op.GeoM.Scale(scaleX, scaleY)
-	op.GeoM.Translate(centerX, centerY)
+	// Apply final position
+	opts.GeoM.Translate(fx, fy)
 
-	// Translate to final position on screen
-	op.GeoM.Translate(fx, fy)
-
-	// Draw the image
-	currentScreen.DrawImage(tileImage, op)
+	return opts
 }
 
 // Sget returns the color number (0-15) of a pixel at the specified coordinates on the spritesheet.
@@ -372,108 +425,90 @@ func Fset(spriteNum int, flagOrValue interface{}, value ...interface{}) {
 	}
 
 	// Find the sprite with the matching ID
-	var spriteInfo *SpriteInfo
-	var spriteIndex int
+	var spriteIndex = -1
 	for i := range currentSprites {
 		if currentSprites[i].ID == spriteNum {
-			spriteInfo = &currentSprites[i]
 			spriteIndex = i
 			break
 		}
 	}
 
-	// If sprite not found, log warning and return
-	if spriteInfo == nil {
-		log.Printf("Warning: Fset() called for non-existent sprite ID %d", spriteNum)
+	// If sprite not found, return
+	if spriteIndex == -1 {
+		log.Printf("Warning: Fset() called with invalid sprite number: %d", spriteNum)
 		return
 	}
 
-	// Case 1: fset(spriteNum, flagNum, boolValue) - Set specific flag
-	if len(value) > 0 {
-		// Get flag number
-		flagNum, ok := flagOrValue.(int)
-		if !ok {
-			log.Printf("Warning: Fset() called with invalid flag number type. Expected int, got %T", flagOrValue)
+	// Case 1: Setting a specific flag
+	if flagNum, ok := flagOrValue.(int); ok && len(value) > 0 {
+		// Validate flag index
+		if flagNum < 0 || flagNum >= 8 {
+			log.Printf("Warning: Fset() called with invalid flag number: %d", flagNum)
 			return
 		}
 
-		// Validate flag number (0-7)
-		if flagNum < 0 || flagNum > 7 {
-			log.Printf("Warning: Fset() called with invalid flag number %d. Valid range is 0-7.", flagNum)
+		// Get the boolean value
+		var boolValue bool
+		switch v := value[0].(type) {
+		case bool:
+			boolValue = v
+		case int:
+			boolValue = v != 0
+		default:
+			log.Printf("Warning: Fset() called with invalid value type: %T", value[0])
 			return
 		}
 
-		// Get boolean value
-		boolValue, ok := value[0].(bool)
-		if !ok {
-			log.Printf("Warning: Fset() called with invalid value type. Expected bool, got %T", value[0])
-			return
-		}
+		// Set the flag
+		currentSprites[spriteIndex].Flags.Individual[flagNum] = boolValue
 
-		// Set or clear the specific flag
-		bitMask := 1 << flagNum
+		// Update the bitfield
 		if boolValue {
-			// Set the flag (OR with bitmask)
-			currentSprites[spriteIndex].Flags.Bitfield |= bitMask
-			// Also update the individual flags array if it exists
-			if len(currentSprites[spriteIndex].Flags.Individual) > flagNum {
-				currentSprites[spriteIndex].Flags.Individual[flagNum] = true
-			}
+			// Set the bit
+			currentSprites[spriteIndex].Flags.Bitfield |= 1 << flagNum
 		} else {
-			// Clear the flag (AND with inverted bitmask)
-			currentSprites[spriteIndex].Flags.Bitfield &= ^bitMask
-			// Also update the individual flags array if it exists
-			if len(currentSprites[spriteIndex].Flags.Individual) > flagNum {
-				currentSprites[spriteIndex].Flags.Individual[flagNum] = false
-			}
+			// Clear the bit
+			currentSprites[spriteIndex].Flags.Bitfield &= ^(1 << flagNum)
 		}
 		return
 	}
 
-	// Case 2: fset(spriteNum, boolValue) - Set all flags on/off
+	// Case 2: Setting all flags with a boolean
 	if boolValue, ok := flagOrValue.(bool); ok {
+		// Set all flags to the same value
+		for i := 0; i < 8; i++ {
+			currentSprites[spriteIndex].Flags.Individual[i] = boolValue
+		}
+
+		// Update the bitfield
 		if boolValue {
-			// Set all flags (bitfield = 255)
-			currentSprites[spriteIndex].Flags.Bitfield = 255
-			// Update individual flags array if it exists
-			for i := range currentSprites[spriteIndex].Flags.Individual {
-				currentSprites[spriteIndex].Flags.Individual[i] = true
-			}
+			currentSprites[spriteIndex].Flags.Bitfield = 255 // All bits set
 		} else {
-			// Clear all flags (bitfield = 0)
-			currentSprites[spriteIndex].Flags.Bitfield = 0
-			// Update individual flags array if it exists
-			for i := range currentSprites[spriteIndex].Flags.Individual {
-				currentSprites[spriteIndex].Flags.Individual[i] = false
-			}
+			currentSprites[spriteIndex].Flags.Bitfield = 0 // All bits cleared
 		}
 		return
 	}
 
-	// Case 3: fset(spriteNum, bitfield) - Set flags using bitfield
-	if bitfield, ok := flagOrValue.(int); ok {
-		// Validate bitfield (0-255)
-		if bitfield < 0 {
-			bitfield = 0
-		} else if bitfield > 255 {
-			bitfield = 255
+	// Case 3: Setting flags with a bitfield
+	if intValue, ok := flagOrValue.(int); ok {
+		// Clamp the value to valid range (0-255)
+		if intValue < 0 {
+			intValue = 0
+		} else if intValue > 255 {
+			intValue = 255
 		}
 
-		// Set the bitfield directly
-		currentSprites[spriteIndex].Flags.Bitfield = bitfield
+		// Set the bitfield
+		currentSprites[spriteIndex].Flags.Bitfield = intValue
 
-		// Update individual flags array if it exists
-		for i := range currentSprites[spriteIndex].Flags.Individual {
-			if i < 8 { // Only update flags 0-7
-				bitMask := 1 << i
-				currentSprites[spriteIndex].Flags.Individual[i] = (bitfield & bitMask) != 0
-			}
+		// Update individual flags
+		for i := 0; i < 8; i++ {
+			currentSprites[spriteIndex].Flags.Individual[i] = (intValue & (1 << i)) != 0
 		}
 		return
 	}
 
-	// If we get here, the arguments were invalid
-	log.Printf("Warning: Fset() called with invalid arguments. Expected (spriteNum, flagNum, bool) or (spriteNum, bool) or (spriteNum, bitfield)")
+	log.Printf("Warning: Fset() called with invalid arguments: %v, %v", flagOrValue, value)
 }
 
 // Fget returns the flag status of a sprite.
@@ -589,4 +624,229 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 
 	// If no sprite with the matching ID was found, log a warning
 	log.Printf("Warning: Sset() called for non-existent sprite ID %d at position (%d, %d)", spriteCellID, px, py)
+}
+
+// Sspr draws a sprite from the spritesheet with custom dimensions and optional stretching and flipping.
+// Mimics PICO-8's sspr(sx, sy, sw, sh, dx, dy, [dw, dh], [flip_x], [flip_y]) function.
+//
+// sx: sprite sheet x position (in pixels)
+// sy: sprite sheet y position (in pixels)
+// sw: sprite width (in pixels)
+// sh: sprite height (in pixels)
+// dx: how far from the left of the screen to draw the sprite
+// dy: how far from the top of the screen to draw the sprite
+// dw: (optional) how many pixels wide to draw the sprite (default same as sw)
+// dh: (optional) how many pixels tall to draw the sprite (default same as sh)
+// flip_x: (optional) boolean, if true draw the sprite flipped horizontally (default false)
+// flip_y: (optional) boolean, if true draw the sprite flipped vertically (default false)
+//
+// Example:
+//
+//	// Draw a 16x16 sprite from position (8,8) on the spritesheet to position (10,20) on the screen
+//	Sspr(8, 8, 16, 16, 10, 20)
+//
+//	// Draw a 6x5 sprite from position (8,8) on the spritesheet to position (10,20) on the screen
+//	Sspr(8, 8, 6, 5, 10, 20)
+//
+//	// Draw a 16x16 sprite from the spritesheet, stretched to 32x32 on the screen
+//	Sspr(8, 8, 16, 16, 10, 20, 32, 32)
+//
+//	// Draw a 16x16 sprite, flipped horizontally
+//	Sspr(8, 8, 16, 16, 10, 20, 16, 16, true, false)
+//
+// parseSsprOptions parses the optional arguments for the Sspr function
+func parseSsprOptions(options []any, sourceWidth, sourceHeight int) (destWidth, destHeight float64, flipX, flipY bool) {
+	// Default values
+	destWidth = float64(sourceWidth)
+	destHeight = float64(sourceHeight)
+	flipX = false
+	flipY = false
+
+	// Helper function for logging argument errors
+	argError := func(pos int, expected string, val interface{}) {
+		log.Printf("Warning: Sspr() optional arg %d: expected %s, got %T (%v)", pos+1, expected, val, val)
+	}
+
+	// Process optional dw parameter
+	if len(options) >= 1 && options[0] != nil {
+		dwVal, ok := options[0].(float64)
+		if !ok {
+			if dwInt, intOk := options[0].(int); intOk {
+				dwVal = float64(dwInt)
+				ok = true
+			}
+		}
+		if !ok {
+			argError(0, "float64 or int (destination width)", options[0])
+		} else {
+			destWidth = dwVal
+		}
+	}
+
+	// Process optional dh parameter
+	if len(options) >= 2 && options[1] != nil {
+		dhVal, ok := options[1].(float64)
+		if !ok {
+			if dhInt, intOk := options[1].(int); intOk {
+				dhVal = float64(dhInt)
+				ok = true
+			}
+		}
+		if !ok {
+			argError(1, "float64 or int (destination height)", options[1])
+		} else {
+			destHeight = dhVal
+		}
+	}
+
+	// Process optional flip_x parameter
+	if len(options) >= 3 && options[2] != nil {
+		flipXVal, ok := options[2].(bool)
+		if !ok {
+			argError(2, "bool (flip_x)", options[2])
+		} else {
+			flipX = flipXVal
+		}
+	}
+
+	// Process optional flip_y parameter
+	if len(options) >= 4 && options[3] != nil {
+		flipYVal, ok := options[3].(bool)
+		if !ok {
+			argError(3, "bool (flip_y)", options[3])
+		} else {
+			flipY = flipYVal
+		}
+	}
+
+	if len(options) > 4 {
+		log.Printf("Warning: Sspr() called with too many arguments (%d), expected max 10 (sx, sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y).", len(options)+6)
+	}
+
+	return destWidth, destHeight, flipX, flipY
+}
+
+// createSpriteSourceImage creates a temporary image from the specified region of the spritesheet
+func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *ebiten.Image {
+	// Create a temporary image for the source region
+	sourceImage := ebiten.NewImage(sourceWidth, sourceHeight)
+
+	// Copy the specified region from the spritesheet to the temporary image
+	for y := 0; y < sourceHeight; y++ {
+		for x := 0; x < sourceWidth; x++ {
+			// Get the color at this position on the spritesheet
+			colorIndex := Sget(sourceX+x, sourceY+y)
+
+			// Skip transparent pixels based on the palette transparency settings
+			if colorIndex >= 0 && colorIndex < len(PaletteTransparency) && PaletteTransparency[colorIndex] {
+				continue
+			}
+
+			if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
+				// Set the pixel in the temporary image
+				sourceImage.Set(x, y, Pico8Palette[colorIndex])
+			}
+		}
+	}
+
+	return sourceImage
+}
+
+// Sspr draws a sprite from the spritesheet with custom dimensions and optional stretching and flipping.
+// Mimics PICO-8's sspr(sx, sy, sw, sh, dx, dy, [dw, dh], [flip_x], [flip_y]) function.
+//
+// sx: sprite sheet x position (in pixels)
+// sy: sprite sheet y position (in pixels)
+// sw: sprite width (in pixels)
+// sh: sprite height (in pixels)
+// dx: how far from the left of the screen to draw the sprite
+// dy: how far from the top of the screen to draw the sprite
+// dw: (optional) how many pixels wide to draw the sprite (default same as sw)
+// dh: (optional) how many pixels tall to draw the sprite (default same as sh)
+// flip_x: (optional) boolean, if true draw the sprite flipped horizontally (default false)
+// flip_y: (optional) boolean, if true draw the sprite flipped vertically (default false)
+//
+// Example:
+//
+//	// Draw a 16x16 sprite from position (8,8) on the spritesheet to position (10,20) on the screen
+//	Sspr(8, 8, 16, 16, 10, 20)
+//
+//	// Draw a 6x5 sprite from position (8,8) on the spritesheet to position (10,20) on the screen
+//	Sspr(8, 8, 6, 5, 10, 20)
+//
+//	// Draw a 16x16 sprite from the spritesheet, stretched to 32x32 on the screen
+//	Sspr(8, 8, 16, 16, 10, 20, 32, 32)
+//
+//	// Draw a 16x16 sprite, flipped horizontally
+//	Sspr(8, 8, 16, 16, 10, 20, 16, 16, true, false)
+func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx SX, sy SY, sw SW, sh SH, dx DX, dy DY, options ...any) {
+	// Convert generic types to required types
+	sourceX := int(sx)      // Source X on spritesheet
+	sourceY := int(sy)      // Source Y on spritesheet
+	sourceWidth := int(sw)  // Source width on spritesheet
+	sourceHeight := int(sh) // Source height on spritesheet
+	destX := float64(dx)    // Destination X on screen
+	destY := float64(dy)    // Destination Y on screen
+
+	// Use internal package variables set by engine.Draw
+	if currentScreen == nil {
+		log.Println("Warning: Sspr() called before screen was ready.")
+		return
+	}
+
+	// --- Lazy Loading Logic ---
+	if currentSprites == nil {
+		loaded, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: Failed to load spritesheet for Sspr(): %v", err)
+			return
+		}
+		currentSprites = loaded
+	}
+
+	// Parse optional arguments
+	destWidth, destHeight, flipX, flipY := parseSsprOptions(options, sourceWidth, sourceHeight)
+
+	// Validate source rectangle is within spritesheet bounds (128x128)
+	if sourceX < 0 || sourceY < 0 || sourceX+sourceWidth > 128 || sourceY+sourceHeight > 128 {
+		log.Printf("Warning: Sspr() source rectangle (%d,%d,%d,%d) is outside spritesheet bounds (0,0,128,128)",
+			sourceX, sourceY, sourceWidth, sourceHeight)
+		// Continue anyway, Ebiten will handle clipping
+	}
+
+	// Clamp dimensions to be non-negative
+	destWidth = math.Max(0, destWidth)
+	destHeight = math.Max(0, destHeight)
+	if destWidth == 0 || destHeight == 0 {
+		return // Don't draw if scaled to zero size
+	}
+
+	// Create a temporary image for the source region
+	sourceImage := createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight)
+
+	// Set up drawing options
+	op := &ebiten.DrawImageOptions{}
+
+	// Apply scaling to match the destination dimensions
+	scaleX := destWidth / float64(sourceWidth)
+	scaleY := destHeight / float64(sourceHeight)
+
+	// Apply flip transformations if needed
+	if flipX {
+		scaleX *= -1.0
+		// Adjust position to account for the flip
+		destX += destWidth
+	}
+	if flipY {
+		scaleY *= -1.0
+		// Adjust position to account for the flip
+		destY += destHeight
+	}
+
+	// Apply transformations
+	op.GeoM.Scale(scaleX, scaleY)
+	op.GeoM.Translate(destX, destY)
+
+	// Draw the image to the screen
+	currentScreen.DrawImage(sourceImage, op)
 }

@@ -77,7 +77,7 @@ func (m *myGame) Update() {
 }
 
 func (m *myGame) Draw() {
-	p8.Cls(0)
+	p8.Cls(1)
 	player.Draw()
 
 	for _, enemy := range enemies {
