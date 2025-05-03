@@ -54,11 +54,27 @@ func main() {
 }
 ```
 
-## Using .p8 Files
+## Using assets from .p8 Files
 
 If you have existing assets made in PICO-8, you can load them by using [parsepico].
 This will read your `*.p8` cartridge and extract `spritesheet.json` and `map.json`.
 By placing those two JSON files into the same directory with your PIGO8 game, they will automatically get picked up by the library.
+
+You need to add this line to your `main.go`:
+
+```go
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
+```
+
+and then do:
+
+```sh
+go generate
+go build
+```
+
+This will generate an `embed.go` file that will be used by PIGO8 to load the assets.
+So now you can run your game as usual, without having to worry about the assets.
 
 **Note**: You must own a legitimate copy of PICO-8 to access its files.
 PIGO8 does not redistribute any proprietary data or code from Lexaloffle.

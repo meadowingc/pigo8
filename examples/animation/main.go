@@ -1,4 +1,6 @@
 // Package main provides a simple animation example using the pigo8 library
+//
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
 import (

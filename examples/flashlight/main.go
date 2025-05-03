@@ -1,4 +1,6 @@
 // Package main demonstrates a flashing light animation using Sset
+//
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
 import (

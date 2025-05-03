@@ -1,4 +1,6 @@
 // Package main basic hello world example using clear screen and print statements
+//
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
 import (
