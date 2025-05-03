@@ -20,6 +20,8 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 		if cIdx, ok := options[0].(int); ok {
 			if cIdx >= 0 && cIdx < len(Pico8Palette) {
 				drawColorIndex = cIdx
+				// Update the global drawing color to match PICO-8 behavior
+				currentDrawColor = cIdx
 			} else {
 				log.Printf("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", cIdx, drawColorIndex)
 			}
