@@ -348,7 +348,9 @@ func Color(colorIndex int) {
 		colorIndex = len(Pico8Palette) - 1
 	}
 
+	// Update both color variables to keep them in sync
 	currentDrawColor = colorIndex
+	cursorColor = colorIndex
 }
 
 // Sset sets the color of a pixel at the specified coordinates on the spritesheet.

@@ -160,29 +160,33 @@ func Pget(x, y int) int {
 //	Pset(10, 20) // Draws a red pixel at (10, 20)
 //	Pset(50, 50, 12) // Draws a blue pixel at (50, 50), color overrides cursorColor
 func Pset(x, y int, colorIndex ...int) {
+	// Check if screen is ready
 	if currentScreen == nil {
 		log.Println("Warning: Pset() called before screen was ready.")
 		return
 	}
-	idx := cursorColor // Default to current draw color
+
+	// Determine color to use
+	color := cursorColor // Default to current cursor color
 	if len(colorIndex) > 0 {
-		idx = colorIndex[0]
+		color = colorIndex[0]
+		if color < 0 || color > 15 {
+			log.Printf("Warning: Pset() called with invalid color index %d. Ignoring.", color)
+			return
+		}
 	}
 
-	// Check if the color index is valid
-	if idx < 0 || idx >= len(Pico8Palette) {
-		log.Printf("Warning: Pset() called with invalid color index %d. Ignoring.", idx)
-		return
+	// Apply camera offset
+	fx, fy := ApplyCameraOffset(float64(x), float64(y))
+	x, y = int(fx), int(fy)
+
+	// Check bounds
+	if x < 0 || x >= LogicalWidth || y < 0 || y >= LogicalHeight {
+		return // Silently ignore out-of-bounds pixels
 	}
 
-	// Check if coordinates are within the image bounds
-	bounds := currentScreen.Bounds()
-	if x < bounds.Min.X || x >= bounds.Max.X || y < bounds.Min.Y || y >= bounds.Max.Y {
-		return // Out of bounds, do nothing
-	}
-
-	// Set the pixel color
-	currentScreen.Set(x, y, Pico8Palette[idx])
+	// Set the pixel
+	currentScreen.Set(x, y, Pico8Palette[color])
 }
 
 const (
@@ -259,22 +263,25 @@ func Cursor(args ...int) {
 //	_, _ = Print("3 AT", 20, 20)     // Draws at (20,20) in light gray, cursor moves to (20, 26).
 //	endX, endY := Print("4 DONE")    // Draws at (20, 26) in light gray, cursor moves to (20, 32).
 func Print(str string, args ...int) (int, int) {
+	// Check if screen is ready
 	if currentScreen == nil {
 		log.Println("Warning: Print() called before screen was ready.")
-		// Estimate end position even if we can't draw
+
+		// Calculate return values based on arguments without changing cursor state
+		posX, posY := cursorX, cursorY
+		if len(args) >= 2 {
+			posX, posY = args[0], args[1]
+		}
+
+		// Approximate measurement for return value
 		advance := float64(len([]rune(str))) * CharWidthApproximation
-		posX := cursorX
-		if len(args) >= 2 {
-			posX = args[0]
-		}
 		endX := int(math.Ceil(float64(posX) + advance))
-		endY := cursorY + int(DefaultFontSize)
-		if len(args) >= 2 {
-			endY = args[1] + int(DefaultFontSize)
-		}
+		endY := posY + int(DefaultFontSize)
+
 		return endX, endY
 	}
 
+	// Parse arguments
 	posX, posY, col := cursorX, cursorY, cursorColor // Use global cursorColor as default
 
 	// If a new position is provided, override posX and posY.
@@ -298,13 +305,17 @@ func Print(str string, args ...int) (int, int) {
 		col = cursorColor // Default to current cursorColor if invalid index given
 	}
 
+	// Apply camera offset
+	fx, fy := ApplyCameraOffset(float64(posX), float64(posY))
+	drawX, drawY := int(fx), int(fy)
+
 	// --- Prepare for Drawing ---
 	face := &text.GoTextFace{
 		Source: pico8FaceSource,
 		Size:   DefaultFontSize,
 	}
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(posX), float64(posY))
+	op.GeoM.Translate(float64(drawX), float64(drawY))
 	op.ColorScale.ScaleWithColor(Pico8Palette[col])
 
 	// --- Approximate Measurement for Return Value ---

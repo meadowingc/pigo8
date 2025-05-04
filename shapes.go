@@ -36,8 +36,9 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 			// Handle integer color directly
 			if v >= 0 && v < len(Pico8Palette) {
 				drawColorIndex = v
-				// Update the global drawing color to match PICO-8 behavior
+				// Update both color variables to keep them in sync
 				currentDrawColor = v
+				cursorColor = v
 			} else {
 				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", v, drawColorIndex)
 			}
@@ -46,8 +47,9 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 			intVal := int(v)
 			if intVal >= 0 && intVal < len(Pico8Palette) {
 				drawColorIndex = intVal
-				// Update the global drawing color to match PICO-8 behavior
+				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
+				cursorColor = intVal
 			} else {
 				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
 			}
@@ -56,8 +58,9 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 			intVal := int(v)
 			if intVal >= 0 && intVal < len(Pico8Palette) {
 				drawColorIndex = intVal
-				// Update the global drawing color to match PICO-8 behavior
+				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
+				cursorColor = intVal
 			} else {
 				logWarningOnce("Warning: Rect/Rectfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
 			}
@@ -93,6 +96,11 @@ func Rect[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 	}
 
 	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
+
+	// Apply camera offset
+	fx1, fy1 = ApplyCameraOffset(fx1, fy1)
+	fx2, fy2 = ApplyCameraOffset(fx2, fy2)
+
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
 		return // Argument parsing logged an issue
@@ -151,6 +159,11 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 	}
 
 	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
+
+	// Apply camera offset
+	fx1, fy1 = ApplyCameraOffset(fx1, fy1)
+	fx2, fy2 = ApplyCameraOffset(fx2, fy2)
+
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
 		return // Argument parsing logged an issue
