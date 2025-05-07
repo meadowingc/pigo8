@@ -20,28 +20,28 @@ func (g *Game) Init() {
 
 // Update is called every frame for game logic
 func (g *Game) Update() {
-	g.frame++
 
-	// Play music 1 when space is pressed
 	if p8.Btn(p8.UP) {
-		log.Println("Playing music 1")
-		p8.Music(1)
+		log.Println("Playing music 3")
+		p8.Music(3)
 	}
 
-	// Play music 2 when Z is pressed
 	if p8.Btn(p8.DOWN) {
-		log.Println("Playing music 2")
-		p8.Music(2)
+		log.Println("Playing music 4")
+		p8.Music(4)
 	}
 
-	// Play music 3 exclusively (stops other music) when C is pressed
 	if p8.Btn(p8.LEFT) {
-		log.Println("Playing music 3 exclusively")
-		p8.Music(3, true)
+		log.Println("Playing music 5")
+		p8.Music(5)
 	}
 
-	// Stop all music when V is pressed
 	if p8.Btn(p8.RIGHT) {
+		log.Println("Playing music 6 exclusively")
+		p8.Music(6, true)
+	}
+
+	if p8.Btn(p8.UP) && p8.Btn(p8.DOWN) {
 		log.Println("Stopping all music")
 		p8.Music(-1)
 	}
@@ -54,10 +54,11 @@ func (g *Game) Draw() {
 
 	// Draw instructions
 	p8.Print("Music Example", 30, 10, 7)
-	p8.Print("Up to play 1", 10, 30, 7)
-	p8.Print("Down to play 2", 10, 40, 7)
-	p8.Print("Left to play only 3", 10, 50, 7)
-	p8.Print("Right to stop all", 10, 60, 7)
+	p8.Print("Up to play music 3", 10, 35, 7)
+	p8.Print("Down to play music 4", 10, 45, 7)
+	p8.Print("Left to play music 5", 10, 55, 7)
+	p8.Print("Right to play music 6 exclusively", 10, 65, 7)
+	p8.Print("Up+Down to stop all music", 10, 75, 7)
 
 }
 

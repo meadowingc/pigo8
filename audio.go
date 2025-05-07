@@ -67,12 +67,14 @@ func (ap *AudioPlayer) loadAudioFiles() {
 			return nil
 		}
 
-		// Check if the file is an audio*.wav file
-		if strings.HasPrefix(filepath.Base(path), "audio") && strings.HasSuffix(path, ".wav") {
-			// Extract the number from the filename (e.g., "audio1.wav" -> 1)
+		// Check if the file is a music*.wav file
+		if strings.HasPrefix(filepath.Base(path), "music") && strings.HasSuffix(path, ".wav") {
 			filename := filepath.Base(path)
 			var audioNumber int
-			_, err := fmt.Sscanf(filename, "audio%d.wav", &audioNumber)
+			
+			// Extract the number from the filename (e.g., "music1.wav" -> 1)
+			_, err := fmt.Sscanf(filename, "music%d.wav", &audioNumber)
+			
 			if err != nil {
 				log.Printf("Warning: Could not parse audio number from %s: %v", filename, err)
 				return nil

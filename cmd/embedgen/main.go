@@ -10,47 +10,62 @@ import (
 
 func main() {
 	// Parse command line flags
-	outputDir := flag.String("dir", ".", "Directory where the embed.go file will be created")
+	var outputDir string
+	flag.StringVar(&outputDir, "dir", ".", "Directory where the embed.go file will be created")
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	flag.Parse()
 
 	// Check if map.json and spritesheet.json exist in the current directory
-	mapPath := filepath.Join(*outputDir, "map.json")
-	spritesheetPath := filepath.Join(*outputDir, "spritesheet.json")
+	mapPath := filepath.Join(outputDir, "map.json")
+	spritesheetPath := filepath.Join(outputDir, "spritesheet.json")
 
 	mapExists := fileExists(mapPath)
 	spritesheetExists := fileExists(spritesheetPath)
 	
-	// Find all audio*.wav files
-	audioFiles, err := filepath.Glob(filepath.Join(*outputDir, "audio*.wav"))
+	// Find all music*.wav files
+	audioFiles := []string{}
+	
+	// Find music*.wav files
+	musicWavFiles, err := filepath.Glob(filepath.Join(outputDir, "music*.wav"))
 	if err != nil {
-		fmt.Printf("Error searching for audio files: %v\n", err)
+		fmt.Printf("Error searching for music*.wav files: %v\n", err)
 		os.Exit(1)
+	} else {
+		audioFiles = append(audioFiles, musicWavFiles...)
 	}
 	
-	// If no audio files found with wildcard, try to find them individually
+	// If no music files found with wildcards, try to find them individually
 	if len(audioFiles) == 0 {
-		// Try specific audio files that might exist
-		for i := 1; i <= 10; i++ { // Check for audio1.wav through audio10.wav
-			specificFile := filepath.Join(*outputDir, fmt.Sprintf("audio%d.wav", i))
+		// Try specific music files that might exist
+		for i := 0; i <= 63; i++ { // Check for music0.wav through music63.wav
+			specificFile := filepath.Join(outputDir, fmt.Sprintf("music%d.wav", i))
 			if fileExists(specificFile) {
 				audioFiles = append(audioFiles, specificFile)
 			}
 		}
 	}
 	
-	// Convert absolute paths to relative paths for embedding
+	// Filter out invalid or silent audio files and convert to relative paths
 	var audioRelPaths []string
 	for _, file := range audioFiles {
-		relPath, err := filepath.Rel(*outputDir, file)
+		// Check if the audio file is valid and contains actual audio data
+		if !isValidAudioFile(file) {
+			// Skip the file - isValidAudioFile already printed the reason
+			continue
+		}
+		
+		relPath, err := filepath.Rel(outputDir, file)
 		if err != nil {
 			fmt.Printf("Error getting relative path for %s: %v\n", file, err)
 			continue
 		}
+		
+		// isValidAudioFile already printed the inclusion message
 		audioRelPaths = append(audioRelPaths, relPath)
 	}
 
 	if !mapExists && !spritesheetExists && len(audioFiles) == 0 {
-		fmt.Printf("Warning: No resources (map.json, spritesheet.json, or audio*.wav) found in %s\n", *outputDir)
+		fmt.Printf("Warning: No resources (map.json, spritesheet.json, or audio*.wav) found in %s\n", outputDir)
 		os.Exit(1)
 	}
 
@@ -122,17 +137,125 @@ func init() {
 }
 `
 	// Write the file
-	outputPath := filepath.Join(*outputDir, "embed.go")
+	outputPath := filepath.Join(outputDir, "embed.go")
 	err = os.WriteFile(outputPath, []byte(content), 0644)
 	if err != nil {
 		fmt.Printf("Error generating embed.go: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Generated embed.go for PIGO8 resources in %s\n", *outputDir)
+	if verbose {
+		fmt.Printf("Generated embed.go for PIGO8 resources in %s\n", outputDir)
+	}
 }
 
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+// Global variable for verbose output
+var verbose bool
+
+// isValidAudioFile checks if a WAV file contains actual audio data
+// Returns true if the file is a valid WAV file with non-silent audio content
+func isValidAudioFile(filename string) bool {
+	// First check if the file exists
+	if !fileExists(filename) {
+		return false
+	}
+	
+	// Open the file
+	file, err := os.Open(filename)
+	if err != nil {
+		if verbose {
+			fmt.Printf("Error opening file %s: %v\n", filename, err)
+		}
+		return false
+	}
+	defer file.Close()
+	
+	// Read the WAV header (first 44 bytes)
+	header := make([]byte, 44)
+	_, err = file.Read(header)
+	if err != nil {
+		if verbose {
+			fmt.Printf("Error reading header from %s: %v\n", filename, err)
+		}
+		return false
+	}
+	
+	// Check if it's a valid WAV file by looking for the RIFF and WAVE markers
+	if string(header[0:4]) != "RIFF" || string(header[8:12]) != "WAVE" {
+		if verbose {
+			fmt.Printf("File %s is not a valid WAV file (missing RIFF/WAVE markers)\n", filename)
+		}
+		return false
+	}
+	
+	// Get the data chunk size from the header
+	dataSize := int(header[40]) | int(header[41])<<8 | int(header[42])<<16 | int(header[43])<<24
+	if dataSize <= 0 {
+		if verbose {
+			fmt.Printf("File %s has no audio data\n", filename)
+		}
+		return false
+	}
+	
+	// Find the data chunk - we need to scan through the file to find the "data" marker
+	// First, get the format chunk size to know how much to skip
+	formatSize := int(header[16]) | int(header[17])<<8 | int(header[18])<<16 | int(header[19])<<24
+	
+	// Skip to the data chunk
+	// The data chunk should start at byte 44 (after the header) or later if there are other chunks
+	dataOffset := 44 // Start at the end of the RIFF header
+	
+	// Skip the format chunk
+	dataOffset += formatSize
+	
+	// Seek to the data chunk
+	_, err = file.Seek(int64(dataOffset), 0)
+	if err != nil {
+		if verbose {
+			fmt.Printf("Error seeking to data chunk in %s: %v\n", filename, err)
+		}
+		return false
+	}
+	
+	// Read a large sample of the audio data to check for non-zero values
+	// We'll read up to 100KB of audio data to check
+	sampleSize := 102400 // 100KB
+	if dataSize < sampleSize {
+		sampleSize = dataSize
+	}
+	
+	sample := make([]byte, sampleSize)
+	n, err := file.Read(sample)
+	if err != nil && err.Error() != "EOF" {
+		if verbose {
+			fmt.Printf("Error reading audio data from %s: %v\n", filename, err)
+		}
+		return false
+	}
+	
+	// Check if there's any non-zero data in the sample
+	hasNonZeroData := false
+	for i := 0; i < n; i++ {
+		// For 8-bit PCM, the center value is 128, so check if the value is not 128
+		// For 16-bit PCM, check if any byte is non-zero
+		if sample[i] != 0 && sample[i] != 128 {
+			hasNonZeroData = true
+			break
+		}
+	}
+	
+	if !hasNonZeroData {
+		// Only print a summary message for silent files
+		fmt.Printf("Skipping %s (silent)\n", filepath.Base(filename))
+		return false
+	}
+	
+	// All checks passed, consider the file valid
+	fmt.Printf("Including: %s\n", filepath.Base(filename))
+	return true
 }

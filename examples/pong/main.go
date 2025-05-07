@@ -1,4 +1,6 @@
 // Package main is a simple Pong clone using go-pigo8
+//
+//go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
 import (
@@ -37,6 +39,7 @@ type Game struct {
 	ball          Ball
 	playerScore   int
 	computerScore int
+	Scored        string
 }
 
 // Init initializes the game state with default paddle and ball positions
@@ -45,6 +48,15 @@ func (g *Game) Init() {
 	g.computer = Paddle{117, 63, 2, 10, 0.75, 8}
 	ballDy := float64(p8.Flr(p8.Rnd(2))) - 0.5
 	g.ball = Ball{x: 63, y: 63, size: 2, color: 7, dx: 0.6, dy: ballDy, speed: 1, boost: 0.05}
+
+	// sound
+	if g.Scored == "Player" {
+		p8.Music(3)
+	} else if g.Scored == "Computer" {
+		p8.Music(4)
+	} else {
+		p8.Music(5)
+	}
 }
 
 // Update handles game logic each frame including input, AI, collisions and scoring
@@ -80,6 +92,7 @@ func (g *Game) Update() {
 	// 1. Ball vs paddles
 	if collide(g.ball, g.computer) {
 		g.ball.dx = -(g.ball.dx + g.ball.boost)
+		p8.Music(0)
 	}
 	if collide(g.ball, g.player) {
 		// adjust dy if player changes paddle angle
@@ -87,20 +100,24 @@ func (g *Game) Update() {
 			g.ball.dy += sign(g.ball.dy) * g.ball.boost * 2
 		}
 		g.ball.dx = -(g.ball.dx - g.ball.boost)
+		p8.Music(1)
 	}
 
 	// 2. Ball vs top/bottom
 	if g.ball.y <= courtTop+1 || g.ball.y+g.ball.size >= courtBottom-1 {
 		g.ball.dy = -g.ball.dy
+		p8.Music(2)
 	}
 
 	// 3. Ball vs Walls (aka scoring)
 	if g.ball.x > courtRight {
 		g.playerScore++
+		g.Scored = "Player"
 		g.Init()
 	}
 	if g.ball.x < courtLeft {
 		g.computerScore++
+		g.Scored = "Computer"
 		g.Init()
 	}
 

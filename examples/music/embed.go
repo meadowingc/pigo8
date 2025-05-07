@@ -11,12 +11,12 @@ import (
 
 // Embed the game-specific resources
 //
-//go:embed audio1.wav audio2.wav audio3.wav
+//go:embed music0.wav music1.wav music2.wav music3.wav music4.wav music5.wav music6.wav
 var resources embed.FS
 
 func init() {
 	// Register the embedded resources with PIGO8
-	p8.RegisterEmbeddedResources(resources, "", "", "audio1.wav", "audio2.wav", "audio3.wav")
+	p8.RegisterEmbeddedResources(resources, "", "", "music0.wav", "music1.wav", "music2.wav", "music3.wav", "music4.wav", "music5.wav", "music6.wav")
 	
 	// Initialize audio player if audio files are present
 	if p8.GetAudioPlayer() != nil {
