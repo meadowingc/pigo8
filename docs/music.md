@@ -1,6 +1,6 @@
 # Using Music in PIGO8
 
-PIGO8 provides audio playback capabilities that allow you to incorporate music from PICO-8 into your Go applications. This guide explains how to use the music system in PIGO8.
+PIGO8 provides audio playback capabilities that allow you to incorporate music from PICO-8 into your game.
 
 ## Exporting Music from PICO-8
 
@@ -8,24 +8,37 @@ To use music in your PIGO8 application, you first need to export the audio files
 
 1. In PICO-8, create your music using the sound editor and music tracker
 2. Export each music pattern using the `export` command in the PICO-8 console:
+
    ```
    export music0.wav
    export music1.wav
    export music2.wav
+   ... etc ...
    ```
-   etc.
 
-PICO-8 will save these files in its current working directory. You'll need to copy these files to your PIGO8 project directory.
+   or simply do:
+
+   ```
+   export music%d.wav
+   ```
+
+   Notice this will export all music patterns from 0 to 63, regardless if you have actually created them or not.
+   That means you will get a lot of empty files, but don't worry, the `embedgen` tool will only embed valid music files.
+
+PICO-8 will save these files in its current working directory.
+You'll need to copy these files to your PIGO8 project directory, placing them next to your `main.go` file.
 
 ## Setting Up Your PIGO8 Project
 
 To use music in your PIGO8 project:
 
 1. Copy the exported `.wav` files to your project directory
-2. Add a `go:generate` directive to your `main.go` file:
+2. Add this specific `go:generate` directive to your `main.go` file without changing it:
+
    ```go
    //go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
    ```
+
 3. Run `go generate` in your project directory to embed the music files
 
 The `embedgen` tool will automatically detect and embed valid music files. It analyzes each WAV file to ensure it contains actual audio data and is not silent or corrupted.
@@ -35,7 +48,7 @@ The `embedgen` tool will automatically detect and embed valid music files. It an
 PIGO8 provides the `Music()` function to play audio files:
 
 ```go
-// Play music track 0
+// Play music track 0, meaning music0.wav
 p8.Music(0)
 
 // Play music track 3 exclusively (stops any currently playing music)
@@ -99,15 +112,3 @@ The PIGO8 embedgen tool performs validation on audio files to ensure they contai
 3. Analyzes a sample of the audio data to ensure it's not silent
 
 Only valid audio files will be included in your application.
-
-## Implementation Details
-
-PIGO8's audio system uses Ebiten's audio capabilities to accurately reproduce PICO-8 sound synthesis. Features include:
-
-- Exact frequency tables matching PICO-8
-- Accurate triangle/square/pulse/noise waveforms
-- Proper amplitude scaling (0.25)
-- Non-linear volume curve
-- WAV export functionality
-
-This implementation closely matches the original PICO-8 sound characteristics, ensuring your audio sounds authentic.

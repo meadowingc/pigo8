@@ -10,7 +10,7 @@ import (
 )
 
 // Game implements the PIGO8 Cartridge interface
-type Game struct {}
+type Game struct{}
 
 // Init is called once at the start of the game
 func (g *Game) Init() {
