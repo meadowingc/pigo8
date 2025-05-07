@@ -79,7 +79,8 @@ func InsertGame(cartridge Cartridge) {
 
 // game is the internal struct that satisfies ebiten.Game interface.
 type game struct {
-	initialized bool
+	initialized     bool
+	firstFrameDrawn bool // Track if the first frame has been drawn
 }
 
 // Layout implements ebiten.Game.
@@ -95,9 +96,15 @@ func (g *game) Update() error {
 		logInitialMemory()
 		loadedCartridge.Init()
 		g.initialized = true
+		// Don't call Update on the first frame, wait for Draw to be called first
+		return nil
 	}
-	UpdateConnectedGamepads()
-	loadedCartridge.Update()
+
+	// Only call Update after the first frame has been drawn
+	if g.firstFrameDrawn {
+		UpdateConnectedGamepads()
+		loadedCartridge.Update()
+	}
 	return nil
 }
 
@@ -105,6 +112,11 @@ func (g *game) Update() error {
 func (g *game) Draw(screen *ebiten.Image) {
 	currentScreen = screen
 	loadedCartridge.Draw()
+
+	// Mark that the first frame has been drawn
+	if !g.firstFrameDrawn {
+		g.firstFrameDrawn = true
+	}
 }
 
 // --- Helper for User Code ---
