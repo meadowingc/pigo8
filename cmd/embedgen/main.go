@@ -30,10 +30,8 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error searching for music*.wav files: %v\n", err)
 		os.Exit(1)
-	} else {
-		audioFiles = append(audioFiles, musicWavFiles...)
 	}
-	
+	audioFiles = append(audioFiles, musicWavFiles...)
 	// If no music files found with wildcards, try to find them individually
 	if len(audioFiles) == 0 {
 		// Try specific music files that might exist
@@ -173,7 +171,11 @@ func isValidAudioFile(filename string) bool {
 		}
 		return false
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil && verbose {
+			fmt.Printf("Error closing file %s: %v\n", filename, err)
+		}
+	}()
 	
 	// Read the WAV header (first 44 bytes)
 	header := make([]byte, 44)

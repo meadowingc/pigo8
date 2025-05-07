@@ -57,7 +57,7 @@ func (ap *AudioPlayer) loadAudioFiles() {
 	}
 
 	// Walk through the embedded filesystem to find audio files
-	fs.WalkDir(CustomResources.FS, ".", func(path string, d fs.DirEntry, err error) error {
+	walkErr := fs.WalkDir(CustomResources.FS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -71,10 +71,9 @@ func (ap *AudioPlayer) loadAudioFiles() {
 		if strings.HasPrefix(filepath.Base(path), "music") && strings.HasSuffix(path, ".wav") {
 			filename := filepath.Base(path)
 			var audioNumber int
-			
+
 			// Extract the number from the filename (e.g., "music1.wav" -> 1)
 			_, err := fmt.Sscanf(filename, "music%d.wav", &audioNumber)
-			
 			if err != nil {
 				log.Printf("Warning: Could not parse audio number from %s: %v", filename, err)
 				return nil
@@ -95,13 +94,16 @@ func (ap *AudioPlayer) loadAudioFiles() {
 		return nil
 	})
 
+	if walkErr != nil {
+		log.Printf("Error walking through embedded filesystem: %v", walkErr)
+	}
 	log.Printf("Loaded %d audio files", len(ap.musicData))
 }
 
-// music plays the audio file with the given ID
-// If n is -1, it stops all currently playing audio
-// If n is a valid audio ID, it plays that audio file
-// If exclusive is true, it stops all other audio files before playing
+// Music plays the audio file with the given ID.
+// If n is -1, it stops all currently playing audio.
+// If n is a valid audio ID, it plays that audio file.
+// If exclusive is true, it stops all other audio files before playing.
 func Music(n int, exclusive ...bool) {
 	if n == -1 {
 		// Special case: stop all music
@@ -110,10 +112,7 @@ func Music(n int, exclusive ...bool) {
 	}
 
 	// Default exclusive to false
-	shouldBeExclusive := false
-	if len(exclusive) > 0 && exclusive[0] {
-		shouldBeExclusive = true
-	}
+	shouldBeExclusive := len(exclusive) > 0 && exclusive[0]
 
 	ap := GetAudioPlayer()
 	ap.mutex.Lock()
@@ -124,7 +123,9 @@ func Music(n int, exclusive ...bool) {
 		for _, player := range ap.musicPlayers {
 			if player != nil {
 				player.Pause()
-				player.Rewind()
+				if err := player.Rewind(); err != nil {
+					log.Printf("Error rewinding player: %v", err)
+				}
 			}
 		}
 	}
@@ -144,14 +145,16 @@ func Music(n int, exclusive ...bool) {
 			return
 		}
 		// Player exists but is not playing, rewind and play
-		player.Rewind()
+		if err := player.Rewind(); err != nil {
+			log.Printf("Error rewinding player: %v", err)
+		}
 		player.Play()
 		return
 	}
 
 	// Create a new player for this audio
 	reader := bytes.NewReader(audioData)
-	wavReader, err := wav.Decode(ap.audioContext, reader)
+	wavReader, err := wav.DecodeWithSampleRate(SampleRate, reader)
 	if err != nil {
 		log.Printf("Error decoding WAV file (ID: %d): %v", n, err)
 		return
@@ -180,7 +183,9 @@ func StopMusic(id int) {
 		for _, player := range ap.musicPlayers {
 			if player != nil {
 				player.Pause()
-				player.Rewind()
+				if err := player.Rewind(); err != nil {
+					log.Printf("Error rewinding player: %v", err)
+				}
 			}
 		}
 		return
@@ -190,6 +195,8 @@ func StopMusic(id int) {
 	player, exists := ap.musicPlayers[id]
 	if exists && player != nil {
 		player.Pause()
-		player.Rewind()
+		if err := player.Rewind(); err != nil {
+			log.Printf("Error rewinding player: %v", err)
+		}
 	}
 }

@@ -50,11 +50,12 @@ func (g *Game) Init() {
 	g.ball = Ball{x: 63, y: 63, size: 2, color: 7, dx: 0.6, dy: ballDy, speed: 1, boost: 0.05}
 
 	// sound
-	if g.Scored == "Player" {
+	switch g.Scored {
+	case "Player":
 		p8.Music(3)
-	} else if g.Scored == "Computer" {
+	case "Computer":
 		p8.Music(4)
-	} else {
+	default:
 		p8.Music(5)
 	}
 }

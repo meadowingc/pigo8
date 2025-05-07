@@ -1,3 +1,4 @@
+// Package main provides a music example for the PIGO8 engine
 package main
 
 //go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
@@ -9,9 +10,7 @@ import (
 )
 
 // Game implements the PIGO8 Cartridge interface
-type Game struct {
-	frame int
-}
+type Game struct {}
 
 // Init is called once at the start of the game
 func (g *Game) Init() {
