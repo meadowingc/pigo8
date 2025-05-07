@@ -19,9 +19,38 @@ func main() {
 
 	mapExists := fileExists(mapPath)
 	spritesheetExists := fileExists(spritesheetPath)
+	
+	// Find all audio*.wav files
+	audioFiles, err := filepath.Glob(filepath.Join(*outputDir, "audio*.wav"))
+	if err != nil {
+		fmt.Printf("Error searching for audio files: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// If no audio files found with wildcard, try to find them individually
+	if len(audioFiles) == 0 {
+		// Try specific audio files that might exist
+		for i := 1; i <= 10; i++ { // Check for audio1.wav through audio10.wav
+			specificFile := filepath.Join(*outputDir, fmt.Sprintf("audio%d.wav", i))
+			if fileExists(specificFile) {
+				audioFiles = append(audioFiles, specificFile)
+			}
+		}
+	}
+	
+	// Convert absolute paths to relative paths for embedding
+	var audioRelPaths []string
+	for _, file := range audioFiles {
+		relPath, err := filepath.Rel(*outputDir, file)
+		if err != nil {
+			fmt.Printf("Error getting relative path for %s: %v\n", file, err)
+			continue
+		}
+		audioRelPaths = append(audioRelPaths, relPath)
+	}
 
-	if !mapExists && !spritesheetExists {
-		fmt.Printf("Warning: Neither map.json nor spritesheet.json found in %s\n", *outputDir)
+	if !mapExists && !spritesheetExists && len(audioFiles) == 0 {
+		fmt.Printf("Warning: No resources (map.json, spritesheet.json, or audio*.wav) found in %s\n", *outputDir)
 		os.Exit(1)
 	}
 
@@ -32,6 +61,7 @@ package main
 
 import (
 	"embed"
+	"log"
 	
 	p8 "github.com/drpaneas/pigo8"
 )
@@ -47,6 +77,10 @@ import (
 	if spritesheetExists {
 		// Always add a space before the filename
 		embedDirective += " spritesheet.json"
+	}
+	// Add all audio files
+	for _, audioFile := range audioRelPaths {
+		embedDirective += " " + audioFile
 	}
 	content += embedDirective + "\n"
 	content += `var resources embed.FS
@@ -64,14 +98,32 @@ func init() {
 	if mapExists {
 		content += "map.json"
 	}
-	content += `")`
+	content += `"`
+	
+	// Add audio files as variadic arguments
+	if len(audioRelPaths) > 0 {
+		content += `, `
+		for i, audioFile := range audioRelPaths {
+			if i > 0 {
+				content += `, `
+			}
+			content += `"` + audioFile + `"`
+		}
+	}
+	
+	content += `)`
 
 	content += `
+	
+	// Initialize audio player if audio files are present
+	if p8.GetAudioPlayer() != nil {
+		log.Println("Audio system initialized")
+	}
 }
 `
 	// Write the file
 	outputPath := filepath.Join(*outputDir, "embed.go")
-	err := os.WriteFile(outputPath, []byte(content), 0644)
+	err = os.WriteFile(outputPath, []byte(content), 0644)
 	if err != nil {
 		fmt.Printf("Error generating embed.go: %v\n", err)
 		os.Exit(1)

@@ -14,6 +14,7 @@ type EmbeddedResources struct {
 	FS              fs.FS
 	SpritesheetPath string
 	MapPath         string
+	AudioPaths      []string // Paths to audio files
 }
 
 // CustomResources holds application-specific embedded resources
@@ -24,13 +25,14 @@ var autoDetectResourcesAttempted bool
 
 // RegisterEmbeddedResources allows applications to register their own embedded resources
 // This should be called before any PIGO8 functions that might need these resources
-func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string) {
+func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string, audioPaths ...string) {
 	CustomResources = &EmbeddedResources{
 		FS:              resources,
 		SpritesheetPath: spritesheetPath,
 		MapPath:         mapPath,
+		AudioPaths:      audioPaths,
 	}
-	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s", spritesheetPath, mapPath)
+	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, audio files=%d", spritesheetPath, mapPath, len(audioPaths))
 }
 
 // tryLoadEmbeddedFile attempts to load a file from embedded resources

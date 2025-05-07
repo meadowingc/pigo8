@@ -14,3 +14,6 @@ const DefaultSpritesheetPath = "resources/default_spritesheet.json"
 
 // DefaultMapPath is the path to the default map in the embedded resources
 const DefaultMapPath = "resources/default_map.json"
+
+// DefaultAudioPathPrefix is the prefix for default audio files in the embedded resources
+const DefaultAudioPathPrefix = "resources/default_audio"
