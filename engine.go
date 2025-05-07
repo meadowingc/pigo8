@@ -117,11 +117,11 @@ func CurrentSprites() []SpriteInfo {
 
 // --- Play Functions ---
 
-// logInitialMemory logs the initial memory usage of the PICO-8 console
+// logInitialMemory logs the initial memory usage of the PIGO-8 console
 func logInitialMemory() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Printf("PICO-8 Memory: %.2f MB", float64(m.Alloc)/1024/1024)
+	log.Printf("PIGO-8 Memory: %.2f MB", float64(m.Alloc)/1024/1024)
 }
 
 // PlayGameWith initializes Ebitengine, loads resources, and starts the main game loop.

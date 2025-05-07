@@ -32,7 +32,18 @@ func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string,
 		MapPath:         mapPath,
 		AudioPaths:      audioPaths,
 	}
-	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, audio files=%d", spritesheetPath, mapPath, len(audioPaths))
+	// Format spritesheet and map paths for logging, showing "none" if empty
+	spritesheetDisplay := spritesheetPath
+	if spritesheetDisplay == "" {
+		spritesheetDisplay = "none"
+	}
+
+	mapDisplay := mapPath
+	if mapDisplay == "" {
+		mapDisplay = "none"
+	}
+
+	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, audio files=%d", spritesheetDisplay, mapDisplay, len(audioPaths))
 }
 
 // tryLoadEmbeddedFile attempts to load a file from embedded resources
