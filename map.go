@@ -237,8 +237,8 @@ func ensureMapResources() bool {
 func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 	// Default parameters
 	sx, sy = 0, 0
-	wTiles = LogicalWidth / 8
-	hTiles = LogicalHeight / 8
+	wTiles = ScreenWidth / 8
+	hTiles = ScreenHeight / 8
 	layers = 0
 
 	// Process optional arguments

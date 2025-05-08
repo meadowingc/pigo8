@@ -33,7 +33,7 @@ func ColorCollision[X Number, Y Number](x X, y Y, color int) bool {
 	yInt := int(float64(y))
 
 	// Validate coordinates are within screen bounds
-	if xInt < 0 || xInt >= LogicalWidth || yInt < 0 || yInt >= LogicalHeight {
+	if xInt < 0 || xInt >= ScreenWidth || yInt < 0 || yInt >= ScreenHeight {
 		log.Println("ColorCollision: Invalid coordinates:", xInt, yInt)
 		return false
 	}

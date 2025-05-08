@@ -12,27 +12,40 @@ import (
 
 // Settings defines configurable parameters for the PIGO8 console.
 type Settings struct {
-	ScaleFactor int    // Integer scaling factor for the window (Default: 5).
-	WindowTitle string // Title displayed on the window bar (Default: "PIGO-8 Game").
-	TargetFPS   int    // Target ticks per second (Default: 30).
+	ScaleFactor  int    // Integer scaling factor for the window (Default: 4).
+	WindowTitle  string // Title displayed on the window bar (Default: "PIGO-8 Game").
+	TargetFPS    int    // Target ticks per second (Default: 30).
+	ScreenWidth  int    // Custom screen width (Default: 128 for PICO-8 compatibility).
+	ScreenHeight int    // Custom screen height (Default: 128 for PICO-8 compatibility).
 }
 
 // NewSettings creates a new Settings object with default values.
 func NewSettings() *Settings {
 	return &Settings{
-		ScaleFactor: 4,
-		WindowTitle: "PIGO-8 Game",
-		TargetFPS:   30,
+		ScaleFactor:  4,
+		WindowTitle:  "PIGO-8 Game",
+		TargetFPS:    30,
+		ScreenWidth:  128, // Default PICO-8 width
+		ScreenHeight: 128, // Default PICO-8 height
 	}
 }
 
 // --- Configuration (Internal Constants) ---
 
 const (
-	// LogicalWidth is the fixed PICO-8 screen width.
-	LogicalWidth = 128
-	// LogicalHeight is the fixed PICO-8 screen height.
-	LogicalHeight = 128
+	// DefaultWidth is the default PICO-8 screen width.
+	DefaultWidth = 128
+	// DefaultHeight is the default PICO-8 screen height.
+	DefaultHeight = 128
+)
+
+// These variables hold the current logical screen dimensions.
+// They can be modified through Settings when calling PlayGameWith.
+var (
+	// ScreenWidth is the current screen width.
+	ScreenWidth = DefaultWidth
+	// ScreenHeight is the current screen height.
+	ScreenHeight = DefaultHeight
 )
 
 // --- Internal State for Drawing ---
@@ -85,7 +98,7 @@ type game struct {
 
 // Layout implements ebiten.Game.
 func (g *game) Layout(_, _ int) (screenWidth, screenHeight int) {
-	return LogicalWidth, LogicalHeight
+	return ScreenWidth, ScreenHeight
 }
 
 // Update implements ebiten.Game.
@@ -146,13 +159,28 @@ func PlayGameWith(settings *Settings) {
 		cfg = NewSettings()
 	}
 
+	// Update logical screen dimensions if custom values are provided
+	if cfg.ScreenWidth > 0 {
+		ScreenWidth = cfg.ScreenWidth
+	} else {
+		ScreenWidth = DefaultWidth
+		cfg.ScreenWidth = DefaultWidth
+	}
+
+	if cfg.ScreenHeight > 0 {
+		ScreenHeight = cfg.ScreenHeight
+	} else {
+		ScreenHeight = DefaultHeight
+		cfg.ScreenHeight = DefaultHeight
+	}
+
 	// Configure Ebitengine window using Settings object
 	ebiten.SetWindowTitle(cfg.WindowTitle)
-	winWidth := LogicalWidth * cfg.ScaleFactor
-	winHeight := LogicalHeight * cfg.ScaleFactor
+	winWidth := ScreenWidth * cfg.ScaleFactor
+	winHeight := ScreenHeight * cfg.ScaleFactor
 	if winWidth <= 0 || winHeight <= 0 {
-		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default 128x128.", winWidth, winHeight, cfg.ScaleFactor)
-		winWidth, winHeight = LogicalWidth, LogicalHeight
+		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default %dx%d.", winWidth, winHeight, cfg.ScaleFactor, DefaultWidth, DefaultHeight)
+		winWidth, winHeight = DefaultWidth, DefaultHeight
 	}
 	ebiten.SetWindowSize(winWidth, winHeight)
 	ebiten.SetTPS(cfg.TargetFPS)
