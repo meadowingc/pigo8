@@ -19,11 +19,11 @@ const (
 	START
 	SELECT
 	// Mouse buttons
-	MOUSE_LEFT
-	MOUSE_RIGHT
-	MOUSE_MIDDLE // Mouse wheel press
-	MOUSE_WHEEL_UP
-	MOUSE_WHEEL_DOWN
+	MouseLeft
+	MouseRight
+	MouseMiddle // Mouse wheel press
+	MouseWheelUp
+	MouseWheelDown
 )
 
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
@@ -138,16 +138,16 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 	// --- Mouse Check ---
 	// Mouse buttons are available regardless of player index
 	switch buttonIndex {
-	case MOUSE_LEFT:
+	case MouseLeft:
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	case MOUSE_RIGHT:
+	case MouseRight:
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
-	case MOUSE_MIDDLE:
+	case MouseMiddle:
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
-	case MOUSE_WHEEL_UP:
+	case MouseWheelUp:
 		_, wheelY := ebiten.Wheel()
 		return wheelY < 0
-	case MOUSE_WHEEL_DOWN:
+	case MouseWheelDown:
 		_, wheelY := ebiten.Wheel()
 		return wheelY > 0
 	}
@@ -223,16 +223,16 @@ func Btnp(buttonIndex int, playerIndex ...int) bool {
 	// --- Mouse Check ---
 	// Mouse buttons are available regardless of player index
 	switch buttonIndex {
-	case MOUSE_LEFT:
+	case MouseLeft:
 		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	case MOUSE_RIGHT:
+	case MouseRight:
 		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
-	case MOUSE_MIDDLE:
+	case MouseMiddle:
 		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
-	case MOUSE_WHEEL_UP:
+	case MouseWheelUp:
 		_, wheelY := ebiten.Wheel()
 		return wheelY < 0
-	case MOUSE_WHEEL_DOWN:
+	case MouseWheelDown:
 		_, wheelY := ebiten.Wheel()
 		return wheelY > 0
 	}

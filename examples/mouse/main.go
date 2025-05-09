@@ -1,3 +1,4 @@
+// Package main provides a mouse input example for the PIGO-8 fantasy console.
 package main
 
 import (
@@ -46,16 +47,16 @@ func (g *Game) Update() {
 	mouseX, mouseY := pigo8.Mouse()
 
 	// Handle mouse wheel for brush size
-	if pigo8.Btn(pigo8.MOUSE_WHEEL_UP) {
-		g.brushSize = min(g.brushSize+1, 10)
+	if pigo8.Btn(pigo8.MouseWheelUp) {
+		g.brushSize = minInt(g.brushSize+1, 10)
 	}
-	if pigo8.Btn(pigo8.MOUSE_WHEEL_DOWN) {
-		g.brushSize = max(g.brushSize-1, 1)
+	if pigo8.Btn(pigo8.MouseWheelDown) {
+		g.brushSize = maxInt(g.brushSize-1, 1)
 	}
 
 	// Track if we're in drawing or erasing mode
-	drawing := pigo8.Btn(pigo8.MOUSE_LEFT)
-	erasing := pigo8.Btn(pigo8.MOUSE_MIDDLE)
+	drawing := pigo8.Btn(pigo8.MouseLeft)
+	erasing := pigo8.Btn(pigo8.MouseMiddle)
 
 	// Handle drawing or erasing on canvas
 	if drawing || erasing {
@@ -84,7 +85,7 @@ func (g *Game) Update() {
 	}
 
 	// Handle color selection with right click
-	if pigo8.Btnp(pigo8.MOUSE_RIGHT) {
+	if pigo8.Btnp(pigo8.MouseRight) {
 		// Check if mouse is in the color palette area
 		if mouseY >= pigo8.ScreenHeight-25 && mouseY < pigo8.ScreenHeight-15 {
 			colorIdx := (mouseX / 8) % 16
@@ -151,10 +152,10 @@ func (g *Game) drawCircle(x, y, radius, color int) {
 	maxY := y + radius
 
 	// Ensure we're within canvas bounds
-	minX = max(minX, 0)
-	minY = max(minY, 0)
-	maxX = min(maxX, pigo8.ScreenWidth-1)
-	maxY = min(maxY, pigo8.ScreenHeight-31)
+	minX = maxInt(minX, 0)
+	minY = maxInt(minY, 0)
+	maxX = minInt(maxX, pigo8.ScreenWidth-1)
+	maxY = minInt(maxY, pigo8.ScreenHeight-31)
 
 	// Fill the circle on our canvas
 	for cy := minY; cy <= maxY; cy++ {
@@ -162,7 +163,7 @@ func (g *Game) drawCircle(x, y, radius, color int) {
 			// Check if point is inside circle (using distance formula)
 			dx := cx - x
 			dy := cy - y
-			if dx*dx + dy*dy <= radius*radius {
+			if dx*dx+dy*dy <= radius*radius {
 				g.canvas[cy][cx] = color
 			}
 		}
@@ -212,14 +213,16 @@ func abs(x int) int {
 	return x
 }
 
-func min(a, b int) int {
+// minInt returns the smaller of two integers
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func max(a, b int) int {
+// maxInt returns the larger of two integers
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}

@@ -47,7 +47,7 @@ func Mouse() (int, int) {
 // MouseBtn checks if a specific mouse button is currently held down.
 // This is a convenience wrapper around Btn for mouse-specific buttons.
 //
-// buttonIndex: The mouse button index (MOUSE_LEFT, MOUSE_RIGHT).
+// buttonIndex: The mouse button index (MouseLeft, MouseRight).
 //
 // Usage:
 //
@@ -56,7 +56,7 @@ func Mouse() (int, int) {
 // Example:
 //
 //	// Check if the left mouse button is held
-//	if MouseBtn(MOUSE_LEFT) {
+//	if MouseBtn(MouseLeft) {
 //		// Do something when left mouse button is held
 //	}
 func MouseBtn(buttonIndex int) bool {
@@ -67,7 +67,7 @@ func MouseBtn(buttonIndex int) bool {
 // MouseBtnJustPressed checks if a specific mouse button was just pressed.
 // This is a convenience wrapper around Btnp for mouse-specific buttons.
 //
-// buttonIndex: The mouse button index (MOUSE_LEFT, MOUSE_RIGHT).
+// buttonIndex: The mouse button index (MouseLeft, MouseRight).
 //
 // Usage:
 //
@@ -76,7 +76,7 @@ func MouseBtn(buttonIndex int) bool {
 // Example:
 //
 //	// Check if the right mouse button was just pressed
-//	if MouseBtnJustPressed(MOUSE_RIGHT) {
+//	if MouseBtnJustPressed(MouseRight) {
 //		// Do something when right mouse button is just pressed
 //	}
 func MouseBtnJustPressed(buttonIndex int) bool {
