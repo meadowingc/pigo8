@@ -8,3 +8,5 @@
   - [Build for Other platforms](crossbuild.md)
 - [Resource Embedding](embedding.md)
   - [Using Music](music.md)
+- [Palette Management](palette-management.md)
+- [Transparency](transparency.md)

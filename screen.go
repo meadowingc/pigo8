@@ -40,7 +40,7 @@ var (
 
 	// PaletteTransparency defines which colors in the Pico8Palette should be treated as transparent
 	// By default, only color 0 (black) is transparent
-	PaletteTransparency = [16]bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
+	PaletteTransparency = []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
 
 	// pico8FaceSource is the loaded source for the PICO-8 TTF font.
 	pico8FaceSource *text.GoTextFaceSource
@@ -170,8 +170,8 @@ func Pset(x, y int, colorIndex ...int) {
 	color := cursorColor // Default to current cursor color
 	if len(colorIndex) > 0 {
 		color = colorIndex[0]
-		if color < 0 || color > 15 {
-			log.Printf("Warning: Pset() called with invalid color index %d. Ignoring.", color)
+		if color < 0 || color >= len(Pico8Palette) {
+			log.Printf("Warning: Pset() called with invalid color index %d. Palette has %d colors. Ignoring.", color, len(Pico8Palette))
 			return
 		}
 	}
@@ -185,8 +185,17 @@ func Pset(x, y int, colorIndex ...int) {
 		return // Silently ignore out-of-bounds pixels
 	}
 
-	// Set the pixel
-	currentScreen.Set(x, y, Pico8Palette[color])
+	// Set the pixel with proper alpha handling
+	pixelColor := Pico8Palette[color]
+
+	// Check if this is a transparent color (binary transparency from PaletteTransparency)
+	if PaletteTransparency[color] {
+		// Don't draw transparent pixels (binary transparency)
+		return
+	}
+
+	// Draw the pixel with proper alpha blending
+	currentScreen.Set(x, y, pixelColor)
 }
 
 const (
@@ -395,3 +404,98 @@ func Palt(args ...interface{}) {
 	// Set the transparency for the specified color
 	PaletteTransparency[colorIndex] = transparent
 }
+
+// --- Palette Management Functions ---
+
+// SetPalette replaces the current color palette with a new one.
+// This also resizes the transparency array to match the new palette size,
+// setting only the first color (index 0) as transparent by default.
+//
+// newPalette: Slice of color.Color values to use as the new palette.
+//
+// Example:
+//
+//	// Create a 4-color grayscale palette
+//	grayscale := []color.Color{
+//		color.RGBA{0, 0, 0, 255},       // Black
+//		color.RGBA{85, 85, 85, 255},    // Dark Gray
+//		color.RGBA{170, 170, 170, 255}, // Light Gray
+//		color.RGBA{255, 255, 255, 255}, // White
+//	}
+//	SetPalette(grayscale)
+func SetPalette(newPalette []color.Color) {
+	if len(newPalette) == 0 {
+		log.Println("Warning: Attempted to set empty palette. Ignoring.")
+		return
+	}
+
+	// Replace the palette
+	Pico8Palette = newPalette
+
+	// Resize transparency array to match
+	oldTransparency := PaletteTransparency
+	PaletteTransparency = make([]bool, len(newPalette))
+
+	// Copy over existing transparency settings for indices that still exist
+	for i := 0; i < len(PaletteTransparency) && i < len(oldTransparency); i++ {
+		PaletteTransparency[i] = oldTransparency[i]
+	}
+
+	// Ensure at least the first color is transparent if we have any colors
+	if len(PaletteTransparency) > 0 {
+		PaletteTransparency[0] = true
+	}
+}
+
+// Transparency is controlled using the Palt() function
+
+// GetPaletteSize returns the current number of colors in the palette.
+//
+// Example:
+//
+//	// Get the current palette size
+//	size := GetPaletteSize()
+//	Print(fmt.Sprintf("Palette has %d colors", size), 10, 10, 7)
+func GetPaletteSize() int {
+	return len(Pico8Palette)
+}
+
+// GetPaletteColor returns the color.Color at the specified index in the palette.
+// Returns nil if the index is out of range.
+//
+// colorIndex: Index of the color to retrieve.
+//
+// Example:
+//
+//	// Get the color at index 3
+//	color3 := GetPaletteColor(3)
+func GetPaletteColor(colorIndex int) color.Color {
+	if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
+		return Pico8Palette[colorIndex]
+	}
+	return nil
+}
+
+// SetPaletteColor replaces a single color in the palette at the specified index.
+// If the index is out of range, the function does nothing.
+//
+// colorIndex: Index of the color to replace.
+// newColor: The new color.Color to use.
+//
+// Example:
+//
+//	// Change color 7 (white) to a light blue
+//	SetPaletteColor(7, color.RGBA{200, 220, 255, 255})
+func SetPaletteColor(colorIndex int, newColor color.Color) {
+	if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
+		Pico8Palette[colorIndex] = newColor
+	} else {
+		log.Printf("Warning: Attempted to set color at out-of-range index %d. Palette has %d colors.",
+			colorIndex, len(Pico8Palette))
+	}
+}
+
+// --- Transparency Functions ---
+
+// No alpha transparency functions needed - using only binary transparency
+// where colors are either fully visible or fully transparent

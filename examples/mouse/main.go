@@ -88,8 +88,21 @@ func (g *Game) Update() {
 	if pigo8.Btnp(pigo8.MouseRight) {
 		// Check if mouse is in the color palette area
 		if mouseY >= pigo8.ScreenHeight-25 && mouseY < pigo8.ScreenHeight-15 {
-			colorIdx := (mouseX / 8) % 16
-			g.drawColor = colorIdx
+			// Get the number of colors in the palette
+			paletteSize := pigo8.GetPaletteSize()
+			if paletteSize > 0 {
+				// Calculate color cell width based on screen width and palette size
+				cellWidth := pigo8.ScreenWidth / paletteSize
+				if cellWidth < 4 {
+					cellWidth = 4 // Minimum cell width for usability
+				}
+
+				// Calculate which color was clicked
+				colorIdx := mouseX / cellWidth
+				if colorIdx < paletteSize {
+					g.drawColor = colorIdx
+				}
+			}
 		}
 	}
 
@@ -118,12 +131,26 @@ func (g *Game) Draw() {
 	}
 
 	// Draw color palette
-	for i := 0; i < 16; i++ {
-		pigo8.Rectfill(i*8, pigo8.ScreenHeight-25, i*8+7, pigo8.ScreenHeight-15, i)
+	paletteSize := pigo8.GetPaletteSize()
+	if paletteSize > 0 {
+		// Calculate color cell width based on screen width and palette size
+		cellWidth := pigo8.ScreenWidth / paletteSize
+		if cellWidth < 4 {
+			cellWidth = 4 // Minimum cell width for usability
+		}
 
-		// Highlight selected color
-		if i == g.drawColor {
-			pigo8.Rect(i*8, pigo8.ScreenHeight-25, i*8+7, pigo8.ScreenHeight-15, 7)
+		// Draw each color in the palette
+		for i := 0; i < paletteSize; i++ {
+			x1 := i * cellWidth
+			x2 := x1 + cellWidth - 1
+
+			// Draw color rectangle
+			pigo8.Rectfill(x1, pigo8.ScreenHeight-25, x2, pigo8.ScreenHeight-15, i)
+
+			// Highlight selected color
+			if i == g.drawColor {
+				pigo8.Rect(x1, pigo8.ScreenHeight-25, x2, pigo8.ScreenHeight-15, 7)
+			}
 		}
 	}
 

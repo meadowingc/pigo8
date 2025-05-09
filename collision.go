@@ -39,8 +39,8 @@ func ColorCollision[X Number, Y Number](x X, y Y, color int) bool {
 	}
 
 	// Validate color index
-	if color < 0 || color > 15 {
-		log.Println("ColorCollision: Invalid color index:", color)
+	if color < 0 || color >= len(Pico8Palette) {
+		log.Printf("ColorCollision: Invalid color index: %d. Palette has %d colors.", color, len(Pico8Palette))
 		return false
 	}
 

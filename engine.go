@@ -124,7 +124,13 @@ func (g *game) Update() error {
 
 // Draw implements ebiten.Game.
 func (g *game) Draw(screen *ebiten.Image) {
+	// Set the current screen for drawing
 	currentScreen = screen
+
+	// Clear the screen
+	screen.Clear()
+
+	// Call the user's Draw function
 	loadedCartridge.Draw()
 
 	// Mark that the first frame has been drawn
@@ -139,6 +145,12 @@ func (g *game) Draw(screen *ebiten.Image) {
 // Useful if user code needs to check len(sprites) or access flags.
 func CurrentSprites() []SpriteInfo {
 	return currentSprites
+}
+
+// CurrentScreen returns the current Ebiten screen image for direct drawing.
+// This allows advanced users to use Ebiten's drawing functions directly.
+func CurrentScreen() *ebiten.Image {
+	return currentScreen
 }
 
 // --- Play Functions ---
