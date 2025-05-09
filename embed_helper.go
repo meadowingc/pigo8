@@ -9,11 +9,14 @@ import (
 	"runtime/debug"
 )
 
+const none = "none"
+
 // EmbeddedResources represents a set of embedded resources for a PIGO8 game
 type EmbeddedResources struct {
 	FS              fs.FS
 	SpritesheetPath string
 	MapPath         string
+	PalettePath     string
 	AudioPaths      []string // Paths to audio files
 }
 
@@ -26,24 +29,43 @@ var autoDetectResourcesAttempted bool
 // RegisterEmbeddedResources allows applications to register their own embedded resources
 // This should be called before any PIGO8 functions that might need these resources
 func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string, audioPaths ...string) {
+	// Check if one of the audioPaths is actually palette.hex
+	palettePath := ""
+	var filteredAudioPaths []string
+
+	for _, path := range audioPaths {
+		if filepath.Base(path) == "palette.hex" {
+			palettePath = path
+		} else {
+			filteredAudioPaths = append(filteredAudioPaths, path)
+		}
+	}
+
 	CustomResources = &EmbeddedResources{
 		FS:              resources,
 		SpritesheetPath: spritesheetPath,
 		MapPath:         mapPath,
-		AudioPaths:      audioPaths,
+		PalettePath:     palettePath,
+		AudioPaths:      filteredAudioPaths,
 	}
-	// Format spritesheet and map paths for logging, showing "none" if empty
+
+	// Format spritesheet, map, and palette paths for logging, showing "none" if empty
 	spritesheetDisplay := spritesheetPath
 	if spritesheetDisplay == "" {
-		spritesheetDisplay = "none"
+		spritesheetDisplay = none
 	}
 
 	mapDisplay := mapPath
 	if mapDisplay == "" {
-		mapDisplay = "none"
+		mapDisplay = none
 	}
 
-	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, audio files=%d", spritesheetDisplay, mapDisplay, len(audioPaths))
+	paletteDisplay := palettePath
+	if paletteDisplay == "" {
+		paletteDisplay = none
+	}
+
+	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, palette=%s, audio files=%d", spritesheetDisplay, mapDisplay, paletteDisplay, len(filteredAudioPaths))
 }
 
 // tryLoadEmbeddedFile attempts to load a file from embedded resources

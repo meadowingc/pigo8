@@ -21,10 +21,11 @@ That's it! Your game binary will now include all necessary resources and work co
 
 ## What This Does
 
-PIGO8 uses two main resource files for games:
+PIGO8 uses the following resource files for games:
 
 - `map.json` - Contains the game map data
 - `spritesheet.json` - Contains sprite definitions and pixel data
+- `palette.hex` - Contains custom color palette definitions
 
 The `go generate` command automatically creates an `embed.go` file that embeds these resources into your binary, making your game fully portable.
 
@@ -66,7 +67,7 @@ PIGO8 provides a tool that automatically generates the necessary embedding code 
    go build
    ```
 
-The generated `embed.go` file will embed your map.json and spritesheet.json files into the binary. Your game will now work correctly even when moved to a different directory.
+The generated `embed.go` file will embed your map.json, spritesheet.json, and palette.hex files into the binary. Your game will now work correctly even when moved to a different directory.
 
 ### Manual Embedding (Alternative)
 
@@ -77,22 +78,86 @@ package main
 
 import (
  "embed"
+ "log"
  
  p8 "github.com/drpaneas/pigo8"
 )
 
 // Embed the game-specific resources
 //
-//go:embed map.json spritesheet.json
+//go:embed map.json spritesheet.json palette.hex
 var resources embed.FS
 
 func init() {
  // Register the embedded resources with PIGO8
- p8.RegisterEmbeddedResources(resources, "spritesheet.json", "map.json")
+ p8.RegisterEmbeddedResources(resources, "spritesheet.json", "map.json", "palette.hex")
+ 
+ // Initialize audio player if audio files are present
+ if p8.GetAudioPlayer() != nil {
+  log.Println("Audio system initialized")
+ }
 }
 ```
 
-Adjust the `go:embed` directive to include only the files you have.
+Adjust the `go:embed` directive to include only the files you have. For example, if you only have a palette.hex file, your embed.go would look like:
+
+```go
+package main
+
+import (
+ "embed"
+ "log"
+ 
+ p8 "github.com/drpaneas/pigo8"
+)
+
+// Embed the game-specific resources
+//
+//go:embed palette.hex
+var resources embed.FS
+
+func init() {
+ // Register the embedded resources with PIGO8
+ p8.RegisterEmbeddedResources(resources, "", "", "palette.hex")
+ 
+ // Initialize audio player if audio files are present
+ if p8.GetAudioPlayer() != nil {
+  log.Println("Audio system initialized")
+ }
+}
+```
+
+## Custom Color Palettes with palette.hex
+
+PIGO8 now supports custom color palettes through a `palette.hex` file. This allows you to use color palettes from sites like [Lospec](https://lospec.com/palette-list) in your games.
+
+### Creating a palette.hex File
+
+1. Visit [Lospec Palette List](https://lospec.com/palette-list) and find a palette you like
+2. Download the palette in HEX format
+3. Save it as `palette.hex` in your game directory
+
+Each line in the palette.hex file should contain a single hex color code, for example:
+
+```
+c60021
+e70000
+e76121
+e7a263
+e7c384
+```
+
+### How Palette Loading Works
+
+When a palette.hex file is loaded:
+
+1. The first color (index 0) is automatically set to be fully transparent (rgba(0, 0, 0, 0))
+2. All colors from the palette.hex file are shifted up by one index
+3. The palette can be used like any other PIGO8 palette
+
+### Example Usage
+
+See the `examples/palette_hex` directory for a complete example of loading and using a custom palette.
 
 ## Resource Loading Priority
 

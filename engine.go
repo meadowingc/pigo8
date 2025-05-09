@@ -187,6 +187,9 @@ func PlayGameWith(settings *Settings) {
 		cfg.ScreenHeight = DefaultHeight
 	}
 
+	// Try to load custom palette from palette.hex if it exists
+	loadPaletteFromHexFile()
+
 	// Configure Ebitengine window using Settings object
 	ebiten.SetWindowTitle(cfg.WindowTitle)
 	winWidth := ScreenWidth * cfg.ScaleFactor

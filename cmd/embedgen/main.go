@@ -15,12 +15,14 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	flag.Parse()
 
-	// Check if map.json and spritesheet.json exist in the current directory
+	// Check if map.json, spritesheet.json, and palette.hex exist in the current directory
 	mapPath := filepath.Join(outputDir, "map.json")
 	spritesheetPath := filepath.Join(outputDir, "spritesheet.json")
+	palettePath := filepath.Join(outputDir, "palette.hex")
 
 	mapExists := fileExists(mapPath)
 	spritesheetExists := fileExists(spritesheetPath)
+	paletteExists := fileExists(palettePath)
 
 	// Find all music*.wav files
 	audioFiles := []string{}
@@ -62,9 +64,42 @@ func main() {
 		audioRelPaths = append(audioRelPaths, relPath)
 	}
 
-	if !mapExists && !spritesheetExists && len(audioFiles) == 0 {
-		fmt.Printf("Warning: No resources (map.json, spritesheet.json, or audio*.wav) found in %s\n", outputDir)
-		os.Exit(1)
+	// Log which resources were found
+	resourcesFound := false
+	if mapExists {
+		fmt.Printf("Found map.json\n")
+		resourcesFound = true
+	}
+	if spritesheetExists {
+		fmt.Printf("Found spritesheet.json\n")
+		resourcesFound = true
+	}
+	if paletteExists {
+		fmt.Printf("Found palette.hex\n")
+		resourcesFound = true
+	}
+	if len(audioRelPaths) > 0 {
+		fmt.Printf("Found %d audio files\n", len(audioRelPaths))
+		resourcesFound = true
+	}
+
+	// If no resources were found, exit
+	if !resourcesFound {
+		fmt.Printf("Warning: No resources (map.json, spritesheet.json, palette.hex, or audio*.wav) found in %s\n", outputDir)
+
+		// Check if an embed.go file exists and remove it if it does
+		embedGoPath := filepath.Join(outputDir, "embed.go")
+		if fileExists(embedGoPath) {
+			err := os.Remove(embedGoPath)
+			if err != nil {
+				fmt.Printf("Warning: Failed to remove existing embed.go file: %v\n", err)
+			} else {
+				fmt.Printf("Removed existing embed.go file as no resources were found\n")
+			}
+		}
+
+		// Exit with status 0 (success) instead of 1 (failure)
+		os.Exit(0)
 	}
 
 	// Generate the embed.go file
@@ -91,6 +126,10 @@ import (
 		// Always add a space before the filename
 		embedDirective += " spritesheet.json"
 	}
+	if paletteExists {
+		// Always add a space before the filename
+		embedDirective += " palette.hex"
+	}
 	// Add all audio files
 	for _, audioFile := range audioRelPaths {
 		embedDirective += " " + audioFile
@@ -100,34 +139,42 @@ import (
 
 func init() {
 	// Register the embedded resources with PIGO8
-	p8.RegisterEmbeddedResources(resources, `
+`
 
-	// Add the correct paths based on what exists
-	content += `"`
+	// Add the correct resource registration
+	content += "	p8.RegisterEmbeddedResources(resources, "
+
+	// Add spritesheet path
 	if spritesheetExists {
-		content += "spritesheet.json"
+		content += `"spritesheet.json"`
+	} else {
+		content += `""`
 	}
-	content += `", "`
-	if mapExists {
-		content += "map.json"
-	}
-	content += `"`
 
-	// Add audio files as variadic arguments
-	if len(audioRelPaths) > 0 {
-		content += `, `
-		for i, audioFile := range audioRelPaths {
-			if i > 0 {
-				content += `, `
-			}
-			content += `"` + audioFile + `"`
+	// Add map path
+	content += ", "
+	if mapExists {
+		content += `"map.json"`
+	} else {
+		content += `""`
+	}
+
+	// Add palette.hex and audio files as variadic arguments
+	if paletteExists || len(audioRelPaths) > 0 {
+		// Add palette.hex if it exists
+		if paletteExists {
+			content += `, "palette.hex"`
+		}
+
+		// Add audio files
+		for _, audioFile := range audioRelPaths {
+			content += `, "` + audioFile + `"`
 		}
 	}
 
-	content += `)`
+	content += ")\n"
 
 	content += `
-	
 	// Initialize audio player if audio files are present
 	if p8.GetAudioPlayer() != nil {
 		log.Println("Audio system initialized")
@@ -195,69 +242,19 @@ func isValidAudioFile(filename string) bool {
 		return false
 	}
 
-	// Get the data chunk size from the header
-	dataSize := int(header[40]) | int(header[41])<<8 | int(header[42])<<16 | int(header[43])<<24
+	// Check if the file has audio data by looking at the data chunk size
+	// The data chunk size is at bytes 40-43 in little-endian format
+	dataSize := int(header[40]) + int(header[41])<<8 + int(header[42])<<16 + int(header[43])<<24
 	if dataSize <= 0 {
 		if verbose {
-			fmt.Printf("File %s has no audio data\n", filename)
+			fmt.Printf("File %s has no audio data (data chunk size is %d)\n", filename, dataSize)
 		}
 		return false
 	}
 
-	// Find the data chunk - we need to scan through the file to find the "data" marker
-	// First, get the format chunk size to know how much to skip
-	formatSize := int(header[16]) | int(header[17])<<8 | int(header[18])<<16 | int(header[19])<<24
-
-	// Skip to the data chunk
-	// The data chunk should start at byte 44 (after the header) or later if there are other chunks
-	dataOffset := 44 // Start at the end of the RIFF header
-
-	// Skip the format chunk
-	dataOffset += formatSize
-
-	// Seek to the data chunk
-	_, err = file.Seek(int64(dataOffset), 0)
-	if err != nil {
-		if verbose {
-			fmt.Printf("Error seeking to data chunk in %s: %v\n", filename, err)
-		}
-		return false
+	// The file seems to be a valid WAV file with audio data
+	if verbose {
+		fmt.Printf("Including audio file: %s (data size: %d bytes)\n", filename, dataSize)
 	}
-
-	// Read a large sample of the audio data to check for non-zero values
-	// We'll read up to 100KB of audio data to check
-	sampleSize := 102400 // 100KB
-	if dataSize < sampleSize {
-		sampleSize = dataSize
-	}
-
-	sample := make([]byte, sampleSize)
-	n, err := file.Read(sample)
-	if err != nil && err.Error() != "EOF" {
-		if verbose {
-			fmt.Printf("Error reading audio data from %s: %v\n", filename, err)
-		}
-		return false
-	}
-
-	// Check if there's any non-zero data in the sample
-	hasNonZeroData := false
-	for i := 0; i < n; i++ {
-		// For 8-bit PCM, the center value is 128, so check if the value is not 128
-		// For 16-bit PCM, check if any byte is non-zero
-		if sample[i] != 0 && sample[i] != 128 {
-			hasNonZeroData = true
-			break
-		}
-	}
-
-	if !hasNonZeroData {
-		// Only print a summary message for silent files
-		fmt.Printf("Skipping %s (silent)\n", filepath.Base(filename))
-		return false
-	}
-
-	// All checks passed, consider the file valid
-	fmt.Printf("Including: %s\n", filepath.Base(filename))
 	return true
 }

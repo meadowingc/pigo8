@@ -11,13 +11,13 @@ import (
 
 // Embed the game-specific resources
 //
-//go:embed music0.wav music1.wav music2.wav music3.wav music4.wav music5.wav music6.wav
+//go:embed music0.wav music1.wav music10.wav music11.wav music12.wav music13.wav music14.wav music15.wav music16.wav music17.wav music18.wav music19.wav music2.wav music20.wav music21.wav music22.wav music23.wav music24.wav music25.wav music26.wav music27.wav music28.wav music29.wav music3.wav music30.wav music31.wav music32.wav music33.wav music34.wav music35.wav music36.wav music37.wav music38.wav music39.wav music4.wav music40.wav music41.wav music42.wav music43.wav music44.wav music45.wav music46.wav music47.wav music48.wav music49.wav music5.wav music50.wav music51.wav music52.wav music53.wav music54.wav music55.wav music56.wav music57.wav music58.wav music59.wav music6.wav music60.wav music61.wav music62.wav music63.wav music7.wav music8.wav music9.wav
 var resources embed.FS
 
 func init() {
 	// Register the embedded resources with PIGO8
-	p8.RegisterEmbeddedResources(resources, "", "", "music0.wav", "music1.wav", "music2.wav", "music3.wav", "music4.wav", "music5.wav", "music6.wav")
-	
+	p8.RegisterEmbeddedResources(resources, "", "", "music0.wav", "music1.wav", "music10.wav", "music11.wav", "music12.wav", "music13.wav", "music14.wav", "music15.wav", "music16.wav", "music17.wav", "music18.wav", "music19.wav", "music2.wav", "music20.wav", "music21.wav", "music22.wav", "music23.wav", "music24.wav", "music25.wav", "music26.wav", "music27.wav", "music28.wav", "music29.wav", "music3.wav", "music30.wav", "music31.wav", "music32.wav", "music33.wav", "music34.wav", "music35.wav", "music36.wav", "music37.wav", "music38.wav", "music39.wav", "music4.wav", "music40.wav", "music41.wav", "music42.wav", "music43.wav", "music44.wav", "music45.wav", "music46.wav", "music47.wav", "music48.wav", "music49.wav", "music5.wav", "music50.wav", "music51.wav", "music52.wav", "music53.wav", "music54.wav", "music55.wav", "music56.wav", "music57.wav", "music58.wav", "music59.wav", "music6.wav", "music60.wav", "music61.wav", "music62.wav", "music63.wav", "music7.wav", "music8.wav", "music9.wav")
+
 	// Initialize audio player if audio files are present
 	if p8.GetAudioPlayer() != nil {
 		log.Println("Audio system initialized")
