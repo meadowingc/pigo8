@@ -282,3 +282,144 @@ func Line[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 		false, // No anti-aliasing to match PICO-8's pixel-perfect style
 	)
 }
+
+// parseCircArgs parses common arguments for Circ and Circfill.
+// It returns the center coordinates (x, y), radius, the PICO-8 color index to use,
+// and whether parsing was successful.
+func parseCircArgs(x, y, radius float64, options []interface{}) (float32, float32, float32, int, bool) {
+	// Determine drawing color
+	drawColorIndex := currentDrawColor // Use the global current draw color set by Color()
+	if len(options) >= 1 {
+		// Try to handle different numeric types for color
+		switch v := options[0].(type) {
+		case int:
+			// Handle integer color directly
+			if v >= 0 && v < len(Pico8Palette) {
+				drawColorIndex = v
+				// Update both color variables to keep them in sync
+				currentDrawColor = v
+				cursorColor = v
+			} else {
+				logWarningOnce("Warning: Circ/Circfill optional color %d out of range (0-15). Using current color %d.", v, drawColorIndex)
+			}
+		case float64:
+			// Convert float64 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update both color variables to keep them in sync
+				currentDrawColor = intVal
+				cursorColor = intVal
+			} else {
+				logWarningOnce("Warning: Circ/Circfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		case float32:
+			// Convert float32 to int for color
+			intVal := int(v)
+			if intVal >= 0 && intVal < len(Pico8Palette) {
+				drawColorIndex = intVal
+				// Update both color variables to keep them in sync
+				currentDrawColor = intVal
+				cursorColor = intVal
+			} else {
+				logWarningOnce("Warning: Circ/Circfill optional color %d out of range (0-15). Using current color %d.", intVal, drawColorIndex)
+			}
+		default:
+			logWarningOnce("Warning: Circ/Circfill optional color argument expected numeric type, got %T. Using current color %d.", options[0], drawColorIndex)
+		}
+	}
+	if len(options) > 1 {
+		logWarningOnce("Warning: Circ/Circfill called with too many arguments (%d), expected max 4.", len(options)+3)
+	}
+
+	return float32(x), float32(y), float32(radius), drawColorIndex, true
+}
+
+// Circ draws an outline circle.
+// Mimics PICO-8's circ(x, y, radius, [color]) function.
+//
+// x, y: Coordinates of the center point (any Number type).
+// radius: Radius of the circle (any Number type).
+// options...:
+//   - color (int): Optional PICO-8 color index (0-15). If omitted or invalid,
+//     uses the current drawing color (defaults to 7 - white currently).
+func Circ[X Number, Y Number, R Number](x X, y Y, radius R, options ...interface{}) {
+	if currentScreen == nil {
+		log.Println("Warning: Circ() called before screen was ready.")
+		return
+	}
+
+	fx, fy, fr := float64(x), float64(y), float64(radius)
+
+	// Apply camera offset
+	fx, fy = ApplyCameraOffset(fx, fy)
+
+	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
+	if !ok {
+		return // Argument parsing logged an issue
+	}
+
+	// Get the actual color from the palette
+	var actualColor color.Color
+	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
+		actualColor = Pico8Palette[drawColorIndex]
+	} else {
+		actualColor = Pico8Palette[0] // Fallback to black
+		log.Printf("Error: Invalid effective drawing color index %d for Circ(). Defaulting to black.", drawColorIndex)
+	}
+
+	// Draw the circle outline using Ebitengine vector graphics
+	vector.StrokeCircle(
+		currentScreen,
+		circX,
+		circY,
+		circR,
+		1.0, // Stroke width of 1 pixel to match PICO-8's style
+		actualColor,
+		false, // No anti-aliasing to match PICO-8's pixel-perfect style
+	)
+}
+
+// Circfill draws a filled circle.
+// Mimics PICO-8's circfill(x, y, radius, [color]) function.
+//
+// x, y: Coordinates of the center point (any Number type).
+// radius: Radius of the circle (any Number type).
+// options...:
+//   - color (int): Optional PICO-8 color index (0-15). If omitted or invalid,
+//     uses the current drawing color (defaults to 7 - white currently).
+func Circfill[X Number, Y Number, R Number](x X, y Y, radius R, options ...interface{}) {
+	if currentScreen == nil {
+		log.Println("Warning: Circfill() called before screen was ready.")
+		return
+	}
+
+	fx, fy, fr := float64(x), float64(y), float64(radius)
+
+	// Apply camera offset
+	fx, fy = ApplyCameraOffset(fx, fy)
+
+	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
+	if !ok {
+		return // Argument parsing logged an issue
+	}
+
+	// Get the actual color from the palette
+	var actualColor color.Color
+	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
+		actualColor = Pico8Palette[drawColorIndex]
+	} else {
+		actualColor = Pico8Palette[0] // Fallback to black
+		log.Printf("Error: Invalid effective drawing color index %d for Circfill(). Defaulting to black.", drawColorIndex)
+	}
+
+	// Draw the filled circle using Ebitengine vector graphics
+	vector.DrawFilledCircle(
+		currentScreen,
+		circX,
+		circY,
+		circR,
+		actualColor,
+		false, // No anti-aliasing to match PICO-8's pixel-perfect style
+	)
+}

@@ -116,6 +116,7 @@ func (g *game) Update() error {
 	// Only call Update after the first frame has been drawn
 	if g.firstFrameDrawn {
 		UpdateConnectedGamepads()
+		UpdateMouseState()
 		loadedCartridge.Update()
 	}
 	return nil

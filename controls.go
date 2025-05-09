@@ -18,6 +18,12 @@ const (
 	X // Often mapped to B/Circle on standard controllers
 	START
 	SELECT
+	// Mouse buttons
+	MOUSE_LEFT
+	MOUSE_RIGHT
+	MOUSE_MIDDLE // Mouse wheel press
+	MOUSE_WHEEL_UP
+	MOUSE_WHEEL_DOWN
 )
 
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
@@ -93,13 +99,14 @@ func getGamepadID(playerIndex int) (ebiten.GamepadID, bool) {
 	return currentIDs[playerIndex], true
 }
 
-// Btn checks if a specific PICO-8 button is currently held down via gamepad OR keyboard (Player 0 only).
+// Btn checks if a specific PICO-8 button is currently held down via gamepad, keyboard (Player 0 only), or mouse.
 // Mimics the PICO-8 btn() function behavior (returns true while held).
 //
-// buttonIndex: The PICO-8 button index (0-7 or constants like PICO8_BUTTON_LEFT).
+// buttonIndex: The PICO-8 button index (0-15).
 // playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
 //
 //	Keyboard input is only checked for playerIndex 0.
+//	Mouse input is available for all player indices.
 //
 // Usage:
 //
@@ -109,18 +116,40 @@ func getGamepadID(playerIndex int) (ebiten.GamepadID, bool) {
 // Example:
 //
 //	// Check if the left button/arrow key is held for player 0
-//	if Btn(PICO8_BUTTON_LEFT) {
+//	if Btn(LEFT) {
 //		// Move left
 //	}
 //
+//	// Check if the left mouse button is held
+//	if Btn(MOUSE_LEFT) {
+//		// Handle left mouse button
+//	}
+//
 //	// Check if the 'O' button (gamepad only) is held for player 1 (index 1)
-//	if Btn(PICO8_BUTTON_O, 1) {
+//	if Btn(O, 1) {
 //		// Player 1 action
 //	}
 func Btn(buttonIndex int, playerIndex ...int) bool {
 	pIdx := 0 // Default to player 0
 	if len(playerIndex) > 0 {
 		pIdx = playerIndex[0]
+	}
+
+	// --- Mouse Check ---
+	// Mouse buttons are available regardless of player index
+	switch buttonIndex {
+	case MOUSE_LEFT:
+		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	case MOUSE_RIGHT:
+		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
+	case MOUSE_MIDDLE:
+		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
+	case MOUSE_WHEEL_UP:
+		_, wheelY := ebiten.Wheel()
+		return wheelY < 0
+	case MOUSE_WHEEL_DOWN:
+		_, wheelY := ebiten.Wheel()
+		return wheelY > 0
 	}
 
 	// --- Keyboard Check (Player 0 Only) ---
@@ -154,14 +183,15 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 // Note: For "just pressed" behavior similar to PICO-8's btnp(), you would use
 // inpututil functions.
 
-// Btnp checks if a specific PICO-8 button was just pressed via gamepad OR keyboard (Player 0 only).
+// Btnp checks if a specific PICO-8 button was just pressed via gamepad, keyboard (Player 0 only), or mouse.
 // Mimics the PICO-8 btnp() function behavior (without auto-repeat).
 // It returns true only on the single frame the button transitions from up to down.
 //
-// buttonIndex: The PICO-8 button index (0-7 or constants like PICO8_BUTTON_LEFT).
+// buttonIndex: The PICO-8 button index (0-15).
 // playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
 //
 //	Keyboard input is only checked for playerIndex 0.
+//	Mouse input is available for all player indices.
 //
 // Usage:
 //
@@ -171,18 +201,40 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 // Example:
 //
 //	// Check if the 'X' button/key was just pressed for player 0
-//	if Btnp(PICO8_BUTTON_X) {
+//	if Btnp(X) {
 //		// Jump action
 //	}
 //
+//	// Check if the right mouse button was just pressed
+//	if Btnp(MOUSE_RIGHT) {
+//		// Handle right click
+//	}
+//
 //	// Check if the 'Start' button (gamepad only) was just pressed for player 1
-//	if Btnp(PICO8_BUTTON_START, 1) {
+//	if Btnp(START, 1) {
 //		// Pause game for player 1
 //	}
 func Btnp(buttonIndex int, playerIndex ...int) bool {
 	pIdx := 0 // Default to player 0
 	if len(playerIndex) > 0 {
 		pIdx = playerIndex[0]
+	}
+
+	// --- Mouse Check ---
+	// Mouse buttons are available regardless of player index
+	switch buttonIndex {
+	case MOUSE_LEFT:
+		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	case MOUSE_RIGHT:
+		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+	case MOUSE_MIDDLE:
+		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
+	case MOUSE_WHEEL_UP:
+		_, wheelY := ebiten.Wheel()
+		return wheelY < 0
+	case MOUSE_WHEEL_DOWN:
+		_, wheelY := ebiten.Wheel()
+		return wheelY > 0
 	}
 
 	// --- Keyboard Check (Player 0 Only) ---
