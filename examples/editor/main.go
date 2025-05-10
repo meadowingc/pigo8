@@ -283,9 +283,19 @@ func (m *myGame) Update() {
 
 					// Check if target position is within map bounds
 					if targetX >= 0 && targetX < 128 && targetY >= 0 && targetY < 128 {
+						// Calculate base sprite's position in the spritesheet
+						baseRow := baseSprite / spriteSheetCols
+						baseCol := baseSprite % spriteSheetCols
+
 						// Calculate the correct sprite index based on position in grid
-						spriteOffset := dy*32 + dx // 32 is the spritesheet width
-						p8.Mset(targetX, targetY, baseSprite + spriteOffset)
+						spriteRow := baseRow + dy
+						spriteCol := baseCol + dx
+						spriteIndex := spriteRow*spriteSheetCols + spriteCol
+
+						// Place the sprite if it's within spritesheet bounds
+						if spriteRow < spriteSheetRows && spriteCol < spriteSheetCols {
+							p8.Mset(targetX, targetY, spriteIndex)
+						}
 					}
 				}
 			}
