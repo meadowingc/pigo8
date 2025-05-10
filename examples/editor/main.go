@@ -416,10 +416,14 @@ func (m *myGame) Update() {
 				// Update both the visible drawing grid and the selected sprite
 				setSquareColor(row, col, m.currentColor)                                     // Set color in the visible grid
 				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = m.currentColor // Set color in the sprite
+				// Update the sprite in PIGO8
+				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, m.currentColor)
 			} else if p8.Btn(p8.MouseRight) { // Right mouse button
 				// Update both the visible drawing grid and the selected sprite
 				setSquareColor(row, col, 0)                                     // Reset color in the visible grid
 				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = 0 // Reset color in the sprite
+				// Update the sprite in PIGO8
+				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, 0)
 			}
 		}
 	} else {
@@ -730,6 +734,19 @@ func initSpritesheet() {
 
 	// Try to load spritesheet.json if it exists
 	loadSpritesheet()
+}
+
+func updateMapSprites(spriteIndex int) {
+	// Scan through the entire map and update any instances of this sprite
+	for y := 0; y < 128; y++ {
+		for x := 0; x < 128; x++ {
+			// Check if this map cell uses the modified sprite
+			if p8.Mget(x, y) == spriteIndex {
+				// Force a redraw of this sprite by setting it to itself
+				p8.Mset(x, y, spriteIndex)
+			}
+		}
+	}
 }
 
 func getSquareColor(row, col int) int {
