@@ -23,6 +23,11 @@ type myGame struct {
 	lastWheelTime int64 // Last time the mouse wheel was scrolled (for debouncing)
 	mapMode       bool  // Whether we are in map mode
 
+	// Map editor state
+	mapCameraX    int            // Camera X position in the map (in sprites)
+	mapCameraY    int            // Camera Y position in the map (in sprites)
+	mapData       [320][320]int  // The map data - stores sprite indices
+
 	// Popup notification
 	showSavePopup bool // Whether to show the save popup
 	popupTimer    int  // Timer for the popup (in frames)
@@ -44,7 +49,7 @@ func (m *myGame) Init() {
 	initSpritesheet()
 
 	m.currentColor = 8  // Default to color 8 (usually red in PICO-8 palette)
-	m.currentSprite = 0 // Default to first sprite
+	m.currentSprite = 1 // Default to first non-transparent sprite (sprite 0 is reserved)
 	m.hoverX = -1       // No hover initially
 	m.hoverY = -1       // No hover initially
 	m.gridSize = 1      // Start with 8x8 grid (1 sprite)
@@ -232,6 +237,63 @@ func (m *myGame) Update() {
 		m.mapMode = !m.mapMode
 	}
 
+	// Handle map mode controls
+	if m.mapMode {
+		// Move camera with arrow keys (full screen = 16 sprites = 128 pixels)
+		if p8.Btnp(p8.LEFT) && m.mapCameraX > 0 {
+			m.mapCameraX -= 16 // Move left by one screen
+		}
+		if p8.Btnp(p8.RIGHT) && m.mapCameraX < 320-16 {
+			m.mapCameraX += 16 // Move right by one screen
+		}
+		if p8.Btnp(p8.UP) && m.mapCameraY > 0 {
+			m.mapCameraY -= 16 // Move up by one screen
+		}
+		if p8.Btnp(p8.DOWN) && m.mapCameraY < 320-16 {
+			m.mapCameraY += 16 // Move down by one screen
+		}
+
+		// Handle sprite placement
+		mx, my := p8.Mouse()
+
+		// Place sprite(s) on left click if within bounds
+		if p8.Btn(p8.MouseLeft) && mx >= 10 && mx < 138 && my >= 10 && my < 138 {
+			// Calculate grid dimensions based on current grid size
+			gridWidth := 1
+			gridHeight := 1
+			switch m.gridSize {
+			case 2: // 16x16
+				gridWidth, gridHeight = 2, 2
+			case 4: // 32x32
+				gridWidth, gridHeight = 4, 4
+			}
+
+			// Calculate map coordinates from mouse position
+			mapX := m.mapCameraX + (mx - 10) / 8
+			mapY := m.mapCameraY + (my - 10) / 8
+
+			// Get the base sprite (top-left of selection)
+			baseSprite := m.currentSprite
+
+			// Place all sprites in the grid if they fit within map bounds
+			for dy := 0; dy < gridHeight; dy++ {
+				for dx := 0; dx < gridWidth; dx++ {
+					targetX := mapX + dx
+					targetY := mapY + dy
+
+					// Check if target position is within map bounds
+					if targetX >= 0 && targetX < 128 && targetY >= 0 && targetY < 128 {
+						// Calculate the correct sprite index based on position in grid
+						spriteOffset := dy*32 + dx // 32 is the spritesheet width
+						p8.Mset(targetX, targetY, baseSprite + spriteOffset)
+					}
+				}
+			}
+		}
+
+		return // Skip rest of update when in map mode
+	}
+
 	// Check if 'O' button is pressed to save the spritesheet
 	if p8.Btnp(p8.O) {
 		err := saveSpritesheet(m)
@@ -377,7 +439,10 @@ func (m *myGame) Update() {
 		if p8.Btnp(p8.MouseLeft) {
 			// Calculate the sprite index
 			spriteIndex := sprRow*spriteSheetCols + sprCol
-			m.currentSprite = spriteIndex
+			// Don't allow selecting sprite 0 (reserved as transparent)
+			if spriteIndex > 0 {
+				m.currentSprite = spriteIndex
+			}
 
 			// Update the entire drawing canvas to reflect the new sprite selection
 			// This ensures all pixels (including transparent ones) are properly refreshed
@@ -447,8 +512,58 @@ func (m *myGame) Update() {
 func (g *myGame) Draw() {
 	p8.ClsRGBA(color.RGBA{R: 25, G: 25, B: 25, A: 255})
 
+	// If we are in map mode, draw the spritemap 
 	if g.mapMode {
-		// Here draw the spritemap
+		// Define viewport boundaries
+		const viewportX = 10  // Left margin of sprite editor viewport
+		const viewportY = 10  // Top margin of sprite editor viewport
+
+		// Draw the visible portion of the map
+		for y := 0; y < 16; y++ {
+			for x := 0; x < 16; x++ {
+				// Get sprite at current map position
+				sprite := p8.Mget(g.mapCameraX+x, g.mapCameraY+y)
+				// Draw the sprite at viewport position
+				p8.Spr(sprite, float64(viewportX+x*8), float64(viewportY+y*8))
+			}
+		}
+
+		// Get mouse position for hover highlight
+		mx, my := p8.Mouse()
+
+		// Calculate grid dimensions based on current grid size
+		gridWidth := 1
+		gridHeight := 1
+		switch g.gridSize {
+		case 2: // 16x16
+			gridWidth, gridHeight = 2, 2
+		case 4: // 32x32
+			gridWidth, gridHeight = 4, 4
+		}
+
+
+
+		// Draw hover highlight for multi-sprite placement
+		hoverX := (mx - viewportX) / 8
+		hoverY := (my - viewportY) / 8
+		if hoverX >= 0 && hoverX < 16 && hoverY >= 0 && hoverY < 16 {
+			// Draw hover highlight for each sprite in the grid
+			for dy := 0; dy < gridHeight; dy++ {
+				for dx := 0; dx < gridWidth; dx++ {
+					if int(hoverX)+dx < 16 && int(hoverY)+dy < 16 {
+						// Draw hover highlight
+						p8.Rect(float64(viewportX+(int(hoverX)+dx)*8), float64(viewportY+(int(hoverY)+dy)*8),
+							float64(viewportX+(int(hoverX)+dx+1)*8-1), float64(viewportY+(int(hoverY)+dy+1)*8-1), 7)
+					}
+				}
+			}
+		}
+
+		// Draw a border around the current screen (128x128 pixels)
+		p8.Rect(float64(viewportX), float64(viewportY), float64(viewportX+128), float64(viewportY+128), 7) // White border
+
+		// Reset camera for UI elements
+		p8.Camera()
 		return
 	}
 
