@@ -578,6 +578,27 @@ func (g *myGame) Draw() {
 
 		// Reset camera for UI elements
 		p8.Camera()
+
+		// Display map information
+		p8.Color(7) // White text
+		// Show current screen coordinates
+		screenX := g.mapCameraX / 16
+		screenY := g.mapCameraY / 16
+		p8.Print(fmt.Sprintf("Screen: %d,%d", screenX, screenY), 10, 142)
+
+		// Show mouse coordinates in map space
+		// Use existing mx, my from earlier in the function
+		mapX := g.mapCameraX + (mx - viewportX) / 8
+		mapY := g.mapCameraY + (my - viewportY) / 8
+		// Only show coordinates if mouse is within map bounds
+		if mx >= viewportX && mx < viewportX+128 && my >= viewportY && my < viewportY+128 {
+			p8.Print(fmt.Sprintf("Map: %d,%d", mapX, mapY), 100, 142)
+			// Show sprite at current position
+			if mapX >= 0 && mapX < 128 && mapY >= 0 && mapY < 128 {
+				sprite := p8.Mget(mapX, mapY)
+				p8.Print(fmt.Sprintf("Sprite: %d", sprite), 190, 142)
+			}
+		}
 		return
 	}
 
