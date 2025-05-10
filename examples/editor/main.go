@@ -21,6 +21,7 @@ type myGame struct {
 	hoverY        int   // Y coordinate of the pixel being hovered over (-1 if none)
 	gridSize      int   // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
 	lastWheelTime int64 // Last time the mouse wheel was scrolled (for debouncing)
+	mapMode       bool  // Whether we are in map mode
 
 	// Popup notification
 	showSavePopup bool // Whether to show the save popup
@@ -226,6 +227,11 @@ func saveSpritesheet(g *myGame) error {
 }
 
 func (m *myGame) Update() {
+	// Check if 'X' button is pressed to switch to map mode
+	if p8.Btnp(p8.X) {
+		m.mapMode = !m.mapMode
+	}
+
 	// Check if 'O' button is pressed to save the spritesheet
 	if p8.Btnp(p8.O) {
 		err := saveSpritesheet(m)
@@ -440,6 +446,11 @@ func (m *myGame) Update() {
 
 func (g *myGame) Draw() {
 	p8.ClsRGBA(color.RGBA{R: 25, G: 25, B: 25, A: 255})
+
+	if g.mapMode {
+		// Here draw the spritemap
+		return
+	}
 
 	// Calculate drawing grid boundaries
 	gridStartX := 10
