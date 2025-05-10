@@ -256,8 +256,23 @@ func (m *myGame) Update() {
 		// Handle sprite placement
 		mx, my := p8.Mouse()
 
-		// Place sprite(s) on left click if within bounds
-		if p8.Btn(p8.MouseLeft) && mx >= 10 && mx < 138 && my >= 10 && my < 138 {
+		// Check if mouse is within map bounds
+		if mx >= 10 && mx < 138 && my >= 10 && my < 138 {
+			// Calculate map coordinates from mouse position
+			mapX := m.mapCameraX + (mx - 10) / 8
+			mapY := m.mapCameraY + (my - 10) / 8
+
+			// Handle right click to erase (set to sprite 0)
+			if p8.Btn(p8.MouseRight) {
+				// Check if target position is within map bounds
+				if mapX >= 0 && mapX < 128 && mapY >= 0 && mapY < 128 {
+					p8.Mset(mapX, mapY, 0) // Set to sprite 0 (empty/transparent)
+				}
+				return
+			}
+
+			// Place sprite(s) on left click
+			if p8.Btn(p8.MouseLeft) {
 			// Calculate grid dimensions based on current grid size
 			gridWidth := 1
 			gridHeight := 1
@@ -298,6 +313,7 @@ func (m *myGame) Update() {
 						}
 					}
 				}
+			}
 			}
 		}
 
