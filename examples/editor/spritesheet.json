@@ -12,14 +12,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 8,
+                "bitfield": 48,
                 "individual": [
                     false,
                     false,
                     false,
+                    false,
                     true,
-                    false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -115,14 +115,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 48,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
-                    false,
-                    false,
+                    true,
+                    true,
                     false,
                     false
                 ]
@@ -218,14 +218,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -321,14 +321,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -3308,14 +3308,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 48,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
-                    false,
-                    false,
+                    true,
+                    true,
                     false,
                     false
                 ]
@@ -3411,14 +3411,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 48,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
-                    false,
-                    false,
+                    true,
+                    true,
                     false,
                     false
                 ]
@@ -3438,17 +3438,7 @@
                     0,
                     0,
                     0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                [
-                    0,
-                    0,
-                    0,
-                    0,
+                    8,
                     0,
                     0,
                     0,
@@ -3458,8 +3448,28 @@
                     0,
                     0,
                     0,
+                    8,
+                    8,
+                    8,
+                    8,
+                    0
+                ],
+                [
+                    8,
                     0,
                     0,
+                    0,
+                    0,
+                    0,
+                    8,
+                    0
+                ],
+                [
+                    0,
+                    8,
+                    8,
+                    8,
+                    8,
                     0,
                     0,
                     0
@@ -3469,9 +3479,9 @@
                     0,
                     0,
                     0,
+                    8,
                     0,
-                    0,
-                    0,
+                    8,
                     0
                 ],
                 [
@@ -3479,18 +3489,8 @@
                     0,
                     0,
                     0,
-                    0,
-                    0,
-                    0,
-                    0
-                ],
-                [
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
+                    8,
+                    8,
                     0,
                     0
                 ],
@@ -3514,14 +3514,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -3617,14 +3617,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -6604,14 +6604,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -6707,14 +6707,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -6810,14 +6810,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -6913,14 +6913,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -9900,14 +9900,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -10003,14 +10003,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -10106,14 +10106,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]
@@ -10209,14 +10209,14 @@
             "height": 8,
             "used": true,
             "flags": {
-                "bitfield": 0,
+                "bitfield": 32,
                 "individual": [
                     false,
                     false,
                     false,
                     false,
                     false,
-                    false,
+                    true,
                     false,
                     false
                 ]

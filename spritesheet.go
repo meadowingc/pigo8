@@ -35,8 +35,32 @@ type spriteData struct { // Internal
 // spriteSheet holds the overall structure of the JSON file.
 // Kept internal.
 type spriteSheet struct { // Internal
-	Sprites []spriteData `json:"sprites"`
+	// Custom spritesheet dimensions (optional)
+	SpriteSheetColumns int          `json:"SpriteSheetColumns,omitempty"`
+	SpriteSheetRows    int          `json:"SpriteSheetRows,omitempty"`
+	SpriteSheetWidth   int          `json:"SpriteSheetWidth,omitempty"`
+	SpriteSheetHeight  int          `json:"SpriteSheetHeight,omitempty"`
+	Sprites            []spriteData `json:"sprites"`
 }
+
+// --- Sprite sheet dimensions ---
+
+// Default sprite sheet dimensions (16x16 sprites)
+var (
+	// SpritesheetColumns is the number of sprite columns in the sprite sheet
+	// Default is 16 for standard PICO-8, 32 for custom palette
+	SpritesheetColumns = 16
+
+	// SpritesheetRows is the number of sprite rows in the sprite sheet
+	// Default is 16 for standard PICO-8, 24 for custom palette
+	SpritesheetRows = 16
+
+	// SpritesheetWidth is the pixel width of the sprite sheet (columns * 8)
+	SpritesheetWidth = 128
+
+	// SpritesheetHeight is the pixel height of the sprite sheet (rows * 8)
+	SpritesheetHeight = 128
+)
 
 // --- Target struct to hold processed sprite info ---
 
@@ -75,6 +99,26 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		)
 		// Return empty slice, not necessarily an error
 		return []SpriteInfo{}, nil
+	}
+	
+	// Check for custom spritesheet dimensions in the JSON file
+	if sheet.SpriteSheetColumns > 0 && sheet.SpriteSheetRows > 0 {
+		// Update the global sprite sheet dimensions
+		SpritesheetColumns = sheet.SpriteSheetColumns
+		SpritesheetRows = sheet.SpriteSheetRows
+		
+		// If width and height are specified, use them directly
+		if sheet.SpriteSheetWidth > 0 && sheet.SpriteSheetHeight > 0 {
+			SpritesheetWidth = sheet.SpriteSheetWidth
+			SpritesheetHeight = sheet.SpriteSheetHeight
+		} else {
+			// Otherwise calculate them from columns and rows (assuming 8x8 sprites)
+			SpritesheetWidth = SpritesheetColumns * 8
+			SpritesheetHeight = SpritesheetRows * 8
+		}
+		
+		log.Printf("Custom spritesheet dimensions detected: %dx%d sprites (%dx%d pixels)",
+			SpritesheetColumns, SpritesheetRows, SpritesheetWidth, SpritesheetHeight)
 	}
 	// Check if pixel data is present for the first sprite (if any)
 	if len(sheet.Sprites) > 0 && len(sheet.Sprites[0].Pixels) == 0 {

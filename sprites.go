@@ -297,9 +297,9 @@ func Sget[X Number, Y Number](x X, y Y) int {
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8                    // Determine which sprite column contains the pixel
-	spriteY := py / 8                    // Determine which sprite row contains the pixel
-	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
+	spriteX := px / 8                        // Determine which sprite column contains the pixel
+	spriteY := py / 8                        // Determine which sprite row contains the pixel
+	spriteCellID := calculateSpriteID(spriteX, spriteY) // Calculate sprite ID based on dynamic dimensions
 
 	// Calculate the pixel position within the sprite
 	localX := px % 8 // X position within the sprite (0-7)
@@ -606,9 +606,9 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8                    // Determine which sprite column contains the pixel
-	spriteY := py / 8                    // Determine which sprite row contains the pixel
-	spriteCellID := spriteY*16 + spriteX // Calculate sprite ID based on position (16 sprites per row)
+	spriteX := px / 8                        // Determine which sprite column contains the pixel
+	spriteY := py / 8                        // Determine which sprite row contains the pixel
+	spriteCellID := calculateSpriteID(spriteX, spriteY) // Calculate sprite ID based on dynamic dimensions
 
 	// Calculate the pixel position within the sprite
 	localX := px % 8 // X position within the sprite (0-7)
@@ -730,8 +730,11 @@ func parseSsprOptions(options []any, sourceWidth, sourceHeight int) (destWidth, 
 
 // createSpriteSourceImage creates a temporary image from the specified region of the spritesheet
 func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *ebiten.Image {
-	// Create a temporary image for the source region
+	// Create a temporary image for the source region with transparency
 	sourceImage := ebiten.NewImage(sourceWidth, sourceHeight)
+	
+	// Clear the image with transparent color
+	sourceImage.Fill(color.RGBA{0, 0, 0, 0})
 
 	// Copy the specified region from the spritesheet to the temporary image
 	for y := 0; y < sourceHeight; y++ {
@@ -741,6 +744,7 @@ func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *e
 
 			// Skip transparent pixels based on the palette transparency settings
 			if colorIndex >= 0 && colorIndex < len(PaletteTransparency) && PaletteTransparency[colorIndex] {
+				// Skip this pixel, leaving it transparent
 				continue
 			}
 
@@ -809,10 +813,10 @@ func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx S
 	// Parse optional arguments
 	destWidth, destHeight, flipX, flipY := parseSsprOptions(options, sourceWidth, sourceHeight)
 
-	// Validate source rectangle is within spritesheet bounds (128x128)
-	if sourceX < 0 || sourceY < 0 || sourceX+sourceWidth > 128 || sourceY+sourceHeight > 128 {
-		log.Printf("Warning: Sspr() source rectangle (%d,%d,%d,%d) is outside spritesheet bounds (0,0,128,128)",
-			sourceX, sourceY, sourceWidth, sourceHeight)
+	// Validate source rectangle is within spritesheet bounds
+	if !validateSpriteSheetBounds(sourceX, sourceY, sourceWidth, sourceHeight) {
+		log.Printf("Warning: Sspr() source rectangle (%d,%d,%d,%d) is outside spritesheet bounds (0,0,%d,%d)",
+			sourceX, sourceY, sourceWidth, sourceHeight, SpritesheetWidth, SpritesheetHeight)
 		// Continue anyway, Ebiten will handle clipping
 	}
 

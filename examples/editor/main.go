@@ -15,21 +15,21 @@ import (
 )
 
 type myGame struct {
-	currentColor  int             // Current selected color from palette
-	currentSprite int             // Current selected sprite from spritesheet (0-255)
-	hoverX        int             // X coordinate of the pixel being hovered over (-1 if none)
-	hoverY        int             // Y coordinate of the pixel being hovered over (-1 if none)
-	gridSize      int             // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
-	lastWheelTime int64           // Last time the mouse wheel was scrolled (for debouncing)
-	
+	currentColor  int   // Current selected color from palette
+	currentSprite int   // Current selected sprite from spritesheet (0-255)
+	hoverX        int   // X coordinate of the pixel being hovered over (-1 if none)
+	hoverY        int   // Y coordinate of the pixel being hovered over (-1 if none)
+	gridSize      int   // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
+	lastWheelTime int64 // Last time the mouse wheel was scrolled (for debouncing)
+
 	// Popup notification
-	showSavePopup bool            // Whether to show the save popup
-	popupTimer    int             // Timer for the popup (in frames)
+	showSavePopup bool // Whether to show the save popup
+	popupTimer    int  // Timer for the popup (in frames)
 }
 
 func (m *myGame) Init() {
 	initSquareColors()
-	
+
 	// Initialize sprite flags to false
 	for row := range spriteSheetRows {
 		for col := range spriteSheetCols {
@@ -38,15 +38,20 @@ func (m *myGame) Init() {
 			}
 		}
 	}
-	
+
 	// Initialize spritesheet (will also load from file if available)
 	initSpritesheet()
-	
+
 	m.currentColor = 8  // Default to color 8 (usually red in PICO-8 palette)
 	m.currentSprite = 0 // Default to first sprite
 	m.hoverX = -1       // No hover initially
 	m.hoverY = -1       // No hover initially
 	m.gridSize = 1      // Start with 8x8 grid (1 sprite)
+
+	// Ensure grid size is never less than 1
+	if m.gridSize < 1 {
+		m.gridSize = 1
+	}
 	m.lastWheelTime = 0 // Initialize wheel time
 
 	// Initialize the first sprite with the drawing canvas
@@ -59,14 +64,14 @@ func (m *myGame) Init() {
 
 // Define the sprite structure to match PIGO8's format
 type spriteData struct {
-	ID     int         `json:"id"`
-	X      int         `json:"x"`
-	Y      int         `json:"y"`
-	Width  int         `json:"width"`
-	Height int         `json:"height"`
-	Used   bool        `json:"used"`
+	ID     int          `json:"id"`
+	X      int          `json:"x"`
+	Y      int          `json:"y"`
+	Width  int          `json:"width"`
+	Height int          `json:"height"`
+	Used   bool         `json:"used"`
 	Flags  p8.FlagsData `json:"flags"`
-	Pixels [][]int     `json:"pixels"`
+	Pixels [][]int      `json:"pixels"`
 }
 
 // Define the spritesheet structure
@@ -143,7 +148,7 @@ func loadSpritesheet() {
 func saveSpritesheet(g *myGame) error {
 	// Create the spritesheet structure following the PIGO8 format
 	var sheet spriteSheetData
-	
+
 	// Set the spritesheet dimensions
 	sheet.SpriteSheetColumns = spriteSheetCols
 	sheet.SpriteSheetRows = spriteSheetRows
@@ -230,7 +235,7 @@ func (m *myGame) Update() {
 			fmt.Println("Spritesheet saved to spritesheet.json")
 		}
 	}
-	
+
 	// Update popup timer
 	if m.showSavePopup {
 		m.popupTimer--
@@ -280,14 +285,20 @@ func (m *myGame) Update() {
 				newState := !currentState
 
 				// Apply the flag change to all selected sprites based on grid size
-				for r := 0; r < m.gridSize; r++ {
-					for c := 0; c < m.gridSize; c++ {
+				// If gridSize is less than 1, default to 1 to ensure at least one sprite is affected
+				effectiveGridSize := m.gridSize
+				if effectiveGridSize < 1 {
+					effectiveGridSize = 1
+				}
+
+				for r := 0; r < effectiveGridSize; r++ {
+					for c := 0; c < effectiveGridSize; c++ {
 						// Calculate the sprite position
 						sprRow := baseRow + r
 						sprCol := baseCol + c
 
 						// Make sure we don't go out of bounds
-						if sprRow < spriteSheetRows && sprCol < spriteSheetCols {
+						if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
 							// Set the flag to the new state
 							spriteFlags[sprRow][sprCol][i] = newState
 						}
@@ -362,14 +373,9 @@ func (m *myGame) Update() {
 			spriteIndex := sprRow*spriteSheetCols + sprCol
 			m.currentSprite = spriteIndex
 
-			// Load the selected sprite into the drawing grid
-			for r := range 8 {
-				for c := range 8 {
-					squareColors[r][c] = spritesheet[sprRow][sprCol][r][c]
-				}
-			}
-
-			// The flags will be automatically updated since we're using the currentSprite index
+			// Update the entire drawing canvas to reflect the new sprite selection
+			// This ensures all pixels (including transparent ones) are properly refreshed
+			updateDrawingCanvas(m)
 		}
 	}
 
@@ -405,6 +411,10 @@ func (m *myGame) Update() {
 			// Increase grid size: 1 (8x8) -> 2 (16x16) -> 4 (32x32)
 			// Limit to 4 (32x32) as the maximum grid size
 			if m.gridSize < 4 {
+				// Ensure grid size is at least 1 before multiplying
+				if m.gridSize < 1 {
+					m.gridSize = 1
+				}
 				m.gridSize *= 2
 				// Update the drawing canvas to show the selected sprites
 				updateDrawingCanvas(m)
@@ -415,6 +425,10 @@ func (m *myGame) Update() {
 			// Decrease grid size: 4 (32x32) -> 2 (16x16) -> 1 (8x8)
 			if m.gridSize > 1 {
 				m.gridSize /= 2
+				// Ensure grid size is never less than 1
+				if m.gridSize < 1 {
+					m.gridSize = 1
+				}
 				// Update the drawing canvas to show the selected sprites
 				updateDrawingCanvas(m)
 				// Update the last wheel time
@@ -545,7 +559,7 @@ func (g *myGame) Draw() {
 
 	// Draw the color palette below the checkboxes
 	g.drawPalette(gridStartX, gridEndY+40)
-	
+
 	// Draw the save popup if active
 	if g.showSavePopup {
 		g.drawSavePopup()
@@ -559,9 +573,9 @@ var (
 	spriteCellSize  = 8  // Size of each sprite cell in the spritesheet
 	spriteSheetCols = 32 // Number of columns in the spritesheet
 	spriteSheetRows = 24 // Number of rows in the spritesheet
-	
+
 	// Position of the spritesheet grid
-	spritesheetStartX = 150 // Position spritesheet more to the right
+	spritesheetStartX = 120 // Position spritesheet (adjusted 10px to the left)
 )
 
 var squareColors [64][64]int      // Up to 64x64 grid to store square colors
@@ -630,14 +644,20 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		allFalse := true
 
 		// Loop through all selected sprites based on grid size
-		for r := 0; r < g.gridSize; r++ {
-			for c := 0; c < g.gridSize; c++ {
+		// If gridSize is less than 1, default to 1 to ensure at least one sprite is checked
+		effectiveGridSize := g.gridSize
+		if effectiveGridSize < 1 {
+			effectiveGridSize = 1
+		}
+
+		for r := 0; r < effectiveGridSize; r++ {
+			for c := 0; c < effectiveGridSize; c++ {
 				// Calculate the sprite position
 				sprRow := baseRow + r
 				sprCol := baseCol + c
 
 				// Make sure we don't go out of bounds
-				if sprRow < spriteSheetRows && sprCol < spriteSheetCols {
+				if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
 					// Check flag state
 					if spriteFlags[sprRow][sprCol][i] {
 						allFalse = false // At least one is true
@@ -701,13 +721,13 @@ func (g *myGame) drawSavePopup() {
 	// Calculate the center of the screen
 	centerX := width * unit / 2
 	centerY := height * unit / 2
-	
+
 	// Calculate popup dimensions
 	popupWidth := 80
 	popupHeight := 30
 	popupX := centerX - popupWidth/2
 	popupY := centerY - popupHeight/2
-	
+
 	// Calculate fade effect based on timer (fade in and out)
 	fadeAlpha := 1.0
 	if g.popupTimer < 15 {
@@ -717,30 +737,30 @@ func (g *myGame) drawSavePopup() {
 		// Fade in during the first 15 frames
 		fadeAlpha = float64(60-g.popupTimer) / 15.0
 	}
-	
+
 	// Use fadeAlpha to determine popup visibility
 	// For PICO-8 style, we'll adjust the size of the popup based on the fade value
 	popupScaledWidth := int(float64(popupWidth) * fadeAlpha)
 	popupScaledHeight := int(float64(popupHeight) * fadeAlpha)
-	
+
 	// Recalculate popup position to keep it centered
 	popupX = centerX - popupScaledWidth/2
 	popupY = centerY - popupScaledHeight/2
-	
+
 	// Draw popup background with size based on fade value
 	p8.Rectfill(popupX, popupY, popupX+popupScaledWidth, popupY+popupScaledHeight, 0) // Black background
 	p8.Rect(popupX, popupY, popupX+popupScaledWidth, popupY+popupScaledHeight, 7)     // White border
-	
+
 	// Draw text
 	message := "SAVED!"
 	// Calculate text position to center it in the scaled popup
 	textX := popupX + popupScaledWidth/2 - len(message)*2
 	textY := popupY + popupScaledHeight/2 - 2
-	
+
 	// Scale text color based on fade alpha for a better effect
-	textColor := 7 // Default white text
+	textColor := 7   // Default white text
 	shadowColor := 1 // Default shadow color
-	
+
 	// Draw text with a shadow for better visibility
 	p8.Print(message, textX+1, textY+1, shadowColor) // Shadow
 	p8.Print(message, textX, textY, textColor)       // White text
@@ -761,17 +781,23 @@ func updateDrawingCanvas(g *myGame) {
 	}
 
 	// Copy the selected sprites to the drawing canvas
-	for gridRow := 0; gridRow < g.gridSize; gridRow++ {
-		for gridCol := 0; gridCol < g.gridSize; gridCol++ {
+	// If gridSize is less than 1, default to 1 to ensure at least one sprite is copied
+	effectiveGridSize := g.gridSize
+	if effectiveGridSize < 1 {
+		effectiveGridSize = 1
+	}
+
+	for gridRow := 0; gridRow < effectiveGridSize; gridRow++ {
+		for gridCol := 0; gridCol < effectiveGridSize; gridCol++ {
 			// Calculate the sprite position
 			sprRow := baseRow + gridRow
 			sprCol := baseCol + gridCol
 
 			// Make sure we don't go out of bounds
-			if sprRow < spriteSheetRows && sprCol < spriteSheetCols {
+			if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
 				// Copy this sprite's pixels to the appropriate section of the drawing canvas
-				for r := 0; r < 8; r++ {
-					for c := 0; c < 8; c++ {
+				for r := range 8 {
+					for c := range 8 {
 						// Calculate the position in the drawing canvas
 						drawRow := gridRow*8 + r
 						drawCol := gridCol*8 + c
