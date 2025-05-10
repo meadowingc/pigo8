@@ -11,12 +11,12 @@ import (
 
 // Embed the game-specific resources
 //
-//go:embed spritesheet.json
+//go:embed spritesheet.json palette.hex
 var resources embed.FS
 
 func init() {
 	// Register the embedded resources with PIGO8
-	p8.RegisterEmbeddedResources(resources, "spritesheet.json", "")
+	p8.RegisterEmbeddedResources(resources, "spritesheet.json", "", "palette.hex")
 
 	// Initialize audio player if audio files are present
 	if p8.GetAudioPlayer() != nil {

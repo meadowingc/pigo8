@@ -3,28 +3,23 @@
 //go:generate go run github.com/drpaneas/pigo8/cmd/embedgen -dir .
 package main
 
-import (
-	p8 "github.com/drpaneas/pigo8"
-)
+import p8 "github.com/drpaneas/pigo8"
 
 type myGame struct{}
 
-func (m *myGame) Init() {
-	p8.Palt(4, true)
-}
+func (m *myGame) Init() {}
 
-func (m *myGame) Update() {
-}
+func (m *myGame) Update() {}
 
 func (m *myGame) Draw() {
 	p8.Cls(0)
-	sx := 88
-	sy := 8
-	sw := 16
-	sh := 16
-	dx := 10
-	dy := 10
-	p8.Sspr(sx, sy, sw, sh, dx, dy)
+	p8.Spr(2, 20, 22)
+	p8.Spr(3, 28, 22)
+	p8.Spr(34, 20, 30)
+	p8.Spr(35, 28, 30)
+
+	p8.Sspr(16, 0, 16, 16, 50, 50)
+	p8.Sspr(64, 56, 32, 32, 80, 80)
 }
 
 func main() {
