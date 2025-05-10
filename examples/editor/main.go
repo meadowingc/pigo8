@@ -29,8 +29,24 @@ type myGame struct {
 	mapData       [320][320]int  // The map data - stores sprite indices
 
 	// Popup notification
-	showSavePopup bool // Whether to show the save popup
-	popupTimer    int  // Timer for the popup (in frames)
+	showSavePopup bool   // Whether to show the save popup
+	popupTimer    int    // Timer for the popup (in frames)
+	popupMessage  string // Message to show in the popup
+}
+
+type MapData struct {
+	Version     string    `json:"version"`
+	Description string    `json:"description"`
+	Width       int       `json:"width"`
+	Height      int       `json:"height"`
+	Name        string    `json:"name"`
+	Cells       []mapCell `json:"cells"`
+}
+
+type mapCell struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Sprite int `json:"sprite"`
 }
 
 func (m *myGame) Init() {
@@ -47,6 +63,11 @@ func (m *myGame) Init() {
 
 	// Initialize spritesheet (will also load from file if available)
 	initSpritesheet()
+
+	// Try to load map data from map.json
+	if err := m.loadMapData(); err != nil {
+		fmt.Println("No map.json found, starting with empty map")
+	}
 
 	m.currentColor = 8  // Default to color 8 (usually red in PICO-8 palette)
 	m.currentSprite = 1 // Default to first non-transparent sprite (sprite 0 is reserved)
@@ -239,6 +260,17 @@ func (m *myGame) Update() {
 
 	// Handle map mode controls
 	if m.mapMode {
+		// Save map when 'O' is pressed
+		if p8.Btnp(p8.O) {
+			if err := m.saveMapData(); err != nil {
+				fmt.Println("Error saving map:", err)
+				m.showPopup("Error saving map!")
+			} else {
+				fmt.Println("Map saved to map.json")
+				m.showPopup("Map saved!")
+			}
+		}
+
 		// Move camera with arrow keys (full screen = 16 sprites = 128 pixels)
 		if p8.Btnp(p8.LEFT) && m.mapCameraX > 0 {
 			m.mapCameraX -= 16 // Move left by one screen
@@ -265,55 +297,58 @@ func (m *myGame) Update() {
 			// Handle right click to erase (set to sprite 0)
 			if p8.Btn(p8.MouseRight) {
 				// Check if target position is within map bounds
-				if mapX >= 0 && mapX < 128 && mapY >= 0 && mapY < 128 {
+				if mapX >= 0 && mapX < 320 && mapY >= 0 && mapY < 320 {
 					p8.Mset(mapX, mapY, 0) // Set to sprite 0 (empty/transparent)
+					m.mapData[mapY][mapX] = 0 // Update internal map data
 				}
 				return
 			}
 
+			// Place sprite on left click
 			// Place sprite(s) on left click
 			if p8.Btn(p8.MouseLeft) {
-			// Calculate grid dimensions based on current grid size
-			gridWidth := 1
-			gridHeight := 1
-			switch m.gridSize {
-			case 2: // 16x16
-				gridWidth, gridHeight = 2, 2
-			case 4: // 32x32
-				gridWidth, gridHeight = 4, 4
-			}
+				// Calculate grid dimensions based on current grid size
+				gridWidth := 1
+				gridHeight := 1
+				switch m.gridSize {
+				case 2: // 16x16
+					gridWidth, gridHeight = 2, 2
+				case 4: // 32x32
+					gridWidth, gridHeight = 4, 4
+				}
 
-			// Calculate map coordinates from mouse position
-			mapX := m.mapCameraX + (mx - 10) / 8
-			mapY := m.mapCameraY + (my - 10) / 8
+				// Calculate map coordinates from mouse position
+				mapX := m.mapCameraX + (mx - 10) / 8
+				mapY := m.mapCameraY + (my - 10) / 8
 
-			// Get the base sprite (top-left of selection)
-			baseSprite := m.currentSprite
+				// Get the base sprite (top-left of selection)
+				baseSprite := m.currentSprite
 
-			// Place all sprites in the grid if they fit within map bounds
-			for dy := 0; dy < gridHeight; dy++ {
-				for dx := 0; dx < gridWidth; dx++ {
-					targetX := mapX + dx
-					targetY := mapY + dy
+				// Place all sprites in the grid if they fit within map bounds
+				for dy := 0; dy < gridHeight; dy++ {
+					for dx := 0; dx < gridWidth; dx++ {
+						targetX := mapX + dx
+						targetY := mapY + dy
 
-					// Check if target position is within map bounds
-					if targetX >= 0 && targetX < 128 && targetY >= 0 && targetY < 128 {
-						// Calculate base sprite's position in the spritesheet
-						baseRow := baseSprite / spriteSheetCols
-						baseCol := baseSprite % spriteSheetCols
+						// Check if target position is within map bounds
+						if targetX >= 0 && targetX < 320 && targetY >= 0 && targetY < 320 {
+							// Calculate base sprite's position in the spritesheet
+							baseRow := baseSprite / spriteSheetCols
+							baseCol := baseSprite % spriteSheetCols
 
-						// Calculate the correct sprite index based on position in grid
-						spriteRow := baseRow + dy
-						spriteCol := baseCol + dx
-						spriteIndex := spriteRow*spriteSheetCols + spriteCol
+							// Calculate the correct sprite index based on position in grid
+							spriteRow := baseRow + dy
+							spriteCol := baseCol + dx
+							spriteIndex := spriteRow*spriteSheetCols + spriteCol
 
-						// Place the sprite if it's within spritesheet bounds
-						if spriteRow < spriteSheetRows && spriteCol < spriteSheetCols {
-							p8.Mset(targetX, targetY, spriteIndex)
+							// Place the sprite if it's within spritesheet bounds
+							if spriteRow < spriteSheetRows && spriteCol < spriteSheetCols {
+								p8.Mset(targetX, targetY, spriteIndex)
+							}
+							m.mapData[targetY][targetX] = spriteIndex // Update internal map data
 						}
 					}
 				}
-			}
 			}
 		}
 
@@ -571,8 +606,6 @@ func (g *myGame) Draw() {
 			gridWidth, gridHeight = 4, 4
 		}
 
-
-
 		// Draw hover highlight for multi-sprite placement
 		hoverX := (mx - viewportX) / 8
 		hoverY := (my - viewportY) / 8
@@ -600,7 +633,7 @@ func (g *myGame) Draw() {
 		// Show current screen coordinates
 		screenX := g.mapCameraX / 16
 		screenY := g.mapCameraY / 16
-		p8.Print(fmt.Sprintf("Screen: %d,%d", screenX, screenY), 10, 142)
+		p8.Print(fmt.Sprintf("Screen: %d,%d", screenX, screenY), 10, 142, 7)
 
 		// Show mouse coordinates in map space
 		// Use existing mx, my from earlier in the function
@@ -608,11 +641,11 @@ func (g *myGame) Draw() {
 		mapY := g.mapCameraY + (my - viewportY) / 8
 		// Only show coordinates if mouse is within map bounds
 		if mx >= viewportX && mx < viewportX+128 && my >= viewportY && my < viewportY+128 {
-			p8.Print(fmt.Sprintf("Map: %d,%d", mapX, mapY), 100, 142)
+			p8.Print(fmt.Sprintf("Map: %d,%d", mapX, mapY), 100, 142, 7)
 			// Show sprite at current position
 			if mapX >= 0 && mapX < 128 && mapY >= 0 && mapY < 128 {
 				sprite := p8.Mget(mapX, mapY)
-				p8.Print(fmt.Sprintf("Sprite: %d", sprite), 190, 142)
+				p8.Print(fmt.Sprintf("Sprite: %d", sprite), 190, 142, 7)
 			}
 		}
 		return
@@ -658,7 +691,7 @@ func (g *myGame) Draw() {
 	// Display pixel coordinates if hovering over the grid
 	if g.hoverX >= 0 && g.hoverY >= 0 {
 		coordText := "pixel: (" + strconv.Itoa(g.hoverX) + "," + strconv.Itoa(g.hoverY) + ")"
-		p8.Print(coordText, gridStartX, gridStartY-10, 7)
+		p8.Print(coordText, gridStartX, gridStartY-10, 7,)
 	}
 
 	// Draw perimeter around the entire drawing grid
@@ -729,7 +762,7 @@ func (g *myGame) Draw() {
 		gridSizeText = "32x32"
 	}
 	p8.Print("spritesheet - sprite: "+strconv.Itoa(g.currentSprite)+" - grid: "+gridSizeText,
-		spritesheetStartX, spritesheetEndY+4, 7)
+		spritesheetStartX, spritesheetEndY+4, 7,)
 
 	// Draw the checkboxes for flags between the grid and the palette
 	g.drawCheckboxes(gridStartX, gridEndY+15)
@@ -871,11 +904,11 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		}
 
 		// Draw flag number
-		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, 7)
+		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, 7,)
 	}
 
 	// Draw label
-	p8.Print("flags", x, y-10, 7)
+	p8.Print("flags", x, y-10, 7,)
 }
 
 // drawPalette draws the color palette below the grid
@@ -906,56 +939,6 @@ func (g *myGame) drawPalette(x, y int) {
 	}
 }
 
-// drawSavePopup draws a popup notification when the spritesheet is saved
-func (g *myGame) drawSavePopup() {
-	// Calculate the center of the screen
-	centerX := width * unit / 2
-	centerY := height * unit / 2
-
-	// Calculate popup dimensions
-	popupWidth := 80
-	popupHeight := 30
-	popupX := centerX - popupWidth/2
-	popupY := centerY - popupHeight/2
-
-	// Calculate fade effect based on timer (fade in and out)
-	fadeAlpha := 1.0
-	if g.popupTimer < 15 {
-		// Fade out during the last 15 frames
-		fadeAlpha = float64(g.popupTimer) / 15.0
-	} else if g.popupTimer > 45 {
-		// Fade in during the first 15 frames
-		fadeAlpha = float64(60-g.popupTimer) / 15.0
-	}
-
-	// Use fadeAlpha to determine popup visibility
-	// For PICO-8 style, we'll adjust the size of the popup based on the fade value
-	popupScaledWidth := int(float64(popupWidth) * fadeAlpha)
-	popupScaledHeight := int(float64(popupHeight) * fadeAlpha)
-
-	// Recalculate popup position to keep it centered
-	popupX = centerX - popupScaledWidth/2
-	popupY = centerY - popupScaledHeight/2
-
-	// Draw popup background with size based on fade value
-	p8.Rectfill(popupX, popupY, popupX+popupScaledWidth, popupY+popupScaledHeight, 0) // Black background
-	p8.Rect(popupX, popupY, popupX+popupScaledWidth, popupY+popupScaledHeight, 7)     // White border
-
-	// Draw text
-	message := "SAVED!"
-	// Calculate text position to center it in the scaled popup
-	textX := popupX + popupScaledWidth/2 - len(message)*2
-	textY := popupY + popupScaledHeight/2 - 2
-
-	// Scale text color based on fade alpha for a better effect
-	textColor := 7   // Default white text
-	shadowColor := 1 // Default shadow color
-
-	// Draw text with a shadow for better visibility
-	p8.Print(message, textX+1, textY+1, shadowColor) // Shadow
-	p8.Print(message, textX, textY, textColor)       // White text
-}
-
 // updateDrawingCanvas updates the drawing canvas to show the selected sprites based on current grid size
 func updateDrawingCanvas(g *myGame) {
 	// Calculate the base sprite (top-left of the selection)
@@ -970,35 +953,165 @@ func updateDrawingCanvas(g *myGame) {
 		}
 	}
 
-	// Copy the selected sprites to the drawing canvas
-	// If gridSize is less than 1, default to 1 to ensure at least one sprite is copied
-	effectiveGridSize := g.gridSize
-	if effectiveGridSize < 1 {
-		effectiveGridSize = 1
+	// Calculate the number of sprites to show based on grid size
+	spritesPerRow := 1
+	spritesPerCol := 1
+	switch g.gridSize {
+	case 16:
+		spritesPerRow = 2
+		spritesPerCol = 2
+	case 32:
+		spritesPerRow = 4
+		spritesPerCol = 4
 	}
 
-	for gridRow := 0; gridRow < effectiveGridSize; gridRow++ {
-		for gridCol := 0; gridCol < effectiveGridSize; gridCol++ {
-			// Calculate the sprite position
-			sprRow := baseRow + gridRow
-			sprCol := baseCol + gridCol
+	// Update the drawing canvas for each selected sprite
+	for row := 0; row < spritesPerCol; row++ {
+		for col := 0; col < spritesPerRow; col++ {
+			// Calculate the sprite index for this position
+			spriteRow := baseRow + row
+			spriteCol := baseCol + col
+			spriteIndex := spriteRow*spriteSheetCols + spriteCol
 
-			// Make sure we don't go out of bounds
-			if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
-				// Copy this sprite's pixels to the appropriate section of the drawing canvas
-				for r := range 8 {
-					for c := range 8 {
-						// Calculate the position in the drawing canvas
-						drawRow := gridRow*8 + r
-						drawCol := gridCol*8 + c
+			// Skip if we're outside the spritesheet bounds
+			if spriteIndex >= spriteSheetCols*spriteSheetRows {
+				continue
+			}
 
-						// Copy the pixel
-						squareColors[drawRow][drawCol] = spritesheet[sprRow][sprCol][r][c]
-					}
+			// Copy the sprite's pixels to the drawing canvas
+			for pixelRow := 0; pixelRow < 8; pixelRow++ {
+				for pixelCol := 0; pixelCol < 8; pixelCol++ {
+					// Calculate the position in the drawing canvas
+					canvasRow := row*8 + pixelRow
+					canvasCol := col*8 + pixelCol
+
+					// Get the color from the sprite
+					color := p8.Sget(spriteCol*8+pixelCol, spriteRow*8+pixelRow)
+
+					// Update the drawing canvas
+					squareColors[canvasRow][canvasCol] = color
 				}
 			}
 		}
 	}
+}
+
+// drawSavePopup draws a popup notification
+func (m *myGame) drawSavePopup() {
+	if !m.showSavePopup {
+		return
+	}
+
+	// Calculate popup dimensions and position
+	popupWidth := 120
+	popupHeight := 30
+	popupX := (width*8 - popupWidth) / 2
+	popupY := (height*8 - popupHeight) / 2
+
+	// Draw popup background
+	p8.Rectfill(popupX-2, popupY-2, popupX+popupWidth+2, popupY+popupHeight+2, 0) // Black border
+	p8.Rectfill(popupX, popupY, popupX+popupWidth, popupY+popupHeight, 7)         // White background
+
+	// Draw text
+	textX := popupX + popupWidth/2
+	textY := popupY + popupHeight/2
+	p8.Print(m.popupMessage, textX-40, textY-3, 0) // Center the text
+	// Draw close button
+	closeX := popupX + popupWidth - 20
+	closeY := popupY + 5
+	p8.Rectfill(closeX, closeY, closeX+15, closeY+15, 8) // Red button
+	p8.Print("X", closeX+5, closeY+5, 7,)                 // White X
+
+	// Check for mouse click on close button
+	mx, my := p8.Mouse()
+	if p8.Btnp(p8.MouseLeft) {
+		if mx >= closeX && mx <= closeX+15 && my >= closeY && my <= closeY+15 {
+			m.showSavePopup = false
+		}
+	}
+}
+
+// showPopup displays a popup message for 120 frames (2 seconds)
+func (m *myGame) showPopup(message string) {
+	m.showSavePopup = true
+	m.popupTimer = 120
+	m.popupMessage = message
+}
+
+// saveMapData saves the current map to map.json
+func (m *myGame) saveMapData() error {
+	// Create a map data structure that matches PIGO8's format
+	mapData := MapData{
+		Version:     "1.0",
+		Description: "Map created with PIGO8 editor",
+		Width:       320,
+		Height:      320,
+		Name:        "map",
+		Cells:       []mapCell{},
+	}
+
+	// Convert our map data to PIGO8's format
+	for y := 0; y < 320; y++ {
+		for x := 0; x < 320; x++ {
+			sprite := m.mapData[y][x]
+			// Only save non-zero sprites to keep the file size smaller
+			if sprite != 0 {
+				mapData.Cells = append(mapData.Cells, mapCell{
+					X:      x,
+					Y:      y,
+					Sprite: sprite,
+				})
+			}
+		}
+	}
+
+	// Convert to JSON
+	data, err := json.MarshalIndent(mapData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling map data: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile("map.json", data, 0644); err != nil {
+		return fmt.Errorf("error writing map.json: %w", err)
+	}
+
+	return nil
+}
+
+// loadMapData loads the map from map.json if it exists
+func (m *myGame) loadMapData() error {
+	// Try to read the map file
+	data, err := os.ReadFile("map.json")
+	if err != nil {
+		return fmt.Errorf("error reading map.json: %w", err)
+	}
+
+	// Parse the JSON data
+	var mapData MapData
+	if err := json.Unmarshal(data, &mapData); err != nil {
+		return fmt.Errorf("error parsing map.json: %w", err)
+	}
+
+	// Initialize map with zeros
+	for y := range m.mapData {
+		for x := range m.mapData[y] {
+			m.mapData[y][x] = 0
+		}
+	}
+
+	// Load the cells into our map data
+	for _, cell := range mapData.Cells {
+		// Make sure coordinates are within bounds
+		if cell.X >= 0 && cell.X < 320 && cell.Y >= 0 && cell.Y < 320 {
+			m.mapData[cell.Y][cell.X] = cell.Sprite
+			// Also update the PIGO8 map
+			p8.Mset(cell.X, cell.Y, cell.Sprite)
+		}
+	}
+
+	fmt.Printf("Loaded map from map.json: %dx%d with %d cells\n", mapData.Width, mapData.Height, len(mapData.Cells))
+	return nil
 }
 
 func main() {
