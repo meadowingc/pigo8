@@ -4,8 +4,6 @@
 package main
 
 import (
-	"image/color"
-
 	p8 "github.com/drpaneas/pigo8"
 )
 
@@ -55,9 +53,6 @@ var items = []Entity{}
 type myGame struct{}
 
 func (m *myGame) Init() {
-	// Replace color 0
-	p8.SetPaletteColor(8, color.RGBA{100, 100, 100, 255})
-
 	player = NewEntity(1, -8, 59, 0.25, 1, 1, 5)
 	enemy1 := NewEntity(5, -20, 5, 0.1, 1.25, 5, 9)
 	enemy2 := NewEntity(9, -14, 30, 0.2, 0.4, 9, 13)

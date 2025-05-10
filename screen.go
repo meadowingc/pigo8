@@ -89,6 +89,29 @@ func Cls(colorIndex ...int) {
 	cursorY = 0
 }
 
+// ClsRGBA clears the current drawing screen with a specified RGBA color.
+// Uses the internal `currentScreen` variable set by the engine.
+// This provides more flexibility than the standard Cls function by allowing
+// any RGBA color to be used, not just those in the PICO-8 palette.
+//
+// Example:
+//
+//	ClsRGBA(color.RGBA{R: 100, G: 150, B: 200, A: 255}) // Clear with a custom blue color
+//	ClsRGBA(color.RGBA{}) // Clear with transparent black (all zeros)
+func ClsRGBA(clr color.RGBA) {
+	if currentScreen == nil {
+		log.Println("Warning: ClsRGBA() called before screen was ready.")
+		return
+	}
+
+	// Fill the screen with the provided RGBA color
+	currentScreen.Fill(clr)
+
+	// Reset the global print cursor position
+	cursorX = 0
+	cursorY = 0
+}
+
 // Pget returns the PICO-8 color index (0-15) of the pixel at coordinates (x, y)
 // on the current drawing screen.
 // Uses the internal `currentScreen` variable.
