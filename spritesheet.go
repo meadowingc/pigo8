@@ -100,13 +100,13 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		// Return empty slice, not necessarily an error
 		return []SpriteInfo{}, nil
 	}
-	
+
 	// Check for custom spritesheet dimensions in the JSON file
 	if sheet.SpriteSheetColumns > 0 && sheet.SpriteSheetRows > 0 {
 		// Update the global sprite sheet dimensions
 		SpritesheetColumns = sheet.SpriteSheetColumns
 		SpritesheetRows = sheet.SpriteSheetRows
-		
+
 		// If width and height are specified, use them directly
 		if sheet.SpriteSheetWidth > 0 && sheet.SpriteSheetHeight > 0 {
 			SpritesheetWidth = sheet.SpriteSheetWidth
@@ -116,7 +116,7 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 			SpritesheetWidth = SpritesheetColumns * 8
 			SpritesheetHeight = SpritesheetRows * 8
 		}
-		
+
 		log.Printf("Custom spritesheet dimensions detected: %dx%d sprites (%dx%d pixels)",
 			SpritesheetColumns, SpritesheetRows, SpritesheetWidth, SpritesheetHeight)
 	}

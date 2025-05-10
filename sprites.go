@@ -297,8 +297,8 @@ func Sget[X Number, Y Number](x X, y Y) int {
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8                        // Determine which sprite column contains the pixel
-	spriteY := py / 8                        // Determine which sprite row contains the pixel
+	spriteX := px / 8                                   // Determine which sprite column contains the pixel
+	spriteY := py / 8                                   // Determine which sprite row contains the pixel
 	spriteCellID := calculateSpriteID(spriteX, spriteY) // Calculate sprite ID based on dynamic dimensions
 
 	// Calculate the pixel position within the sprite
@@ -606,8 +606,8 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 	// In PICO-8, sprites are arranged in a grid on the spritesheet
 	// Each sprite is 8x8 pixels, and the spritesheet is 128x128 pixels (16x16 sprites)
 	// Find which sprite contains the specified pixel coordinates
-	spriteX := px / 8                        // Determine which sprite column contains the pixel
-	spriteY := py / 8                        // Determine which sprite row contains the pixel
+	spriteX := px / 8                                   // Determine which sprite column contains the pixel
+	spriteY := py / 8                                   // Determine which sprite row contains the pixel
 	spriteCellID := calculateSpriteID(spriteX, spriteY) // Calculate sprite ID based on dynamic dimensions
 
 	// Calculate the pixel position within the sprite
@@ -732,7 +732,7 @@ func parseSsprOptions(options []any, sourceWidth, sourceHeight int) (destWidth, 
 func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *ebiten.Image {
 	// Create a temporary image for the source region with transparency
 	sourceImage := ebiten.NewImage(sourceWidth, sourceHeight)
-	
+
 	// Clear the image with transparent color
 	sourceImage.Fill(color.RGBA{0, 0, 0, 0})
 
