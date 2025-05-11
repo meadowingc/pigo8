@@ -143,148 +143,123 @@ type spriteSheetData struct {
 	Sprites            []spriteData `json:"sprites"`
 }
 
+// convertSpriteToData converts a sprite at the given row and column to PIGO8's spriteData format
+func convertSpriteToData(row, col int) spriteData {
+	// Calculate sprite index
+	spriteIndex := row*spriteSheetCols + col
+
+	// Create a new sprite
+	sprite := spriteData{
+		ID:     spriteIndex,
+		X:      col * 8,
+		Y:      row * 8,
+		Width:  8,
+		Height: 8,
+		Used:   true, // Mark all sprites as used
+		Flags: p8.FlagsData{
+			Bitfield:   0, // Will be calculated below
+			Individual: make([]bool, 8),
+		},
+		Pixels: make([][]int, 8),
+	}
+
+	// Fill in the flags
+	bitfield := 0
+	for i := 0; i < 8; i++ {
+		flagValue := spriteFlags[row][col][i]
+		sprite.Flags.Individual[i] = flagValue
+		if flagValue {
+			bitfield |= 1 << i
+		}
+	}
+	sprite.Flags.Bitfield = bitfield
+
+	// Initialize pixel data
+	for r := 0; r < 8; r++ {
+		sprite.Pixels[r] = make([]int, 8)
+		for c := 0; c < 8; c++ {
+			sprite.Pixels[r][c] = spritesheet[row][col][r][c]
+		}
+	}
+
+	return sprite
+}
+
+// applySpriteData applies PIGO8's spriteData format to the spritesheet at the given position
+func applySpriteData(sprite spriteData) {
+	// Calculate row and column from sprite ID
+	row := sprite.ID / spriteSheetCols
+	col := sprite.ID % spriteSheetCols
+
+	// Make sure the sprite is within bounds
+	if row >= 0 && row < spriteSheetRows && col >= 0 && col < spriteSheetCols {
+		// Load pixel data
+		for r := range 8 {
+			for c := range 8 {
+				// Make sure we have pixel data for this position
+				if r < len(sprite.Pixels) && c < len(sprite.Pixels[r]) {
+					spritesheet[row][col][r][c] = sprite.Pixels[r][c]
+				}
+			}
+		}
+
+		// Load flag data
+		for i := range 8 {
+			if i < len(sprite.Flags.Individual) {
+				// Get the flag value from the individual array
+				flagValue := sprite.Flags.Individual[i]
+				// Store it in the spriteFlags array
+				spriteFlags[row][col][i] = flagValue
+			}
+		}
+	}
+}
+
 // loadSpritesheet loads the spritesheet from spritesheet.json if it exists
-func loadSpritesheet() {
+func loadSpritesheet() error {
 	// Check if spritesheet.json exists
 	data, err := os.ReadFile("spritesheet.json")
 	if err != nil {
 		// File doesn't exist or can't be read, just use the default empty spritesheet
 		fmt.Println("No spritesheet.json found, using empty spritesheet")
-		return
+		return err
 	}
 
 	// Parse the JSON data
 	var sheet spriteSheetData
 	err = json.Unmarshal(data, &sheet)
 	if err != nil {
-		fmt.Println("Error parsing spritesheet.json:", err)
-		return
-	}
-
-	// Check if the spritesheet has custom dimensions
-	if sheet.SpriteSheetColumns > 0 && sheet.SpriteSheetRows > 0 {
-		// Update the global variables with the dimensions from the JSON file
-		spriteSheetCols = sheet.SpriteSheetColumns
-		spriteSheetRows = sheet.SpriteSheetRows
-		fmt.Printf("Loaded custom spritesheet dimensions: %dx%d sprites (%dx%d pixels)\n",
-			spriteSheetCols, spriteSheetRows, sheet.SpriteSheetWidth, sheet.SpriteSheetHeight)
+		return fmt.Errorf("error parsing spritesheet.json: %w", err)
 	}
 
 	// Load the sprites into the spritesheet
 	for _, sprite := range sheet.Sprites {
-		// Calculate row and column from sprite ID
-		row := sprite.ID / spriteSheetCols
-		col := sprite.ID % spriteSheetCols
-
-		// Make sure the sprite is within bounds
-		if row >= 0 && row < spriteSheetRows && col >= 0 && col < spriteSheetCols {
-			// Load pixel data
-			for r := range 8 {
-				for c := range 8 {
-					// Make sure we have pixel data for this position
-					if r < len(sprite.Pixels) && c < len(sprite.Pixels[r]) {
-						spritesheet[row][col][r][c] = sprite.Pixels[r][c]
-					}
-				}
-			}
-
-			// Load flag data
-			for i := range 8 {
-				if i < len(sprite.Flags.Individual) {
-					// Get the flag value from the individual array
-					flagValue := sprite.Flags.Individual[i]
-					// Store it in the spriteFlags array
-					spriteFlags[row][col][i] = flagValue
-				}
-			}
-		}
+		applySpriteData(sprite)
 	}
 
 	fmt.Println("Loaded spritesheet from spritesheet.json")
+	return nil
 }
 
 // saveSpritesheet saves the current spritesheet to a JSON file
 func saveSpritesheet(g *myGame) error {
 	// Create the spritesheet structure following the PIGO8 format
-	var sheet spriteSheetData
+	sheet := spriteSheetData{
+		SpriteSheetColumns: spriteSheetCols,
+		SpriteSheetRows:    spriteSheetRows,
+		SpriteSheetWidth:   spriteSheetCols * 8,  // Each sprite is 8x8 pixels
+		SpriteSheetHeight:  spriteSheetRows * 8, // Each sprite is 8x8 pixels
+		Sprites:            make([]spriteData, 0, spriteSheetRows*spriteSheetCols),
+	}
 
-	// Set the spritesheet dimensions
-	sheet.SpriteSheetColumns = spriteSheetCols
-	sheet.SpriteSheetRows = spriteSheetRows
-	sheet.SpriteSheetWidth = spriteSheetCols * 8  // Each sprite is 8x8 pixels
-	sheet.SpriteSheetHeight = spriteSheetRows * 8 // Each sprite is 8x8 pixels
-
-	// Initialize the sprites slice with the correct capacity
-	sprites := make([]spriteData, spriteSheetRows*spriteSheetCols)
-
-	// Create all sprites first
+	// Convert all sprites
 	for row := 0; row < spriteSheetRows; row++ {
 		for col := 0; col < spriteSheetCols; col++ {
-			// Calculate sprite index
-			spriteIndex := row*spriteSheetCols + col
-
-			// Create a new sprite
-			sprite := spriteData{
-				ID:     spriteIndex,
-				X:      col * 8,
-				Y:      row * 8,
-				Width:  8,
-				Height: 8,
-				Used:   true, // Mark all sprites as used
-				Flags: p8.FlagsData{
-					Bitfield:   0, // Will be calculated below
-					Individual: make([]bool, 8),
-				},
-				Pixels: make([][]int, 8),
-			}
-
-			// Fill in the flags
-			bitfield := 0
-			for i := 0; i < 8; i++ {
-				flagValue := spriteFlags[row][col][i]
-				sprite.Flags.Individual[i] = flagValue
-				if flagValue {
-					bitfield |= 1 << i
-				}
-			}
-			sprite.Flags.Bitfield = bitfield
-
-			// Initialize pixel arrays
-			for r := 0; r < 8; r++ {
-				sprite.Pixels[r] = make([]int, 8)
-			}
-
-			// Add the sprite to the sprites slice
-			sprites[spriteIndex] = sprite
+			sheet.Sprites = append(sheet.Sprites, convertSpriteToData(row, col))
 		}
 	}
 
-	// Fill in pixel data
-	forEachSpritePixel(func(row, col, r, c int) {
-		spriteIndex := row*spriteSheetCols + col
-		sprites[spriteIndex].Pixels[r][c] = spritesheet[row][col][r][c]
-	})
-
-	// Assign the sprites to the sheet
-	sheet.Sprites = sprites
-
-	// Marshal the sheet to JSON
-	data, err := json.MarshalIndent(sheet, "", "    ")
-	if err != nil {
-		return fmt.Errorf("error marshalling spritesheet: %w", err)
-	}
-
-	// Write the JSON to a file
-	err = os.WriteFile("spritesheet.json", data, 0644)
-	if err != nil {
-		return fmt.Errorf("error writing spritesheet.json: %w", err)
-	}
-
-	// Trigger the save popup notification
-	g.showSavePopup = true
-	g.popupTimer = 60 // Show for about 1 second (60 frames at 60fps)
-
-	return nil
+	return saveJSONToFile("spritesheet.json", sheet)
 }
 
 func (m *myGame) Update() {
@@ -858,16 +833,22 @@ func initSquareColors() {
 
 func initSpritesheet() {
 	// Try to load the spritesheet from a file
-	loadSpritesheet()
-
-	// Initialize the spritesheet with default values if needed
-	forEachSpritePixel(func(row, col, r, c int) {
-		// Initialize with transparent color (0)
-		spritesheet[row][col][r][c] = 0
-	})
+	if err := loadSpritesheet(); err != nil {
+		// Only initialize with transparent colors if loading failed
+		forEachSpritePixel(func(row, col, r, c int) {
+			// Initialize with transparent color (0)
+			spritesheet[row][col][r][c] = 0
+		})
+	}
 	
-	// Initialize the spritesheet in PIGO8 to ensure sprites exist
-	initPico8Spritesheet()
+	// Initialize the spritesheet in PIGO8 with our current data
+	forEachSpritePixel(func(row, col, r, c int) {
+		// Calculate the absolute pixel position
+		px := col*8 + c
+		py := row*8 + r
+		// Set the pixel color in PIGO8
+		p8.Sset(px, py, spritesheet[row][col][r][c])
+	})
 }
 
 func initPico8Spritesheet() {
@@ -1131,9 +1112,40 @@ func (m *myGame) showPopup(message string) {
 	m.popupMessage = message
 }
 
-// saveMapData saves the current map to map.json
-func (m *myGame) saveMapData() error {
-	// Create a map data structure that matches PIGO8's format
+// saveJSONToFile saves any data structure to a JSON file with proper indentation
+func saveJSONToFile(filename string, data interface{}) error {
+	// Convert to JSON with indentation
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling data: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile(filename, jsonData, 0644); err != nil {
+		return fmt.Errorf("error writing %s: %w", filename, err)
+	}
+
+	return nil
+}
+
+// loadJSONFromFile loads a JSON file into the provided data structure
+func loadJSONFromFile(filename string, data interface{}) error {
+	// Read the file
+	jsonData, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %w", filename, err)
+	}
+
+	// Parse the JSON data
+	if err := json.Unmarshal(jsonData, data); err != nil {
+		return fmt.Errorf("error parsing %s: %w", filename, err)
+	}
+
+	return nil
+}
+
+// convertMapToData converts the game's map data to the PIGO8 MapData format
+func (m *myGame) convertMapToData() MapData {
 	mapData := MapData{
 		Version:     "1.0",
 		Description: "Map created with PIGO8 editor",
@@ -1158,34 +1170,11 @@ func (m *myGame) saveMapData() error {
 		}
 	}
 
-	// Convert to JSON
-	data, err := json.MarshalIndent(mapData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling map data: %w", err)
-	}
-
-	// Write to file
-	if err := os.WriteFile("map.json", data, 0644); err != nil {
-		return fmt.Errorf("error writing map.json: %w", err)
-	}
-
-	return nil
+	return mapData
 }
 
-// loadMapData loads the map from map.json if it exists
-func (m *myGame) loadMapData() error {
-	// Try to read the map file
-	data, err := os.ReadFile("map.json")
-	if err != nil {
-		return fmt.Errorf("error reading map.json: %w", err)
-	}
-
-	// Parse the JSON data
-	var mapData MapData
-	if err := json.Unmarshal(data, &mapData); err != nil {
-		return fmt.Errorf("error parsing map.json: %w", err)
-	}
-
+// applyMapData applies the PIGO8 MapData format to the game's map
+func (m *myGame) applyMapData(mapData MapData) {
 	// Initialize map with zeros
 	for y := range m.mapData {
 		for x := range m.mapData[y] {
@@ -1203,7 +1192,23 @@ func (m *myGame) loadMapData() error {
 		}
 	}
 
-	fmt.Printf("Loaded map from map.json: %dx%d with %d cells\n", mapData.Width, mapData.Height, len(mapData.Cells))
+	fmt.Printf("Loaded map: %dx%d with %d cells\n", mapData.Width, mapData.Height, len(mapData.Cells))
+}
+
+// saveMapData saves the current map to map.json
+func (m *myGame) saveMapData() error {
+	mapData := m.convertMapToData()
+	return saveJSONToFile("map.json", mapData)
+}
+
+// loadMapData loads the map from map.json if it exists
+func (m *myGame) loadMapData() error {
+	var mapData MapData
+	if err := loadJSONFromFile("map.json", &mapData); err != nil {
+		return err
+	}
+
+	m.applyMapData(mapData)
 	return nil
 }
 
