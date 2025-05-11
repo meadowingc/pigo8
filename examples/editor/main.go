@@ -64,6 +64,27 @@ func forEachSpritePixel(fn func(row, col, r, c int)) {
 	}
 }
 
+// forEachSelectedSprite iterates over each sprite in the current selection grid
+// and calls the provided function with the sprite's row and column coordinates
+func (g *myGame) forEachSelectedSprite(fn func(row, col int)) {
+	baseRow := g.currentSprite / spriteSheetCols
+	baseCol := g.currentSprite % spriteSheetCols
+	size := g.gridSize
+	if size < 1 {
+		size = 1
+	}
+	for r := 0; r < size; r++ {
+		for c := 0; c < size; c++ {
+			sprRow := baseRow + r
+			sprCol := baseCol + c
+			// Make sure we don't go out of bounds
+			if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
+				fn(sprRow, sprCol)
+			}
+		}
+	}
+}
+
 func (m *myGame) Init() {
 	initSquareColors()
 
@@ -968,11 +989,6 @@ func setSquareColor(row, col, color int) {
 func (g *myGame) drawCheckboxes(x, y int) {
 	checkboxSize := 8 // Smaller checkboxes
 
-	// Calculate the base sprite (top-left of the selection)
-	baseSprite := g.currentSprite
-	baseRow := baseSprite / spriteSheetCols
-	baseCol := baseSprite % spriteSheetCols
-
 	// Draw 8 checkboxes in a row
 	for i := range 8 {
 		checkboxX := x + i*checkboxSize*3/2 // Space them out a bit
@@ -985,30 +1001,14 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		allTrue := true
 		allFalse := true
 
-		// Loop through all selected sprites based on grid size
-		// If gridSize is less than 1, default to 1 to ensure at least one sprite is checked
-		effectiveGridSize := g.gridSize
-		if effectiveGridSize < 1 {
-			effectiveGridSize = 1
-		}
-
-		for r := 0; r < effectiveGridSize; r++ {
-			for c := 0; c < effectiveGridSize; c++ {
-				// Calculate the sprite position
-				sprRow := baseRow + r
-				sprCol := baseCol + c
-
-				// Make sure we don't go out of bounds
-				if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
-					// Check flag state
-					if spriteFlags[sprRow][sprCol][i] {
-						allFalse = false // At least one is true
-					} else {
-						allTrue = false // At least one is false
-					}
-				}
+		// Check flag state for all selected sprites
+		g.forEachSelectedSprite(func(sprRow, sprCol int) {
+			if spriteFlags[sprRow][sprCol][i] {
+				allFalse = false // At least one is true
+			} else {
+				allTrue = false // At least one is false
 			}
-		}
+		})
 
 		// Fill the checkbox based on state
 		if allTrue {
@@ -1060,59 +1060,33 @@ func (g *myGame) drawPalette(x, y int) {
 
 // updateDrawingCanvas updates the drawing canvas to show the selected sprites based on current grid size
 func updateDrawingCanvas(g *myGame) {
-	// Calculate the base sprite (top-left of the selection)
-	baseSprite := g.currentSprite
-	baseRow := baseSprite / spriteSheetCols
-	baseCol := baseSprite % spriteSheetCols
-
 	// Clear the drawing canvas
-	for row := range 64 {
-		for col := range 64 {
+	for row := 0; row < 64; row++ {
+		for col := 0; col < 64; col++ {
 			squareColors[row][col] = 0
 		}
 	}
 
-	// Calculate the number of sprites to show based on grid size
-	spritesPerRow := 1
-	spritesPerCol := 1
-	switch g.gridSize {
-	case 2: // 16x16
-		spritesPerRow = 2
-		spritesPerCol = 2
-	case 4: // 32x32
-		spritesPerRow = 4
-		spritesPerCol = 4
-	}
+	// Copy the sprites to the drawing canvas
+	g.forEachSelectedSprite(func(srcRow, srcCol int) {
+		// Calculate relative position from base sprite
+		baseRow := g.currentSprite / spriteSheetCols
+		baseCol := g.currentSprite % spriteSheetCols
+		r := srcRow - baseRow
+		c := srcCol - baseCol
 
-	// Update the drawing canvas for each selected sprite
-	for row := 0; row < spritesPerCol; row++ {
-		for col := 0; col < spritesPerRow; col++ {
-			// Calculate the sprite index for this position
-			spriteRow := baseRow + row
-			spriteCol := baseCol + col
-			spriteIndex := spriteRow*spriteSheetCols + spriteCol
+		// Copy the sprite to the drawing canvas
+		for pixelRow := 0; pixelRow < 8; pixelRow++ {
+			for pixelCol := 0; pixelCol < 8; pixelCol++ {
+				// Calculate destination position in drawing canvas
+				dstRow := r*8 + pixelRow
+				dstCol := c*8 + pixelCol
 
-			// Skip if we're outside the spritesheet bounds
-			if spriteIndex >= spriteSheetCols*spriteSheetRows {
-				continue
-			}
-
-			// Copy the sprite's pixels to the drawing canvas
-			for pixelRow := 0; pixelRow < 8; pixelRow++ {
-				for pixelCol := 0; pixelCol < 8; pixelCol++ {
-					// Calculate the position in the drawing canvas
-					canvasRow := row*8 + pixelRow
-					canvasCol := col*8 + pixelCol
-
-					// Get the color from the sprite
-					color := p8.Sget(spriteCol*8+pixelCol, spriteRow*8+pixelRow)
-
-					// Update the drawing canvas
-					squareColors[canvasRow][canvasCol] = color
-				}
+				// Copy the pixel
+				squareColors[dstRow][dstCol] = spritesheet[srcRow][srcCol][pixelRow][pixelCol]
 			}
 		}
-	}
+	})
 }
 
 // drawSavePopup draws a popup notification
