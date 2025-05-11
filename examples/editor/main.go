@@ -82,12 +82,8 @@ func (m *myGame) Init() {
 	}
 	m.lastWheelTime = 0 // Initialize wheel time
 
-	// Initialize the first sprite with the drawing canvas
-	for row := range 8 {
-		for col := range 8 {
-			squareColors[row][col] = spritesheet[0][0][row][col] // Load from first sprite
-		}
-	}
+	// Initialize the drawing canvas with the default sprite (1)
+	updateDrawingCanvas(m)
 }
 
 // Define the sprite structure to match PIGO8's format
@@ -482,12 +478,18 @@ func (m *myGame) Update() {
 				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = m.currentColor // Set color in the sprite
 				// Update the sprite in PIGO8
 				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, m.currentColor)
+				// Update any map tiles using this sprite
+				spriteIndex := sprRow*spriteSheetCols + sprCol
+				updateMapSprites(spriteIndex)
 			} else if p8.Btn(p8.MouseRight) { // Right mouse button
 				// Update both the visible drawing grid and the selected sprite
 				setSquareColor(row, col, 0)                                     // Reset color in the visible grid
 				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = 0 // Reset color in the sprite
 				// Update the sprite in PIGO8
 				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, 0)
+				// Update any map tiles using this sprite
+				spriteIndex := sprRow*spriteSheetCols + sprCol
+				updateMapSprites(spriteIndex)
 			}
 		}
 	} else {
@@ -657,6 +659,9 @@ func (g *myGame) Draw() {
 		}
 		return
 	}
+
+	// Ensure drawing canvas is up to date
+	updateDrawingCanvas(g)
 
 	// Calculate drawing grid boundaries
 	gridStartX := 10
@@ -966,10 +971,10 @@ func updateDrawingCanvas(g *myGame) {
 	spritesPerRow := 1
 	spritesPerCol := 1
 	switch g.gridSize {
-	case 16:
+	case 2: // 16x16
 		spritesPerRow = 2
 		spritesPerCol = 2
-	case 32:
+	case 4: // 32x32
 		spritesPerRow = 4
 		spritesPerCol = 4
 	}
