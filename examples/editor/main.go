@@ -994,11 +994,18 @@ func (g *myGame) handleEditorMode() {
 }
 
 func (g *myGame) toggleSpriteFlags(mx, my int) {
-	const baseX, baseY, size = 10, 10 + 8*12 - 2, 8
+	// Use the same coordinates and size as in drawCheckboxes
+	const checkboxSize = 8
+	const offset = 15 // Match the offset from drawSelectionAndPalette
+
+	// Get the same base coordinates used in drawCheckboxes
+	baseX := 10
+	baseY := 10 + 8*12 - 2 + offset // Add the offset to match drawCheckboxes position
+
 	for i := 0; i < 8; i++ {
-		x := baseX + i*size*3/2
-		y := baseY
-		if mx >= x && mx < x+size && my >= y && my < y+size && p8.Btnp(p8.MouseLeft) {
+		checkboxX := baseX + i*checkboxSize*3/2
+		checkboxY := baseY
+		if mx >= checkboxX && mx < checkboxX+checkboxSize && my >= checkboxY && my < checkboxY+checkboxSize && p8.Btnp(p8.MouseLeft) {
 			g.toggleFlagAtIndex(i)
 		}
 	}
