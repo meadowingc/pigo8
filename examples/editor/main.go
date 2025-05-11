@@ -119,6 +119,7 @@ func (g *myGame) Init() {
 	initSpritesheet()
 
 	// Try to load map data from map.json
+	hasFirstTryWorked := false
 	if err := g.loadMapData(); err != nil {
 		fmt.Println("No map.json found, starting with empty map")
 		// Everytime you get out of map mode, save the map
@@ -128,11 +129,15 @@ func (g *myGame) Init() {
 			os.Exit(1)
 		}
 		fmt.Println("Map saved to map.json")
+	} else {
+		hasFirstTryWorked = true
 	}
 
-	if err := g.loadMapData(); err != nil {
-		fmt.Println("Could not create map.json")
-		os.Exit(1)
+	if !hasFirstTryWorked {
+		if err := g.loadMapData(); err != nil {
+			fmt.Println("Could not create map.json")
+			os.Exit(1)
+		}
 	}
 
 	g.currentColor = defaultColor // Default color (usually red in PICO-8 palette)
@@ -290,330 +295,6 @@ func saveSpritesheet() error {
 	}
 
 	return saveJSONToFile("spritesheet.json", sheet)
-}
-
-func (g *myGame) Update() {
-	// Check if 'X' button is pressed to switch to map mode
-	if p8.Btnp(p8.X) {
-		g.mapMode = !g.mapMode
-
-		if g.mapMode {
-			// Everytie you get into map mode, save the spritesheet
-			err := saveSpritesheet()
-			if err != nil {
-				fmt.Println("Error saving spritesheet:", err)
-				os.Exit(1)
-			}
-			// fmt.Println("Spritesheet saved to spritesheet.json")
-		} else {
-			// Everytime you get out of map mode, save the map
-			err := g.saveMapData()
-			if err != nil {
-				fmt.Println("Error saving map:", err)
-				os.Exit(1)
-			}
-			// fmt.Println("Map saved to map.json")
-		}
-	}
-
-	// Handle map mode controls
-	if g.mapMode {
-
-		// Move camera with arrow keys (full screen = 16 sprites = 128 pixels)
-		visibleSpritesX := mapViewWidth / unit
-		if p8.Btnp(p8.LEFT) && g.mapCameraX > 0 {
-			g.mapCameraX -= visibleSpritesX // Move left by one screen
-		}
-		if p8.Btnp(p8.RIGHT) && g.mapCameraX < mapWidth-visibleSpritesX {
-			g.mapCameraX += visibleSpritesX // Move right by one screen
-		}
-		visibleSpritesY := mapViewHeight / unit
-		if p8.Btnp(p8.UP) && g.mapCameraY > 0 {
-			g.mapCameraY -= visibleSpritesY // Move up by one screen
-		}
-		if p8.Btnp(p8.DOWN) && g.mapCameraY < mapHeight-visibleSpritesY {
-			g.mapCameraY += visibleSpritesY // Move down by one screen
-		}
-
-		// Handle sprite placement
-		mx, my := p8.Mouse()
-
-		// Check if mouse is within map bounds
-		if mx >= 10 && mx < 10+mapViewWidth && my >= 10 && my < 10+mapViewHeight {
-			// Calculate map coordinates from mouse position
-			mapX := g.mapCameraX + (mx-10)/8
-			mapY := g.mapCameraY + (my-10)/8
-
-			// Handle right click to erase (set to sprite 0)
-			if p8.Btn(p8.MouseRight) {
-				// Check if target position is within map bounds
-				if mapX >= 0 && mapX < 320 && mapY >= 0 && mapY < 320 {
-					p8.Mset(mapX, mapY, 0)    // Set to sprite 0 (empty/transparent)
-					g.mapData[mapY][mapX] = 0 // Update internal map data
-				}
-				return
-			}
-
-			// Place sprite on left click
-			// Place sprite(s) on left click
-			if p8.Btn(p8.MouseLeft) {
-				// Calculate grid dimensions based on current grid size
-				gridWidth := 1
-				gridHeight := 1
-				switch g.gridSize {
-				case 2: // 16x16
-					gridWidth, gridHeight = 2, 2
-				case 4: // 32x32
-					gridWidth, gridHeight = 4, 4
-				}
-
-				// Calculate map coordinates from mouse position
-				mapX := g.mapCameraX + (mx-10)/8
-				mapY := g.mapCameraY + (my-10)/8
-
-				// Get the base sprite (top-left of selection)
-				baseSprite := g.currentSprite
-
-				// Place all sprites in the grid if they fit within map bounds
-				for dy := 0; dy < gridHeight; dy++ {
-					for dx := 0; dx < gridWidth; dx++ {
-						targetX := mapX + dx
-						targetY := mapY + dy
-
-						// Check if target position is within map bounds
-						if targetX >= 0 && targetX < 320 && targetY >= 0 && targetY < 320 {
-							// Calculate base sprite's position in the spritesheet
-							baseRow := baseSprite / spriteSheetCols
-							baseCol := baseSprite % spriteSheetCols
-
-							// Calculate the correct sprite index based on position in grid
-							spriteRow := baseRow + dy
-							spriteCol := baseCol + dx
-							spriteIndex := spriteRow*spriteSheetCols + spriteCol
-
-							// Place the sprite if it's within spritesheet bounds
-							if spriteRow < spriteSheetRows && spriteCol < spriteSheetCols {
-								p8.Mset(targetX, targetY, spriteIndex)
-							}
-							g.mapData[targetY][targetX] = spriteIndex // Update internal map data
-						}
-					}
-				}
-			}
-		}
-
-		return // Skip rest of update when in map mode
-	}
-
-	// Get mouse position
-	mx, my := p8.Mouse()
-
-	// Calculate draw grid boundaries for reference
-	gridStartX := 10
-	gridStartY := 10
-	gridEndY := gridStartY + 8*12 - 2
-
-	// Calculate spritesheet grid boundaries
-	// Using global spritesheetStartX variable
-	spritesheetStartY := 10
-	// We don't need these variables in Update, but they're used in Draw
-	// spritesheetEndX := spritesheetStartX + spriteSheetCols*spriteCellSize
-	// spritesheetEndY := spritesheetStartY + spriteSheetRows*spriteCellSize
-
-	// Calculate checkbox area boundaries
-	checkboxStartY := gridEndY + 15
-	checkboxSize := 8 // Smaller checkboxes
-
-	// Check if mouse is over the checkboxes
-	for i := range 8 {
-		checkboxX := gridStartX + i*checkboxSize*3/2 // Space them out a bit
-		checkboxY := checkboxStartY
-
-		// Check if mouse is over this checkbox
-		if mx >= checkboxX && mx < checkboxX+checkboxSize &&
-			my >= checkboxY && my < checkboxY+checkboxSize {
-
-			// If left mouse button is clicked, toggle the flag
-			if p8.Btnp(p8.MouseLeft) {
-				// Calculate the base sprite (top-left of the selection)
-				baseSprite := g.currentSprite
-				baseRow := baseSprite / spriteSheetCols
-				baseCol := baseSprite % spriteSheetCols
-
-				// Get the current state of the flag from the base sprite
-				currentState := spriteFlags[baseRow][baseCol][i]
-				// Toggle to the opposite state
-				newState := !currentState
-
-				// Apply the flag change to all selected sprites based on grid size
-				// If gridSize is less than 1, default to 1 to ensure at least one sprite is affected
-				effectiveGridSize := g.gridSize
-				if effectiveGridSize < 1 {
-					effectiveGridSize = 1
-				}
-
-				for r := 0; r < effectiveGridSize; r++ {
-					for c := 0; c < effectiveGridSize; c++ {
-						// Calculate the sprite position
-						sprRow := baseRow + r
-						sprCol := baseCol + c
-
-						// Make sure we don't go out of bounds
-						if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
-							// Set the flag to the new state
-							spriteFlags[sprRow][sprCol][i] = newState
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Calculate which square the mouse is over in the drawing grid
-	// Calculate the cell size based on the grid size
-	gridSize := 8 * g.gridSize  // Actual pixel dimensions (8, 16, 32, or 64)
-	cellSize := 96 / gridSize   // 96 is the total space (8*12) divided by number of cells
-	cellSize = max(1, cellSize) // Ensure cell size is at least 1 pixel
-
-	// Calculate row and column based on cell size
-	row := (my - gridStartY) / cellSize
-	col := (mx - gridStartX) / cellSize
-
-	// Check if mouse is over the drawing grid
-	if row >= 0 && row < gridSize && col >= 0 && col < gridSize {
-		// Calculate the base sprite (top-left of the selection)
-		baseSprite := g.currentSprite
-		baseRow := baseSprite / spriteSheetCols
-		baseCol := baseSprite % spriteSheetCols
-
-		// Calculate which sprite this pixel belongs to
-		spriteRow := row / 8 // Which sprite row (0 for first sprite, 1 for second, etc.)
-		spriteCol := col / 8 // Which sprite column
-
-		// Calculate the position within that sprite (0-7)
-		spritePixelRow := row % 8
-		spritePixelCol := col % 8
-
-		// Calculate the actual sprite coordinates in the spritesheet
-		sprRow := baseRow + spriteRow
-		sprCol := baseCol + spriteCol
-
-		// Calculate absolute pixel coordinates for hover display
-		g.hoverX = sprCol*8 + spritePixelCol
-		g.hoverY = sprRow*8 + spritePixelRow
-
-		// Make sure we don't go out of bounds
-		if sprRow < spriteSheetRows && sprCol < spriteSheetCols {
-			// Handle mouse clicks for drawing
-			if p8.Btn(p8.MouseLeft) { // Left mouse button
-				// Update both the visible drawing grid and the selected sprite
-				setSquareColor(row, col, g.currentColor)                                     // Set color in the visible grid
-				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = g.currentColor // Set color in the sprite
-				// Update the sprite in PIGO8
-				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, g.currentColor)
-				// Update any map tiles using this sprite
-				spriteIndex := sprRow*spriteSheetCols + sprCol
-				updateMapSprites(spriteIndex)
-				// Update the drawing canvas to reflect changes
-				g.updateDrawingCanvas()
-			} else if p8.Btn(p8.MouseRight) { // Right mouse button
-				// Update both the visible drawing grid and the selected sprite
-				setSquareColor(row, col, 0)                                     // Reset color in the visible grid
-				spritesheet[sprRow][sprCol][spritePixelRow][spritePixelCol] = 0 // Reset color in the sprite
-				// Update the sprite in PIGO8
-				p8.Sset(sprCol*8+spritePixelCol, sprRow*8+spritePixelRow, 0)
-				// Update any map tiles using this sprite
-				spriteIndex := sprRow*spriteSheetCols + sprCol
-				updateMapSprites(spriteIndex)
-				// Update the drawing canvas to reflect changes
-				g.updateDrawingCanvas()
-			}
-		}
-	} else {
-		// Not hovering over the grid
-		g.hoverX = -1
-		g.hoverY = -1
-	}
-
-	// Calculate which sprite the mouse is over in the spritesheet
-	// Use spriteCellSize (8) instead of the old value (12)
-	sprRow := (my - spritesheetStartY) / spriteCellSize
-	sprCol := (mx - spritesheetStartX) / spriteCellSize
-
-	// Check if mouse is over the spritesheet grid
-	if sprRow >= 0 && sprRow < spriteSheetRows && sprCol >= 0 && sprCol < spriteSheetCols {
-		// If left mouse button is clicked, select this sprite
-		if p8.Btnp(p8.MouseLeft) {
-			// Calculate the sprite index
-			spriteIndex := sprRow*spriteSheetCols + sprCol
-			// Don't allow selecting sprite 0 (reserved as transparent)
-			if spriteIndex > 0 {
-				g.currentSprite = spriteIndex
-			}
-
-			// Update the entire drawing canvas to reflect the new sprite selection
-			// This ensures all pixels (including transparent ones) are properly refreshed
-			g.updateDrawingCanvas()
-		}
-	}
-
-	// Check if mouse is over the palette (positioned below the checkboxes)
-	paletteY := gridEndY + 40 // Position palette 40 pixels below the grid (below checkboxes)
-	paletteRow := (my - paletteY) / 12
-	paletteCol := (mx - gridStartX) / 12
-
-	// Always use 8 columns for the palette (must match drawPalette function)
-	colorsPerRow := 8
-	totalPaletteSize := p8.GetPaletteSize()
-	totalRows := (totalPaletteSize + colorsPerRow - 1) / colorsPerRow // Ceiling division
-
-	// Check if mouse is over the palette area
-	if paletteRow >= 0 && paletteRow < totalRows && paletteCol >= 0 && paletteCol < colorsPerRow {
-		// Calculate the color index based on row and column
-		colorIndex := paletteRow*colorsPerRow + paletteCol
-
-		// Make sure the color index is valid
-		if colorIndex < totalPaletteSize {
-			// If left mouse button is clicked, select this color
-			if p8.Btnp(p8.MouseLeft) {
-				g.currentColor = colorIndex
-			}
-		}
-	}
-
-	// Handle mouse wheel scrolling to adjust grid size with debouncing
-	currentTime := time.Now().UnixNano() / int64(time.Millisecond)
-	// Only process wheel events if enough time has passed (500ms delay)
-	if currentTime-g.lastWheelTime > 500 {
-		if p8.Btnp(p8.MouseWheelUp) {
-			// Increase grid size: 1 (8x8) -> 2 (16x16) -> 4 (32x32)
-			// Limit to 4 (32x32) as the maximum grid size
-			if g.gridSize < 4 {
-				// Ensure grid size is at least 1 before multiplying
-				if g.gridSize < 1 {
-					g.gridSize = 1
-				}
-				g.gridSize *= 2
-				// Update the drawing canvas to show the selected sprites
-				g.updateDrawingCanvas()
-				// Update the last wheel time
-				g.lastWheelTime = currentTime
-			}
-		} else if p8.Btnp(p8.MouseWheelDown) {
-			// Decrease grid size: 4 (32x32) -> 2 (16x16) -> 1 (8x8)
-			if g.gridSize > 1 {
-				g.gridSize /= 2
-				// Ensure grid size is never less than 1
-				if g.gridSize < 1 {
-					g.gridSize = 1
-				}
-				// Update the drawing canvas to show the selected sprites
-				g.updateDrawingCanvas()
-				// Update the last wheel time
-				g.lastWheelTime = currentTime
-			}
-		}
-	}
 }
 
 func (g *myGame) Draw() {
@@ -1096,7 +777,7 @@ func (g *myGame) updateDrawingCanvas() {
 }
 
 // saveJSONToFile saves any data structure to a JSON file with proper indentation
-func saveJSONToFile(filename string, data interface{}) error {
+func saveJSONToFile(filename string, data any) error {
 	// Convert to JSON with indentation
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -1139,8 +820,8 @@ func (g *myGame) convertMapToData() mapData {
 	}
 
 	// Convert our map data to PIGO8's format
-	for y := 0; y < 320; y++ {
-		for x := 0; x < 320; x++ {
+	for y := range g.mapData {
+		for x := range g.mapData[y] {
 			sprite := g.mapData[y][x]
 			// Only save non-zero sprites to keep the file size smaller
 			if sprite != 0 {
@@ -1193,6 +874,232 @@ func (g *myGame) loadMapData() error {
 
 	g.applyMapData(mapData)
 	return nil
+}
+
+// Refactored Update method with reduced cyclomatic complexity and integrated save-on-toggle logic
+func (g *myGame) Update() {
+	g.toggleMapMode()
+	if g.mapMode {
+		g.handleMapMode()
+	} else {
+		g.handleEditorMode()
+	}
+}
+
+// toggleMapMode flips mapMode and saves data on entry/exit
+func (g *myGame) toggleMapMode() {
+	if p8.Btnp(p8.X) {
+		g.mapMode = !g.mapMode
+		if g.mapMode {
+			if err := saveSpritesheet(); err != nil {
+				fmt.Println("Error saving spritesheet:", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := g.saveMapData(); err != nil {
+				fmt.Println("Error saving map:", err)
+				os.Exit(1)
+			}
+		}
+	}
+}
+
+// -------------------- Map Mode --------------------
+func (g *myGame) handleMapMode() {
+	g.moveCamera()
+	g.placeOrEraseSprites()
+}
+
+func (g *myGame) moveCamera() {
+	stepX := mapViewWidth / unit
+	stepY := mapViewHeight / unit
+	if p8.Btnp(p8.LEFT) && g.mapCameraX > 0 {
+		g.mapCameraX -= stepX
+	}
+	if p8.Btnp(p8.RIGHT) && g.mapCameraX < mapWidth-stepX {
+		g.mapCameraX += stepX
+	}
+	if p8.Btnp(p8.UP) && g.mapCameraY > 0 {
+		g.mapCameraY -= stepY
+	}
+	if p8.Btnp(p8.DOWN) && g.mapCameraY < mapHeight-stepY {
+		g.mapCameraY += stepY
+	}
+}
+
+func (g *myGame) placeOrEraseSprites() {
+	mx, my := p8.Mouse()
+	if !g.mouseInMap(mx, my) {
+		return
+	}
+	x := g.mapCameraX + (mx-10)/8
+	y := g.mapCameraY + (my-10)/8
+
+	if p8.Btn(p8.MouseRight) {
+		g.eraseAt(x, y)
+		return
+	}
+	if p8.Btn(p8.MouseLeft) {
+		g.placeGridSprites(x, y)
+	}
+}
+
+func (g *myGame) mouseInMap(mx, my int) bool {
+	return mx >= 10 && mx < 10+mapViewWidth && my >= 10 && my < 10+mapViewHeight
+}
+
+func (g *myGame) eraseAt(x, y int) {
+	if g.inBounds(x, y) {
+		p8.Mset(x, y, 0)
+		g.mapData[y][x] = 0
+	}
+}
+
+func (g *myGame) inBounds(x, y int) bool {
+	return x >= 0 && x < mapWidth && y >= 0 && y < mapHeight
+}
+
+func (g *myGame) placeGridSprites(x, y int) {
+	w, h := g.gridSize, g.gridSize
+	if w < 1 {
+		w, h = 1, 1
+	}
+	base := g.currentSprite
+
+	for dy := 0; dy < h; dy++ {
+		for dx := 0; dx < w; dx++ {
+			tx, ty := x+dx, y+dy
+			if !g.inBounds(tx, ty) {
+				continue
+			}
+			row := base/spriteSheetCols + dy
+			col := base%spriteSheetCols + dx
+			if row < spriteSheetRows && col < spriteSheetCols {
+				idx := row*spriteSheetCols + col
+				p8.Mset(tx, ty, idx)
+				g.mapData[ty][tx] = idx
+			}
+		}
+	}
+}
+
+// -------------------- Editor Mode --------------------
+func (g *myGame) handleEditorMode() {
+	mx, my := p8.Mouse()
+	g.toggleSpriteFlags(mx, my)
+	g.handleDrawingGrid(mx, my)
+	g.handleSpriteSelection(mx, my)
+	g.handlePaletteSelection(mx, my)
+	g.handleWheel()
+}
+
+func (g *myGame) toggleSpriteFlags(mx, my int) {
+	const baseX, baseY, size = 10, 10 + 8*12 - 2, 8
+	for i := 0; i < 8; i++ {
+		x := baseX + i*size*3/2
+		y := baseY
+		if mx >= x && mx < x+size && my >= y && my < y+size && p8.Btnp(p8.MouseLeft) {
+			g.toggleFlagAtIndex(i)
+		}
+	}
+}
+
+func (g *myGame) toggleFlagAtIndex(i int) {
+	base := g.currentSprite
+	r, c := base/spriteSheetCols, base%spriteSheetCols
+	cur := spriteFlags[r][c][i]
+	for dr := range g.safeGridSize() {
+		for dc := range g.safeGridSize() {
+			rr, cc := r+dr, c+dc
+			if rr < spriteSheetRows && cc < spriteSheetCols {
+				spriteFlags[rr][cc][i] = !cur
+			}
+		}
+	}
+}
+
+func (g *myGame) safeGridSize() int {
+	if g.gridSize < 1 {
+		return 1
+	}
+	return g.gridSize
+}
+
+func (g *myGame) handleDrawingGrid(mx, my int) {
+	const gx, gy, size = 10, 10, 8
+	gridPx := size * g.gridSize
+	cell := max(1, 96/gridPx)
+	row := (my - gy) / cell
+	col := (mx - gx) / cell
+
+	if row < 0 || row >= gridPx || col < 0 || col >= gridPx {
+		g.hoverX, g.hoverY = -1, -1
+		return
+	}
+	g.updateHover(row, col)
+	if p8.Btn(p8.MouseLeft) {
+		g.drawAt(row, col, g.currentColor)
+	} else if p8.Btn(p8.MouseRight) {
+		g.drawAt(row, col, 0)
+	}
+}
+
+func (g *myGame) updateHover(row, col int) {
+	base := g.currentSprite
+	r := base/spriteSheetCols + row/8
+	c := base%spriteSheetCols + col/8
+	pr, pc := row%8, col%8
+	g.hoverX, g.hoverY = c*8+pc, r*8+pr
+}
+
+func (g *myGame) drawAt(row, col, colorIndex int) {
+	base := g.currentSprite
+	r := base/spriteSheetCols + row/8
+	c := base%spriteSheetCols + col/8
+	pr, pc := row%8, col%8
+	setSquareColor(row, col, colorIndex)
+	spritesheet[r][c][pr][pc] = colorIndex
+	p8.Sset(c*8+pc, r*8+pr, colorIndex)
+	updateMapSprites(r*spriteSheetCols + c)
+	g.updateDrawingCanvas()
+}
+
+func (g *myGame) handleSpriteSelection(mx, my int) {
+	row := (my - 10) / spriteCellSize
+	col := (mx - spritesheetStartX) / spriteCellSize
+	if row >= 0 && row < spriteSheetRows && col >= 0 && col < spriteSheetCols && p8.Btnp(p8.MouseLeft) {
+		idx := row*spriteSheetCols + col
+		if idx > 0 {
+			g.currentSprite = idx
+		}
+		g.updateDrawingCanvas()
+	}
+}
+
+func (g *myGame) handlePaletteSelection(mx, my int) {
+	const gx, gy = 10, 10 + 8*12 - 2 + 40
+	row := (my - gy) / 12
+	col := (mx - gx) / 12
+	colors := p8.GetPaletteSize()
+	if row >= 0 && col >= 0 && row*8+col < colors && p8.Btnp(p8.MouseLeft) {
+		g.currentColor = row*8 + col
+	}
+}
+
+func (g *myGame) handleWheel() {
+	now := time.Now().UnixNano() / int64(time.Millisecond)
+	if now-g.lastWheelTime <= 500 {
+		return
+	}
+	if p8.Btnp(p8.MouseWheelUp) && g.gridSize < 4 {
+		g.gridSize = max(1, g.gridSize*2)
+		g.lastWheelTime = now
+		g.updateDrawingCanvas()
+	} else if p8.Btnp(p8.MouseWheelDown) && g.gridSize > 1 {
+		g.gridSize = max(1, g.gridSize/2)
+		g.lastWheelTime = now
+		g.updateDrawingCanvas()
+	}
 }
 
 func main() {
