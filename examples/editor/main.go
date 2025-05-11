@@ -328,7 +328,7 @@ func (g *myGame) drawMapMode() {
 
 	// 3) border and UI text
 	p8.Rect(viewX, viewY,
-		viewX+mapViewWidth, viewY+mapViewHeight, 7)
+		viewX+mapViewWidth, viewY+mapViewHeight, 1)
 	p8.Camera() // reset for text
 	g.printMapInfo(viewX, viewY, mx, my)
 }
@@ -380,7 +380,7 @@ func (g *myGame) printMapInfo(vx, vy, mx, my int) {
 	sx := g.mapCameraX / (mapViewWidth / unit)
 	sy := g.mapCameraY / (mapViewHeight / unit)
 	textY := vy + mapViewHeight + 10
-	p8.Print(fmt.Sprintf("Screen: %d,%d", sx, sy), vx, textY, 7)
+	p8.Print(fmt.Sprintf("Screen: %d,%d", sx, sy), vx, textY, 1)
 
 	// Mouse in map space
 	if mx < vx || mx >= vx+mapViewWidth ||
@@ -390,12 +390,12 @@ func (g *myGame) printMapInfo(vx, vy, mx, my int) {
 	mxMap := g.mapCameraX + (mx-vx)/8
 	myMap := g.mapCameraY + (my-vy)/8
 	p8.Print(fmt.Sprintf("Map: %d,%d", mxMap, myMap),
-		vx+90, textY, 7)
+		vx+90, textY, 1)
 
 	if mxMap >= 0 && mxMap < 128 && myMap >= 0 && myMap < 128 {
 		spr := p8.Mget(mxMap, myMap)
 		p8.Print(fmt.Sprintf("Sprite: %d", spr),
-			vx+180, textY, 7)
+			vx+180, textY, 1)
 	}
 }
 
@@ -424,10 +424,10 @@ func (g *myGame) drawEditorCanvas() {
 	if g.hoverX >= 0 && g.hoverY >= 0 {
 		p8.Print(
 			fmt.Sprintf("pixel: (%d,%d)", g.hoverX, g.hoverY),
-			startX, startY-10, 7,
+			startX, startY-10, 1,
 		)
 	}
-	p8.Rect(startX-1, startY-1, endX+1, endY+1, 7)
+	p8.Rect(startX-1, startY-1, endX+1, endY+1, 1)
 }
 
 // drawSpritesheetPanel draws the spritesheet area and label
@@ -458,13 +458,13 @@ func (g *myGame) drawSpritesheetPanel() {
 	if g.gridSize >= 1 {
 		g.drawSelectionBorder(sx, sy)
 	}
-	p8.Rect(sx-1, sy-1, ex+1, ey+1, 7)
+	p8.Rect(sx-1, sy-1, ex+1, ey+1, 1)
 
 	sizeText := map[int]string{1: "8x8", 2: "16x16", 4: "32x32"}[g.gridSize]
 	p8.Print(
 		fmt.Sprintf("spritesheet - sprite: %d - grid: %s",
 			g.currentSprite, sizeText),
-		sx, ey+4, 7,
+		sx, ey+4, 1,
 	)
 }
 
@@ -489,7 +489,7 @@ func (g *myGame) drawSelectionBorder(sx, sy int) {
 		y2 = maxY
 	}
 
-	p8.Rect(x1, y1, x2, y2, 7)
+	p8.Rect(x1, y1, x2, y2, 1)
 }
 
 // drawSelectionAndPalette draws the selection and palette
@@ -683,7 +683,7 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		checkboxY := y
 
 		// Draw checkbox outline
-		p8.Rect(checkboxX, checkboxY, checkboxX+checkboxSize-1, checkboxY+checkboxSize-1, 7)
+		p8.Rect(checkboxX, checkboxY, checkboxX+checkboxSize-1, checkboxY+checkboxSize-1, 1)
 
 		// Check the flag state across all selected sprites
 		allTrue := true
@@ -701,21 +701,21 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		// Fill the checkbox based on state
 		if allTrue {
 			// All sprites have this flag set - fill with solid color
-			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 8)
+			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1)
 		} else if !allFalse {
 			// Mixed state - some sprites have this flag set, others don't - show a pattern
-			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 6) // Use a different color
+			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1) // Use a different color
 			// Draw a pattern to indicate mixed state
-			p8.Line(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 8)
-			p8.Line(checkboxX+checkboxSize-3, checkboxY+2, checkboxX+2, checkboxY+checkboxSize-3, 8)
+			p8.Line(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1)
+			p8.Line(checkboxX+checkboxSize-3, checkboxY+2, checkboxX+2, checkboxY+checkboxSize-3, 1)
 		}
 
 		// Draw flag number
-		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, 7)
+		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, 1)
 	}
 
 	// Draw label
-	p8.Print("flags", x, y-10, 7)
+	p8.Print("flags", x, y-10, 1)
 }
 
 // drawPalette draws the color palette below the grid
@@ -741,7 +741,7 @@ func (g *myGame) drawPalette(x, y int) {
 
 		// Highlight the currently selected color with a white border
 		if i == g.currentColor {
-			p8.Rect(px-1, py-1, px+11, py+11, 7) // White highlight border
+			p8.Rect(px-1, py-1, px+11, py+11, 1) // White highlight border
 		}
 	}
 }
