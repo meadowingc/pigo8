@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image/color"
 	"os"
@@ -272,24 +273,26 @@ func (m *myGame) Update() {
 		}
 
 		// Move camera with arrow keys (full screen = 16 sprites = 128 pixels)
+		visibleSpritesX := mapViewWidth / unit
 		if p8.Btnp(p8.LEFT) && m.mapCameraX > 0 {
-			m.mapCameraX -= 16 // Move left by one screen
+			m.mapCameraX -= visibleSpritesX // Move left by one screen
 		}
-		if p8.Btnp(p8.RIGHT) && m.mapCameraX < 320-16 {
-			m.mapCameraX += 16 // Move right by one screen
+		if p8.Btnp(p8.RIGHT) && m.mapCameraX < 320-visibleSpritesX {
+			m.mapCameraX += visibleSpritesX // Move right by one screen
 		}
+		visibleSpritesY := mapViewHeight / unit
 		if p8.Btnp(p8.UP) && m.mapCameraY > 0 {
-			m.mapCameraY -= 16 // Move up by one screen
+			m.mapCameraY -= visibleSpritesY // Move up by one screen
 		}
-		if p8.Btnp(p8.DOWN) && m.mapCameraY < 320-16 {
-			m.mapCameraY += 16 // Move down by one screen
+		if p8.Btnp(p8.DOWN) && m.mapCameraY < 320-visibleSpritesY {
+			m.mapCameraY += visibleSpritesY // Move down by one screen
 		}
 
 		// Handle sprite placement
 		mx, my := p8.Mouse()
 
 		// Check if mouse is within map bounds
-		if mx >= 10 && mx < 138 && my >= 10 && my < 138 {
+		if mx >= 10 && mx < 10+mapViewWidth && my >= 10 && my < 10+mapViewHeight {
 			// Calculate map coordinates from mouse position
 			mapX := m.mapCameraX + (mx - 10) / 8
 			mapY := m.mapCameraY + (my - 10) / 8
@@ -584,8 +587,10 @@ func (g *myGame) Draw() {
 		const viewportY = 10  // Top margin of sprite editor viewport
 
 		// Draw the visible portion of the map
-		for y := 0; y < 16; y++ {
-			for x := 0; x < 16; x++ {
+		visibleSpritesX := mapViewWidth / unit  // Number of sprites visible horizontally
+		visibleSpritesY := mapViewHeight / unit // Number of sprites visible vertically
+		for y := 0; y < visibleSpritesY; y++ {
+			for x := 0; x < visibleSpritesX; x++ {
 				// Get sprite at current map position
 				sprite := p8.Mget(g.mapCameraX+x, g.mapCameraY+y)
 				// Draw the sprite at viewport position
@@ -609,11 +614,11 @@ func (g *myGame) Draw() {
 		// Draw hover highlight for multi-sprite placement
 		hoverX := (mx - viewportX) / 8
 		hoverY := (my - viewportY) / 8
-		if hoverX >= 0 && hoverX < 16 && hoverY >= 0 && hoverY < 16 {
+		if hoverX >= 0 && hoverX < visibleSpritesX && hoverY >= 0 && hoverY < visibleSpritesY {
 			// Draw hover highlight for each sprite in the grid
 			for dy := 0; dy < gridHeight; dy++ {
 				for dx := 0; dx < gridWidth; dx++ {
-					if int(hoverX)+dx < 16 && int(hoverY)+dy < 16 {
+					if int(hoverX)+dx < visibleSpritesX && int(hoverY)+dy < visibleSpritesY {
 						// Draw hover highlight
 						p8.Rect(float64(viewportX+(int(hoverX)+dx)*8), float64(viewportY+(int(hoverY)+dy)*8),
 							float64(viewportX+(int(hoverX)+dx+1)*8-1), float64(viewportY+(int(hoverY)+dy+1)*8-1), 7)
@@ -623,7 +628,7 @@ func (g *myGame) Draw() {
 		}
 
 		// Draw a border around the current screen (128x128 pixels)
-		p8.Rect(float64(viewportX), float64(viewportY), float64(viewportX+128), float64(viewportY+128), 7) // White border
+		p8.Rect(float64(viewportX), float64(viewportY), float64(viewportX+mapViewWidth), float64(viewportY+mapViewHeight), 7) // White border
 
 		// Reset camera for UI elements
 		p8.Camera()
@@ -631,21 +636,23 @@ func (g *myGame) Draw() {
 		// Display map information
 		p8.Color(7) // White text
 		// Show current screen coordinates
-		screenX := g.mapCameraX / 16
-		screenY := g.mapCameraY / 16
-		p8.Print(fmt.Sprintf("Screen: %d,%d", screenX, screenY), 10, 142, 7)
+		screenX := g.mapCameraX / (mapViewWidth / unit)
+		screenY := g.mapCameraY / (mapViewHeight / unit)
+		// Calculate text positions relative to the viewport
+		textY := viewportY + mapViewHeight + 10 // 10 pixels below the viewport
+		p8.Print(fmt.Sprintf("Screen: %d,%d", screenX, screenY), viewportX, textY, 7)
 
 		// Show mouse coordinates in map space
 		// Use existing mx, my from earlier in the function
 		mapX := g.mapCameraX + (mx - viewportX) / 8
 		mapY := g.mapCameraY + (my - viewportY) / 8
 		// Only show coordinates if mouse is within map bounds
-		if mx >= viewportX && mx < viewportX+128 && my >= viewportY && my < viewportY+128 {
-			p8.Print(fmt.Sprintf("Map: %d,%d", mapX, mapY), 100, 142, 7)
+		if mx >= viewportX && mx < viewportX+mapViewWidth && my >= viewportY && my < viewportY+mapViewHeight {
+			p8.Print(fmt.Sprintf("Map: %d,%d", mapX, mapY), viewportX + 90, textY, 7)
 			// Show sprite at current position
 			if mapX >= 0 && mapX < 128 && mapY >= 0 && mapY < 128 {
 				sprite := p8.Mget(mapX, mapY)
-				p8.Print(fmt.Sprintf("Sprite: %d", sprite), 190, 142, 7)
+				p8.Print(fmt.Sprintf("Sprite: %d", sprite), viewportX + 180, textY, 7)
 			}
 		}
 		return
@@ -779,6 +786,8 @@ func (g *myGame) Draw() {
 var (
 	width           = 52 // Increased to accommodate the larger spritesheet and more space
 	height          = 27 // Increased to accommodate the taller spritesheet
+	mapViewWidth    = 128 // Default map viewport width in pixels (16 sprites)
+	mapViewHeight   = 128 // Default map viewport height in pixels (16 sprites)
 	unit            = 8
 	spriteCellSize  = 8  // Size of each sprite cell in the spritesheet
 	spriteSheetCols = 32 // Number of columns in the spritesheet
@@ -1115,6 +1124,19 @@ func (m *myGame) loadMapData() error {
 }
 
 func main() {
+	// Parse command line flags
+	widthFlag := flag.Int("w", mapViewWidth, "map viewport width in pixels")
+	heightFlag := flag.Int("h", mapViewHeight, "map viewport height in pixels")
+	flag.Parse()
+
+	// Update map viewport dimensions
+	mapViewWidth = *widthFlag
+	mapViewHeight = *heightFlag
+
+	// Ensure dimensions are multiples of 8 (sprite size)
+	mapViewWidth = (mapViewWidth / unit) * unit
+	mapViewHeight = (mapViewHeight / unit) * unit
+
 	settings := p8.NewSettings()
 	settings.ScreenWidth = width * unit
 	settings.ScreenHeight = height * unit
