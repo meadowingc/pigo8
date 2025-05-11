@@ -50,6 +50,20 @@ type mapCell struct {
 	Sprite int `json:"sprite"`
 }
 
+// forEachSpritePixel iterates over every pixel in every sprite in the spritesheet
+// and calls the provided function with the current coordinates
+func forEachSpritePixel(fn func(row, col, r, c int)) {
+	for row := 0; row < spriteSheetRows; row++ {
+		for col := 0; col < spriteSheetCols; col++ {
+			for r := 0; r < 8; r++ {
+				for c := 0; c < 8; c++ {
+					fn(row, col, r, c)
+				}
+			}
+		}
+	}
+}
+
 func (m *myGame) Init() {
 	initSquareColors()
 
@@ -182,7 +196,7 @@ func saveSpritesheet(g *myGame) error {
 	// Initialize the sprites slice with the correct capacity
 	sprites := make([]spriteData, spriteSheetRows*spriteSheetCols)
 
-	// Fill in the data for each sprite
+	// Create all sprites first
 	for row := 0; row < spriteSheetRows; row++ {
 		for col := 0; col < spriteSheetCols; col++ {
 			// Calculate sprite index
@@ -214,18 +228,21 @@ func saveSpritesheet(g *myGame) error {
 			}
 			sprite.Flags.Bitfield = bitfield
 
-			// Fill in the pixel data
+			// Initialize pixel arrays
 			for r := 0; r < 8; r++ {
 				sprite.Pixels[r] = make([]int, 8)
-				for c := 0; c < 8; c++ {
-					sprite.Pixels[r][c] = spritesheet[row][col][r][c]
-				}
 			}
 
 			// Add the sprite to the sprites slice
 			sprites[spriteIndex] = sprite
 		}
 	}
+
+	// Fill in pixel data
+	forEachSpritePixel(func(row, col, r, c int) {
+		spriteIndex := row*spriteSheetCols + col
+		sprites[spriteIndex].Pixels[r][c] = spritesheet[row][col][r][c]
+	})
 
 	// Assign the sprites to the sheet
 	sheet.Sprites = sprites
@@ -823,16 +840,10 @@ func initSpritesheet() {
 	loadSpritesheet()
 
 	// Initialize the spritesheet with default values if needed
-	for row := range spriteSheetRows {
-		for col := range spriteSheetCols {
-			for r := range 8 {
-				for c := range 8 {
-					// Initialize with transparent color (0)
-					spritesheet[row][col][r][c] = 0
-				}
-			}
-		}
-	}
+	forEachSpritePixel(func(row, col, r, c int) {
+		// Initialize with transparent color (0)
+		spritesheet[row][col][r][c] = 0
+	})
 	
 	// Initialize the spritesheet in PIGO8 to ensure sprites exist
 	initPico8Spritesheet()
@@ -843,20 +854,13 @@ func initPico8Spritesheet() {
 	createTempSpritesheet()
 
 	// Now initialize all sprites with our data
-	for row := range spriteSheetRows {
-		for col := range spriteSheetCols {
-			// Set each pixel in the sprite
-			for r := 0; r < 8; r++ {
-				for c := 0; c < 8; c++ {
-					// Calculate the absolute pixel position
-					px := col*8 + c
-					py := row*8 + r
-					// Set the pixel color in PIGO8
-					p8.Sset(px, py, spritesheet[row][col][r][c])
-				}
-			}
-		}
-	}
+	forEachSpritePixel(func(row, col, r, c int) {
+		// Calculate the absolute pixel position
+		px := col*8 + c
+		py := row*8 + r
+		// Set the pixel color in PIGO8
+		p8.Sset(px, py, spritesheet[row][col][r][c])
+	})
 }
 
 // createTempSpritesheet creates a temporary spritesheet.json file
@@ -874,7 +878,7 @@ func createTempSpritesheet() {
 	// Create sprites array
 	sprites := make([]spriteData, spriteSheetRows*spriteSheetCols)
 
-	// Fill in basic sprite data
+	// Create all sprites first
 	for row := 0; row < spriteSheetRows; row++ {
 		for col := 0; col < spriteSheetCols; col++ {
 			spriteIndex := row*spriteSheetCols + col
@@ -894,18 +898,21 @@ func createTempSpritesheet() {
 				Pixels: make([][]int, 8),
 			}
 			
-			// Initialize pixel data
+			// Initialize pixel arrays
 			for r := 0; r < 8; r++ {
 				sprite.Pixels[r] = make([]int, 8)
-				for c := 0; c < 8; c++ {
-					sprite.Pixels[r][c] = spritesheet[row][col][r][c]
-				}
 			}
 			
 			// Add to sprites array
 			sprites[spriteIndex] = sprite
 		}
 	}
+	
+	// Fill in pixel data
+	forEachSpritePixel(func(row, col, r, c int) {
+		spriteIndex := row*spriteSheetCols + col
+		sprites[spriteIndex].Pixels[r][c] = spritesheet[row][col][r][c]
+	})
 	
 	// Set sprites in sheet
 	sheet.Sprites = sprites
