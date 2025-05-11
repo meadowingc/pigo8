@@ -481,6 +481,8 @@ func (m *myGame) Update() {
 				// Update any map tiles using this sprite
 				spriteIndex := sprRow*spriteSheetCols + sprCol
 				updateMapSprites(spriteIndex)
+				// Update the drawing canvas to reflect changes
+				updateDrawingCanvas(m)
 			} else if p8.Btn(p8.MouseRight) { // Right mouse button
 				// Update both the visible drawing grid and the selected sprite
 				setSquareColor(row, col, 0)                                     // Reset color in the visible grid
@@ -490,6 +492,8 @@ func (m *myGame) Update() {
 				// Update any map tiles using this sprite
 				spriteIndex := sprRow*spriteSheetCols + sprCol
 				updateMapSprites(spriteIndex)
+				// Update the drawing canvas to reflect changes
+				updateDrawingCanvas(m)
 			}
 		}
 	} else {
@@ -815,19 +819,113 @@ func initSquareColors() {
 }
 
 func initSpritesheet() {
-	// Initialize all sprites with transparent color (0)
-	for sprRow := range spriteSheetRows {
-		for sprCol := range spriteSheetCols {
-			for row := range 8 {
-				for col := range 8 {
-					spritesheet[sprRow][sprCol][row][col] = 0
+	// Try to load the spritesheet from a file
+	loadSpritesheet()
+
+	// Initialize the spritesheet with default values if needed
+	for row := range spriteSheetRows {
+		for col := range spriteSheetCols {
+			for r := range 8 {
+				for c := range 8 {
+					// Initialize with transparent color (0)
+					spritesheet[row][col][r][c] = 0
 				}
 			}
 		}
 	}
+	
+	// Initialize the spritesheet in PIGO8 to ensure sprites exist
+	initPico8Spritesheet()
+}
 
-	// Try to load spritesheet.json if it exists
-	loadSpritesheet()
+func initPico8Spritesheet() {
+	// Create a temporary spritesheet.json file that PIGO8 can load
+	createTempSpritesheet()
+
+	// Now initialize all sprites with our data
+	for row := range spriteSheetRows {
+		for col := range spriteSheetCols {
+			// Set each pixel in the sprite
+			for r := 0; r < 8; r++ {
+				for c := 0; c < 8; c++ {
+					// Calculate the absolute pixel position
+					px := col*8 + c
+					py := row*8 + r
+					// Set the pixel color in PIGO8
+					p8.Sset(px, py, spritesheet[row][col][r][c])
+				}
+			}
+		}
+	}
+}
+
+// createTempSpritesheet creates a temporary spritesheet.json file
+// that PIGO8 can load to initialize its sprite system
+func createTempSpritesheet() {
+	// Create a basic spritesheet structure
+	var sheet spriteSheetData
+
+	// Set dimensions
+	sheet.SpriteSheetColumns = spriteSheetCols
+	sheet.SpriteSheetRows = spriteSheetRows
+	sheet.SpriteSheetWidth = spriteSheetCols * 8
+	sheet.SpriteSheetHeight = spriteSheetRows * 8
+
+	// Create sprites array
+	sprites := make([]spriteData, spriteSheetRows*spriteSheetCols)
+
+	// Fill in basic sprite data
+	for row := 0; row < spriteSheetRows; row++ {
+		for col := 0; col < spriteSheetCols; col++ {
+			spriteIndex := row*spriteSheetCols + col
+			
+			// Create a sprite with basic data
+			sprite := spriteData{
+				ID:     spriteIndex,
+				X:      col * 8,
+				Y:      row * 8,
+				Width:  8,
+				Height: 8,
+				Used:   true,
+				Flags:  p8.FlagsData{
+					Bitfield:   0,
+					Individual: make([]bool, 8),
+				},
+				Pixels: make([][]int, 8),
+			}
+			
+			// Initialize pixel data
+			for r := 0; r < 8; r++ {
+				sprite.Pixels[r] = make([]int, 8)
+				for c := 0; c < 8; c++ {
+					sprite.Pixels[r][c] = spritesheet[row][col][r][c]
+				}
+			}
+			
+			// Add to sprites array
+			sprites[spriteIndex] = sprite
+		}
+	}
+	
+	// Set sprites in sheet
+	sheet.Sprites = sprites
+	
+	// Convert to JSON
+	jsonData, err := json.MarshalIndent(sheet, "", "  ")
+	if err != nil {
+		fmt.Println("Error creating temporary spritesheet JSON:", err)
+		return
+	}
+	
+	// Write to file
+	err = os.WriteFile("spritesheet.json", jsonData, 0644)
+	if err != nil {
+		fmt.Println("Error writing temporary spritesheet file:", err)
+		return
+	}
+	
+	// The spritesheet.json file will be loaded automatically the next time
+	// a sprite-related function like Spr() or Sset() is called
 }
 
 func updateMapSprites(spriteIndex int) {
