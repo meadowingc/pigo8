@@ -15,6 +15,34 @@ import (
 	p8 "github.com/drpaneas/pigo8"
 )
 
+const (
+	// Sprite dimensions
+	SpriteSize = 8 // Size of each sprite in pixels
+
+	// Grid sizes
+	DefaultGridSize = 1  // 8x8 grid (1 sprite)
+	MediumGridSize = 2   // 16x16 grid (4 sprites)
+	LargeGridSize  = 4   // 32x32 grid (16 sprites)
+
+	// Map dimensions
+	MapWidth  = 320
+	MapHeight = 320
+
+	// Default colors
+	DefaultColor      = 8  // Default color (usually red in PICO-8 palette)
+	TransparentColor = 0  // Transparent color
+
+	// UI constants
+	PaletteColumns = 8  // Number of columns in the palette display
+	NumFlags       = 8  // Number of sprite flags
+
+	// Timing constants
+	WheelDebounceMs = 500 // Milliseconds to wait between mouse wheel events
+
+	// Popup constants
+	PopupDurationFrames = 120 // Number of frames to show popup (2 seconds)
+)
+
 type myGame struct {
 	currentColor  int   // Current selected color from palette
 	currentSprite int   // Current selected sprite from spritesheet (0-255)
@@ -27,7 +55,7 @@ type myGame struct {
 	// Map editor state
 	mapCameraX    int            // Camera X position in the map (in sprites)
 	mapCameraY    int            // Camera Y position in the map (in sprites)
-	mapData       [320][320]int  // The map data - stores sprite indices
+	mapData       [MapWidth][MapHeight]int  // The map data - stores sprite indices
 
 	// Popup notification
 	showSavePopup bool   // Whether to show the save popup
@@ -91,7 +119,7 @@ func (m *myGame) Init() {
 	// Initialize sprite flags to false
 	for row := range spriteSheetRows {
 		for col := range spriteSheetCols {
-			for flag := range 8 {
+			for flag := range NumFlags {
 				spriteFlags[row][col][flag] = false
 			}
 		}
@@ -105,15 +133,15 @@ func (m *myGame) Init() {
 		fmt.Println("No map.json found, starting with empty map")
 	}
 
-	m.currentColor = 8  // Default to color 8 (usually red in PICO-8 palette)
-	m.currentSprite = 1 // Default to first non-transparent sprite (sprite 0 is reserved)
-	m.hoverX = -1       // No hover initially
-	m.hoverY = -1       // No hover initially
-	m.gridSize = 1      // Start with 8x8 grid (1 sprite)
+	m.currentColor = DefaultColor      // Default color (usually red in PICO-8 palette)
+	m.currentSprite = 1               // Default to first non-transparent sprite (sprite 0 is reserved)
+	m.hoverX = -1                     // No hover initially
+	m.hoverY = -1                     // No hover initially
+	m.gridSize = DefaultGridSize      // Start with 8x8 grid (1 sprite)
 
 	// Ensure grid size is never less than 1
-	if m.gridSize < 1 {
-		m.gridSize = 1
+	if m.gridSize < DefaultGridSize {
+		m.gridSize = DefaultGridSize
 	}
 	m.lastWheelTime = 0 // Initialize wheel time
 
@@ -151,10 +179,10 @@ func convertSpriteToData(row, col int) spriteData {
 	// Create a new sprite
 	sprite := spriteData{
 		ID:     spriteIndex,
-		X:      col * 8,
-		Y:      row * 8,
-		Width:  8,
-		Height: 8,
+		X:      col * SpriteSize,
+		Y:      row * SpriteSize,
+		Width:  SpriteSize,
+		Height: SpriteSize,
 		Used:   true, // Mark all sprites as used
 		Flags: p8.FlagsData{
 			Bitfield:   0, // Will be calculated below
@@ -165,7 +193,7 @@ func convertSpriteToData(row, col int) spriteData {
 
 	// Fill in the flags
 	bitfield := 0
-	for i := 0; i < 8; i++ {
+	for i := 0; i < NumFlags; i++ {
 		flagValue := spriteFlags[row][col][i]
 		sprite.Flags.Individual[i] = flagValue
 		if flagValue {
@@ -175,9 +203,9 @@ func convertSpriteToData(row, col int) spriteData {
 	sprite.Flags.Bitfield = bitfield
 
 	// Initialize pixel data
-	for r := 0; r < 8; r++ {
-		sprite.Pixels[r] = make([]int, 8)
-		for c := 0; c < 8; c++ {
+	for r := 0; r < SpriteSize; r++ {
+		sprite.Pixels[r] = make([]int, SpriteSize)
+		for c := 0; c < SpriteSize; c++ {
 			sprite.Pixels[r][c] = spritesheet[row][col][r][c]
 		}
 	}
@@ -247,8 +275,8 @@ func saveSpritesheet(g *myGame) error {
 	sheet := spriteSheetData{
 		SpriteSheetColumns: spriteSheetCols,
 		SpriteSheetRows:    spriteSheetRows,
-		SpriteSheetWidth:   spriteSheetCols * 8,  // Each sprite is 8x8 pixels
-		SpriteSheetHeight:  spriteSheetRows * 8, // Each sprite is 8x8 pixels
+		SpriteSheetWidth:   spriteSheetCols * SpriteSize,  // Each sprite is 8x8 pixels
+		SpriteSheetHeight:  spriteSheetRows * SpriteSize, // Each sprite is 8x8 pixels
 		Sprites:            make([]spriteData, 0, spriteSheetRows*spriteSheetCols),
 	}
 
@@ -286,14 +314,14 @@ func (m *myGame) Update() {
 		if p8.Btnp(p8.LEFT) && m.mapCameraX > 0 {
 			m.mapCameraX -= visibleSpritesX // Move left by one screen
 		}
-		if p8.Btnp(p8.RIGHT) && m.mapCameraX < 320-visibleSpritesX {
+		if p8.Btnp(p8.RIGHT) && m.mapCameraX < MapWidth-visibleSpritesX {
 			m.mapCameraX += visibleSpritesX // Move right by one screen
 		}
 		visibleSpritesY := mapViewHeight / unit
 		if p8.Btnp(p8.UP) && m.mapCameraY > 0 {
 			m.mapCameraY -= visibleSpritesY // Move up by one screen
 		}
-		if p8.Btnp(p8.DOWN) && m.mapCameraY < 320-visibleSpritesY {
+		if p8.Btnp(p8.DOWN) && m.mapCameraY < MapHeight-visibleSpritesY {
 			m.mapCameraY += visibleSpritesY // Move down by one screen
 		}
 
