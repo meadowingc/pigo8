@@ -57,13 +57,15 @@ func loadPaletteFromHexFile() bool {
 		return false
 	}
 
-	// Create a new palette with a transparent color at index 0
-	newPalette := make([]color.Color, len(colors)+1)
-	newPalette[0] = color.RGBA{0, 0, 0, 0} // Transparent black at index 0
+	// Create a new palette with a transparent color at index 0 and white at index 1
+	reservedColors := 2
+	newPalette := make([]color.Color, len(colors)+reservedColors) // +2 for transparent and white
+	newPalette[0] = color.RGBA{0, 0, 0, 0}                        // Transparent black at index 0
+	newPalette[1] = color.RGBA{255, 255, 255, 255}                // Opaque white at index 1
 
-	// Add the colors from the file, shifted by 1
+	// Add the colors from the file, shifted by reservedColors
 	for i, c := range colors {
-		newPalette[i+1] = c
+		newPalette[i+reservedColors] = c
 	}
 
 	// Set the new palette
@@ -71,9 +73,10 @@ func loadPaletteFromHexFile() bool {
 
 	// Ensure color 0 is transparent
 	PaletteTransparency[0] = true
+	// By default, other colors including index 1 (white) will be opaque unless specified otherwise
 
 	// Log when palette is loaded
-	log.Printf("Custom palette loaded: %d colors (including transparent color at index 0)", len(newPalette))
+	log.Printf("Custom palette loaded: %d colors (index 0 transparent, index 1 white)", len(newPalette))
 
 	return true
 }
