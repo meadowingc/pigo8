@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"image/color"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -1022,6 +1023,9 @@ func (g *myGame) toggleFlagAtIndex(i int) {
 				spriteFlags[rr][cc][i] = !cur
 			}
 		}
+	}
+	if err := saveSpritesheet(); err != nil {
+		log.Printf("Error saving spritesheet after toggling flag: %v", err)
 	}
 }
 
