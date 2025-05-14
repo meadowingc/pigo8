@@ -28,6 +28,7 @@ var spritePositions = map[string]image.Point{
 	"walkFrame": {40, 0},
 }
 
+// Init initializes the game state
 func (g *Game) Init() {
 	// Initialize player at center with default sprite
 	g.pos = p8.NewVector2D(60, 60)
@@ -36,6 +37,7 @@ func (g *Game) Init() {
 	g.dir = p8.LEFT
 }
 
+// Update handles game logic each frame including input, collision detection, and animation
 func (g *Game) Update() {
 	isMoving := g.handleMovement()
 	g.updateAnimation(isMoving)
@@ -143,6 +145,7 @@ func (g *Game) updateAnimation(isMoving bool) {
 	}
 }
 
+// Draw renders the game state to the screen
 func (g *Game) Draw() {
 	p8.Cls(2) // Clear screen with color 2
 	p8.Map()  // Draw the map
