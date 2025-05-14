@@ -56,6 +56,8 @@ var (
 	currentScreen    *ebiten.Image // Internal: Current screen image
 	currentSprites   []SpriteInfo  // Internal: Loaded sprites
 	currentDrawColor int           // Internal: Current draw color (0-15)
+	elapsedTime      float64       // Internal: Time elapsed since game start (in seconds)
+	timeIncrement    float64       // Internal: Amount to increment time each update
 )
 
 // --- Cartridge Definition and Loading ---
@@ -118,6 +120,9 @@ func (g *game) Update() error {
 		UpdateConnectedGamepads()
 		UpdateMouseState()
 		loadedCartridge.Update()
+
+		// Update elapsed time
+		elapsedTime += timeIncrement
 	}
 	return nil
 }
@@ -153,6 +158,20 @@ func CurrentScreen() *ebiten.Image {
 	return currentScreen
 }
 
+// --- Time Functions ---
+
+// Time returns the number of seconds (as a decimal) since the game started.
+// This is calculated by counting the number of times the Update method is called.
+// Multiple calls to Time() in the same frame will return the same value.
+func Time() float64 {
+	return elapsedTime
+}
+
+// T is an alias for Time() for PICO-8 compatibility.
+func T() float64 {
+	return Time()
+}
+
 // --- Play Functions ---
 
 // logInitialMemory logs the initial memory usage of the PIGO-8 console
@@ -171,6 +190,9 @@ func PlayGameWith(settings *Settings) {
 		log.Println("Warning: pigo8.PlayGameWith called with nil Settings, using defaults.")
 		cfg = NewSettings()
 	}
+
+	// Reset time tracking variables
+	elapsedTime = 0.0
 
 	// Update logical screen dimensions if custom values are provided
 	if cfg.ScreenWidth > 0 {
@@ -200,6 +222,9 @@ func PlayGameWith(settings *Settings) {
 	}
 	ebiten.SetWindowSize(winWidth, winHeight)
 	ebiten.SetTPS(cfg.TargetFPS)
+
+	// Calculate time increment based on target FPS
+	timeIncrement = 1.0 / float64(cfg.TargetFPS)
 
 	internalGame := &game{
 		initialized: false,

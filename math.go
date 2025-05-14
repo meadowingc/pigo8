@@ -75,3 +75,35 @@ func Rnd[T Number](a T) int {
 	// Applying Floor and converting to int gives an integer in [0, floor(limit))
 	return int(math.Floor(rand.Float64() * limit))
 }
+
+// Sqrt returns the square root of the given number.
+// It mimics the behavior of PICO-8's `sqrt()` function.
+//
+// Due to the use of generics [T Number], the input `a` can be any standard integer
+// or float type (e.g., int, float64, int32, float32).
+// The function always returns a float64.
+//
+// If `a` is negative, Sqrt returns 0 (unlike Go's math.Sqrt which returns NaN).
+//
+// Args:
+//   - a: The number to calculate the square root of.
+//
+// Returns:
+//   - float64: The square root of `a`, or 0 if `a` is negative.
+//
+// Example:
+//
+//	val1 := Sqrt(16)    // val1 will be 4.0
+//	val2 := Sqrt(2)     // val2 will be approximately 1.4142
+//	val3 := Sqrt(0)     // val3 will be 0.0
+//	val4 := Sqrt(-4)    // val4 will be 0.0 (PICO-8 compatibility)
+func Sqrt[T Number](a T) float64 {
+	value := float64(a)
+	
+	// Handle negative values by returning 0 (PICO-8 compatibility)
+	if value < 0 {
+		return 0.0
+	}
+	
+	return math.Sqrt(value)
+}

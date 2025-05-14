@@ -366,7 +366,7 @@ func (g *myGame) drawMapHover(vx, vy, mx, my int) {
 					float64(vy+y*8),
 					float64(vx+(x+1)*8-1),
 					float64(vy+(y+1)*8-1),
-					7,
+					1,
 				)
 			}
 		}
@@ -376,7 +376,7 @@ func (g *myGame) drawMapHover(vx, vy, mx, my int) {
 // printMapInfo prints the map info
 func (g *myGame) printMapInfo(vx, vy, mx, my int) {
 	// Screen coords
-	p8.Color(7)
+	p8.Color(1)
 	sx := g.mapCameraX / (mapViewWidth / unit)
 	sy := g.mapCameraY / (mapViewHeight / unit)
 	textY := vy + mapViewHeight + 10
@@ -502,7 +502,7 @@ func (g *myGame) drawSelectionAndPalette() {
 }
 
 var (
-	width           = 52  // Increased to accommodate the larger spritesheet and more space
+	width           = 48  // Increased to accommodate the larger spritesheet and more space
 	height          = 27  // Increased to accommodate the taller spritesheet
 	mapViewWidth    = 128 // Default map viewport width in pixels (16 sprites)
 	mapViewHeight   = 128 // Default map viewport height in pixels (16 sprites)
