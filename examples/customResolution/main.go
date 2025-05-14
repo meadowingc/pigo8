@@ -1,3 +1,4 @@
+// Package main basic custom resolution example
 package main
 
 import (

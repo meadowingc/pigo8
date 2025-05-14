@@ -20,8 +20,14 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
+    - name: Clean Go cache directories
+      run: |
+        rm -rf ~/go/pkg/mod
+        rm -rf ~/.cache/go-build
+
     - name: Cache Go modules
       uses: actions/cache@v4
+      continue-on-error: true
       with:
         path: |
           ~/go/pkg/mod
