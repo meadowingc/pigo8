@@ -99,11 +99,11 @@ func Rnd[T Number](a T) int {
 //	val4 := Sqrt(-4)    // val4 will be 0.0 (PICO-8 compatibility)
 func Sqrt[T Number](a T) float64 {
 	value := float64(a)
-	
+
 	// Handle negative values by returning 0 (PICO-8 compatibility)
 	if value < 0 {
 		return 0.0
 	}
-	
+
 	return math.Sqrt(value)
 }
