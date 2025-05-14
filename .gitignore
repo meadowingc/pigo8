@@ -37,4 +37,5 @@ go.work.sum
 examples/*/*.mod
 examples/*/*.sum
 cmd/embedgen/embedgen
+cmd/editor/editor
 examples/pong/pong
