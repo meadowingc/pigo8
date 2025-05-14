@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
 layers = 0 --default, all sprites
+layers = 4 + 6
 
 function _draw()
 	cls()

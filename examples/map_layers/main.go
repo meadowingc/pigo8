@@ -15,7 +15,7 @@ func (m *myGame) Update() {}
 
 func (m *myGame) Draw() {
 	p8.Cls(1)
-	layers := p8.Flag4 + p8.Flag6
+	layers := 4 + 6
 	p8.Map(0, 0, 0, 0, 16, 16, layers)
 }
 
