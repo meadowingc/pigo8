@@ -116,12 +116,24 @@ Comprehensive documentation can be found on the [PIGO8 Wiki](https://drpaneas.gi
 
 ### Feature Examples
 
-* Basic Game: [examples/basic](https://github.com/drpaneas/pigo8/tree/main/examples/basic)
-* Custom Resolution: [examples/customResolution](https://github.com/drpaneas/pigo8/tree/main/examples/customResolution)
-* Map Layers: [examples/map_layers](https://github.com/drpaneas/pigo8/tree/main/examples/map_layers)
-* Palette Management: [examples/palette](https://github.com/drpaneas/pigo8/tree/main/examples/palette)
-* Transparency: [examples/transparency](https://github.com/drpaneas/pigo8/tree/main/examples/transparency)
-* Fade System: [examples/fade](https://github.com/drpaneas/pigo8/tree/main/examples/fade)
+* **Animation**: [examples/animation](https://github.com/drpaneas/pigo8/tree/main/examples/animation) - Sprite animation techniques
+* **Big Sprites**: [examples/bigSprite](https://github.com/drpaneas/pigo8/tree/main/examples/bigSprite) - Working with sprites larger than 8x8
+* **Camera**: [examples/camera](https://github.com/drpaneas/pigo8/tree/main/examples/camera) - Camera movement and viewport control
+* **Color Collision**: [examples/colorCollision](https://github.com/drpaneas/pigo8/tree/main/examples/colorCollision) - Collision detection using sprite colors
+* **Custom Resolution**: [examples/customResolution](https://github.com/drpaneas/pigo8/tree/main/examples/customResolution) - Using non-standard screen sizes
+* **Effects**: [examples/effects](https://github.com/drpaneas/pigo8/tree/main/examples/effects) - Visual effects and transitions
+* **Fade System**: [examples/fade](https://github.com/drpaneas/pigo8/tree/main/examples/fade) - Smooth palette transitions between scenes
+* **Flashlight**: [examples/flashlight](https://github.com/drpaneas/pigo8/tree/main/examples/flashlight) - Dynamic lighting effects
+* **Game Boy Style**: [examples/gameboy](https://github.com/drpaneas/pigo8/tree/main/examples/gameboy) - Game Boy aesthetic with appropriate palette
+* **Hello World**: [examples/hello_world](https://github.com/drpaneas/pigo8/tree/main/examples/hello_world) - Simple starter example
+* **Map**: [examples/map](https://github.com/drpaneas/pigo8/tree/main/examples/map) - Basic map rendering
+* **Map Layers**: [examples/map_layers](https://github.com/drpaneas/pigo8/tree/main/examples/map_layers) - Working with multiple map layers using flags
+* **Mouse Input**: [examples/mouse](https://github.com/drpaneas/pigo8/tree/main/examples/mouse) - Handling mouse input
+* **Music**: [examples/music](https://github.com/drpaneas/pigo8/tree/main/examples/music) - Playing sound and music
+* **Palette**: [examples/palette](https://github.com/drpaneas/pigo8/tree/main/examples/palette) - Dynamic color palette management
+* **Palette Hex**: [examples/palette_hex](https://github.com/drpaneas/pigo8/tree/main/examples/palette_hex) - Using hex values for custom palettes
+* **Pong**: [examples/pong](https://github.com/drpaneas/pigo8/tree/main/examples/pong) - Complete Pong game implementation
+* **Spritesheet**: [examples/spritesheet](https://github.com/drpaneas/pigo8/tree/main/examples/spritesheet) - Working with spritesheets
 
 ## Contributing
 

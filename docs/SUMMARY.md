@@ -10,3 +10,7 @@
   - [Using Music](music.md)
 - [Palette Management](palette-management.md)
 - [Transparency](transparency.md)
+- [PIGO8 Editor](editor.md)
+- [Custom Functions](custom_functions.md)
+  - [Color Collision Detection](color_collision.md)
+  - [Map Collision Detection](map_collision.md)

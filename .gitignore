@@ -39,3 +39,4 @@ examples/*/*.sum
 cmd/embedgen/embedgen
 cmd/editor/editor
 examples/pong/pong
+cmd/editor/*.json
