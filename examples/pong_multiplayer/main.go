@@ -28,6 +28,9 @@ const (
 	networkStatusX   = 10 // X position for network status messages
 	networkStatusY   = 60 // Y position for network status messages
 	networkTextColor = 7  // Color for network status messages
+
+	// Player sides
+	RightSide = "Right" // Right side player/paddle
 )
 
 // Paddle represents a player or remote paddle
@@ -80,7 +83,6 @@ type Game struct {
 	lastStateUpdate  time.Time
 	lastInputSent    time.Time
 	remotePlayerID   string
-	networkError     string
 }
 
 // Init initializes the game state with default paddle and ball positions
@@ -106,7 +108,7 @@ func (g *Game) Init() {
 	switch g.lastScored {
 	case "Left":
 		p8.Music(3)
-	case "Right":
+	case RightSide:
 		p8.Music(4)
 	default:
 		p8.Music(5)
@@ -199,7 +201,7 @@ func (g *Game) Update() {
 		}
 		if g.ball.x < courtLeft {
 			g.rightScore++
-			g.lastScored = "Right"
+			g.lastScored = RightSide
 			g.resetBall()
 		}
 
@@ -256,7 +258,7 @@ func (g *Game) resetBall() {
 	g.ball.x = 63
 	g.ball.y = 63
 	g.ball.dx = 0.6
-	if g.lastScored == "Right" {
+	if g.lastScored == RightSide {
 		g.ball.dx = -g.ball.dx
 	}
 	g.ball.dy = ballDy
@@ -313,7 +315,7 @@ func (g *Game) sendPlayerInput() {
 }
 
 // handleGameState processes game state received from the server
-func handleGameState(playerID string, data []byte) {
+func handleGameState(_ string, data []byte) {
 	game, ok := p8.CurrentCartridge().(*Game)
 	if !ok {
 		log.Printf("Error: current cartridge is not a Game")
@@ -344,7 +346,7 @@ func handleGameState(playerID string, data []byte) {
 }
 
 // handlePlayerInput processes player input received from the client
-func handlePlayerInput(playerID string, data []byte) {
+func handlePlayerInput(_ string, data []byte) {
 	game, ok := p8.CurrentCartridge().(*Game)
 	if !ok {
 		log.Printf("Error: current cartridge is not a Game")

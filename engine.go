@@ -2,7 +2,6 @@ package pigo8
 
 import (
 	"log"
-	"os"
 	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -12,11 +11,11 @@ import (
 
 // Settings defines configurable parameters for the PIGO8 console.
 type Settings struct {
-	ScaleFactor       int    // Integer scaling factor for the window (Default: 4).
-	WindowTitle       string // Title displayed on the window bar (Default: "PIGO-8 Game").
-	TargetFPS         int    // Target ticks per second (Default: 30).
-	ScreenWidth       int    // Custom screen width (Default: 128 for PICO-8 compatibility).
-	ScreenHeight      int    // Custom screen height (Default: 128 for PICO-8 compatibility).
+	ScaleFactor  int    // Integer scaling factor for the window (Default: 4).
+	WindowTitle  string // Title displayed on the window bar (Default: "PIGO-8 Game").
+	TargetFPS    int    // Target ticks per second (Default: 30).
+	ScreenWidth  int    // Custom screen width (Default: 128 for PICO-8 compatibility).
+	ScreenHeight int    // Custom screen height (Default: 128 for PICO-8 compatibility).
 }
 
 // NewSettings creates a new Settings object with default values.
@@ -199,12 +198,12 @@ func PlayGameWith(settings *Settings) {
 
 	// Check for network configuration from command line arguments
 	networkConfig := ParseNetworkArgs()
-	
+
 	// Set game name from window title if not specified
 	if networkConfig.GameName == "PIGO8 Game" {
 		networkConfig.GameName = cfg.WindowTitle
 	}
-	
+
 	// Initialize networking if enabled (determined by ParseNetworkArgs)
 	if IsNetworkInitialized() || networkConfig != nil {
 		if err := InitNetwork(networkConfig); err != nil {
@@ -258,7 +257,6 @@ func PlayGameWith(settings *Settings) {
 		log.Panicf("pico8.PlayGameWith: Ebitengine loop failed: %v", err)
 	}
 	log.Println("PIGO8 console shutdown.")
-	os.Exit(0)
 }
 
 // Play initializes and runs the PIGO8 console with default settings.

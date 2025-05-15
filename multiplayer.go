@@ -70,10 +70,10 @@ var (
 // Deprecated: Use ParseNetworkArgs from network.go instead.
 func ParseMultiplayerArgs() *MultiplayerSettings {
 	settings := DefaultMultiplayerSettings()
-	
+
 	// Check for command line arguments to enable multiplayer
 	args := os.Args
-	
+
 	// Simple command line parsing
 	for i, arg := range args {
 		if arg == "--multiplayer" || arg == "-m" {
@@ -94,7 +94,7 @@ func ParseMultiplayerArgs() *MultiplayerSettings {
 			settings.GameName = args[i+1]
 		}
 	}
-	
+
 	return settings
 }
 
@@ -104,13 +104,13 @@ func InitMultiplayer(settings *MultiplayerSettings) error {
 	if settings == nil {
 		settings = DefaultMultiplayerSettings()
 	}
-	
+
 	multiSettings = settings
-	
+
 	if !settings.Enabled {
 		return nil // Multiplayer disabled, nothing to do
 	}
-	
+
 	// Configure network settings based on multiplayer settings
 	netConfig := DefaultNetworkConfig()
 	if settings.IsServer {
@@ -121,15 +121,15 @@ func InitMultiplayer(settings *MultiplayerSettings) error {
 	}
 	netConfig.Port = settings.Port
 	netConfig.GameName = settings.GameName
-	
+
 	// Initialize networking
 	if err := InitNetwork(netConfig); err != nil {
 		return fmt.Errorf("failed to initialize networking: %v", err)
 	}
-	
+
 	// Set up callbacks for state synchronization
 	SetOnGameStateCallback(handleStateSync)
-	
+
 	return nil
 }
 
@@ -139,37 +139,37 @@ func InitMultiplayer(settings *MultiplayerSettings) error {
 func RegisterGameState(stateObj interface{}) error {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
-	
+
 	if registeredState != nil {
 		return fmt.Errorf("a game state is already registered")
 	}
-	
+
 	// Verify that stateObj is a pointer to a struct
 	objType := reflect.TypeOf(stateObj)
 	if objType.Kind() != reflect.Ptr {
 		return fmt.Errorf("state object must be a pointer")
 	}
-	
+
 	elemType := objType.Elem()
 	if elemType.Kind() != reflect.Struct {
 		return fmt.Errorf("state object must be a pointer to a struct")
 	}
-	
+
 	// Create the registered state
 	state := &RegisteredState{
-		Object:       stateObj,
-		Fields:       discoverStateFields(elemType, nil),
-		LastSync:     time.Now(),
-		SyncInterval: time.Duration(multiSettings.SyncInterval) * time.Millisecond,
+		Object:        stateObj,
+		Fields:        discoverStateFields(elemType, nil),
+		LastSync:      time.Now(),
+		SyncInterval:  time.Duration(multiSettings.SyncInterval) * time.Millisecond,
 		serverUpdates: make(chan []byte, 10),
 		clientUpdates: make(chan []byte, 10),
 	}
-	
+
 	registeredState = state
-	
+
 	// Start the synchronization goroutine
 	go syncGameState()
-	
+
 	return nil
 }
 
@@ -177,30 +177,30 @@ func RegisterGameState(stateObj interface{}) error {
 // that should be synchronized in multiplayer
 func discoverStateFields(t reflect.Type, path []int) []StateField {
 	var fields []StateField
-	
+
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		
+
 		// Skip unexported fields
 		if field.PkgPath != "" {
 			continue
 		}
-		
+
 		// Check for "nosync" tag to exclude fields from synchronization
 		if field.Tag.Get("nosync") == "true" {
 			continue
 		}
-		
+
 		// Build the path to this field
 		fieldPath := append(append([]int{}, path...), i)
-		
+
 		// Handle nested structs
 		if field.Type.Kind() == reflect.Struct {
 			nestedFields := discoverStateFields(field.Type, fieldPath)
 			fields = append(fields, nestedFields...)
 			continue
 		}
-		
+
 		// Add this field to the list
 		fields = append(fields, StateField{
 			Name:      field.Name,
@@ -208,7 +208,7 @@ func discoverStateFields(t reflect.Type, path []int) []StateField {
 			Path:      fieldPath,
 		})
 	}
-	
+
 	return fields
 }
 
@@ -217,10 +217,10 @@ func syncGameState() {
 	if registeredState == nil || multiSettings == nil || !multiSettings.Enabled {
 		return
 	}
-	
+
 	ticker := time.NewTicker(registeredState.SyncInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -246,18 +246,18 @@ func sendStateUpdates() {
 	if registeredState == nil || !IsServer() {
 		return
 	}
-	
+
 	registeredState.mutex.RLock()
 	stateObj := registeredState.Object
 	registeredState.mutex.RUnlock()
-	
+
 	// Serialize the state
 	data, err := json.Marshal(stateObj)
 	if err != nil {
 		log.Printf("Error serializing game state: %v", err)
 		return
 	}
-	
+
 	// Send to all clients
 	SendGameState(data, "all")
 }
@@ -267,11 +267,11 @@ func sendClientInput() {
 	if registeredState == nil || !IsClient() {
 		return
 	}
-	
+
 	registeredState.mutex.RLock()
 	stateObj := registeredState.Object
 	registeredState.mutex.RUnlock()
-	
+
 	// Serialize the client's input state
 	// For simplicity, we're sending the entire state, but in a real
 	// implementation you might want to send only input-related fields
@@ -280,17 +280,17 @@ func sendClientInput() {
 		log.Printf("Error serializing client input: %v", err)
 		return
 	}
-	
+
 	// Send to server
 	SendPlayerInput(data)
 }
 
 // handleStateSync processes game state updates from the network
-func handleStateSync(playerID string, data []byte) {
+func handleStateSync(_ string, data []byte) {
 	if registeredState == nil {
 		return
 	}
-	
+
 	if IsServer() {
 		// Server received input from a client
 		registeredState.clientUpdates <- data
@@ -305,10 +305,10 @@ func applyStateUpdate(data []byte) {
 	if registeredState == nil || !IsClient() {
 		return
 	}
-	
+
 	registeredState.mutex.Lock()
 	defer registeredState.mutex.Unlock()
-	
+
 	// Deserialize the state update into the registered object
 	if err := json.Unmarshal(data, registeredState.Object); err != nil {
 		log.Printf("Error applying state update: %v", err)
@@ -320,15 +320,15 @@ func applyClientInput(data []byte) {
 	if registeredState == nil || !IsServer() {
 		return
 	}
-	
+
 	// In a real implementation, you would:
 	// 1. Extract only the input-related fields from the client data
 	// 2. Apply those inputs to the game logic
 	// 3. Update the game state based on those inputs
-	
+
 	// For simplicity in this example, we're just logging that we received input
 	log.Printf("Received client input (%d bytes)", len(data))
-	
+
 	// The actual implementation would depend on your specific game's input handling
 }
 
@@ -344,9 +344,9 @@ func ShutdownMultiplayer() {
 	if !IsMultiplayerEnabled() {
 		return
 	}
-	
+
 	ShutdownNetwork()
-	
+
 	stateMutex.Lock()
 	registeredState = nil
 	stateMutex.Unlock()

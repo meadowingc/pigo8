@@ -73,21 +73,21 @@ func DefaultNetworkConfig() *NetworkConfig {
 
 // NetworkManager handles all networking functionality
 type NetworkManager struct {
-	config         *NetworkConfig
-	conn           net.Conn
-	listener       net.Listener
-	clients        map[string]net.Conn
-	incomingMsgs   chan NetworkMessage
-	outgoingMsgs   chan NetworkMessage
-	onConnect      func(playerID string)
-	onDisconnect   func(playerID string)
-	onGameState    func(playerID string, data []byte)
-	onPlayerInput  func(playerID string, data []byte)
-	isRunning      bool
-	mutex          sync.Mutex
-	connectionLost bool
+	config            *NetworkConfig
+	conn              net.Conn
+	listener          net.Listener
+	clients           map[string]net.Conn
+	incomingMsgs      chan NetworkMessage
+	outgoingMsgs      chan NetworkMessage
+	onConnect         func(playerID string)
+	onDisconnect      func(playerID string)
+	onGameState       func(playerID string, data []byte)
+	onPlayerInput     func(playerID string, data []byte)
+	isRunning         bool
+	mutex             sync.Mutex
+	connectionLost    bool
 	waitingForPlayers bool
-	networkError   string
+	networkError      string
 }
 
 var (
@@ -116,11 +116,11 @@ func InitNetwork(config *NetworkConfig) error {
 
 	// Create a new network manager
 	networkManager = &NetworkManager{
-		config:         config,
-		incomingMsgs:   make(chan NetworkMessage, config.BufferSize),
-		outgoingMsgs:   make(chan NetworkMessage, config.BufferSize),
-		clients:        make(map[string]net.Conn),
-		isRunning:      true,
+		config:            config,
+		incomingMsgs:      make(chan NetworkMessage, config.BufferSize),
+		outgoingMsgs:      make(chan NetworkMessage, config.BufferSize),
+		clients:           make(map[string]net.Conn),
+		isRunning:         true,
 		waitingForPlayers: config.Role == RoleServer, // Server starts waiting for players
 	}
 
@@ -153,15 +153,21 @@ func ShutdownNetwork() {
 
 	// Close connections
 	if networkManager.listener != nil {
-		networkManager.listener.Close()
+		if err := networkManager.listener.Close(); err != nil {
+			log.Printf("Error closing listener: %v", err)
+		}
 	}
 
 	if networkManager.conn != nil {
-		networkManager.conn.Close()
+		if err := networkManager.conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
+		}
 	}
 
 	for _, conn := range networkManager.clients {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing client connection: %v", err)
+		}
 	}
 
 	// Clear the manager
@@ -174,13 +180,13 @@ func ShutdownNetwork() {
 func (nm *NetworkManager) startServer() error {
 	addr := net.JoinHostPort(nm.config.Address, fmt.Sprintf("%d", nm.config.Port))
 	log.Printf("Starting server on %s...", addr)
-	
+
 	// Try to listen on all interfaces if address is localhost
 	if nm.config.Address == "localhost" || nm.config.Address == "127.0.0.1" {
 		log.Printf("Using 0.0.0.0 instead of localhost to listen on all interfaces")
 		addr = net.JoinHostPort("0.0.0.0", fmt.Sprintf("%d", nm.config.Port))
 	}
-	
+
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		nm.networkError = fmt.Sprintf("Server start failed: %v", err)
@@ -221,26 +227,30 @@ func (nm *NetworkManager) handleConnection(conn net.Conn) {
 	// Get client address for logging
 	clientAddr := conn.RemoteAddr().String()
 	log.Printf("New client connection from %s", clientAddr)
-	
+
 	// We're now connected with at least one client
 	nm.mutex.Lock()
 	nm.waitingForPlayers = false
 	nm.mutex.Unlock()
-	
+
 	// Create a decoder for incoming messages
 	decoder := json.NewDecoder(conn)
-	
+
 	// Read the first message which should be a connect message
 	var msg NetworkMessage
 	if err := decoder.Decode(&msg); err != nil {
 		log.Printf("Error reading connect message: %v", err)
-		conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Printf("Error closing connection: %v", closeErr)
+		}
 		return
 	}
 
 	if msg.Type != MsgConnect {
 		log.Printf("First message was not a connect message")
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			log.Printf("Error closing connection: %v", err)
+		}
 		return
 	}
 
@@ -277,7 +287,9 @@ func (nm *NetworkManager) handleConnection(conn net.Conn) {
 		nm.waitingForPlayers = true
 	}
 	nm.mutex.Unlock()
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		log.Printf("Error closing connection after client disconnect: %v", err)
+	}
 
 	// Notify about the disconnection
 	if nm.onDisconnect != nil {
@@ -293,7 +305,7 @@ func (nm *NetworkManager) handleConnection(conn net.Conn) {
 func (nm *NetworkManager) connectToServer() error {
 	addr := net.JoinHostPort(nm.config.Address, fmt.Sprintf("%d", nm.config.Port))
 	log.Printf("Attempting to connect to server at %s...", addr)
-	
+
 	// Set a timeout for the connection attempt
 	dialer := net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.Dial("tcp", addr)
@@ -302,7 +314,7 @@ func (nm *NetworkManager) connectToServer() error {
 		nm.connectionLost = true
 		nm.networkError = fmt.Sprintf("Connection failed: %v", err)
 		nm.mutex.Unlock()
-		
+
 		log.Printf("Failed to connect to server at %s: %v", addr, err)
 		return fmt.Errorf("failed to connect to server: %v", err)
 	}
@@ -318,7 +330,9 @@ func (nm *NetworkManager) connectToServer() error {
 	}
 
 	if err := json.NewEncoder(conn).Encode(connectMsg); err != nil {
-		conn.Close()
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Printf("Error closing connection after encoding error: %v", closeErr)
+		}
 		return fmt.Errorf("failed to send connect message: %v", err)
 	}
 
@@ -330,7 +344,7 @@ func (nm *NetworkManager) connectToServer() error {
 // receiveMessages handles incoming messages from the server
 func (nm *NetworkManager) receiveMessages() {
 	decoder := json.NewDecoder(nm.conn)
-	
+
 	for nm.isRunning {
 		var msg NetworkMessage
 		if err := decoder.Decode(&msg); err != nil {
@@ -392,21 +406,27 @@ func (nm *NetworkManager) sendMessage(msg NetworkMessage) {
 			// Broadcast to all clients
 			nm.mutex.Lock()
 			for _, conn := range nm.clients {
-				json.NewEncoder(conn).Encode(msg)
+				if err := json.NewEncoder(conn).Encode(msg); err != nil {
+					log.Printf("Error encoding message to client: %v", err)
+				}
 			}
 			nm.mutex.Unlock()
 		} else {
 			// Send to specific client
 			nm.mutex.Lock()
 			if conn, ok := nm.clients[msg.PlayerID]; ok {
-				json.NewEncoder(conn).Encode(msg)
+				if err := json.NewEncoder(conn).Encode(msg); err != nil {
+					log.Printf("Error encoding message to client %s: %v", msg.PlayerID, err)
+				}
 			}
 			nm.mutex.Unlock()
 		}
 	} else {
 		// Client always sends to server
 		if nm.conn != nil {
-			json.NewEncoder(nm.conn).Encode(msg)
+			if err := json.NewEncoder(nm.conn).Encode(msg); err != nil {
+				log.Printf("Error encoding message to server: %v", err)
+			}
 		}
 	}
 }
@@ -441,7 +461,7 @@ func IsConnectionLost() bool {
 	if networkManager == nil {
 		return false
 	}
-	
+
 	networkManager.mutex.Lock()
 	defer networkManager.mutex.Unlock()
 	return networkManager.connectionLost
@@ -454,7 +474,7 @@ func GetNetworkError() string {
 	if networkManager == nil {
 		return ""
 	}
-	
+
 	networkManager.mutex.Lock()
 	defer networkManager.mutex.Unlock()
 	return networkManager.networkError
@@ -467,7 +487,7 @@ func IsWaitingForPlayers() bool {
 	if networkManager == nil {
 		return false
 	}
-	
+
 	networkManager.mutex.Lock()
 	defer networkManager.mutex.Unlock()
 	return networkManager.waitingForPlayers
@@ -480,7 +500,7 @@ func GetGameName() string {
 	if networkManager == nil {
 		return ""
 	}
-	
+
 	return networkManager.config.GameName
 }
 
@@ -498,14 +518,14 @@ func GetPlayerID() string {
 func GetConnectedPlayers() []string {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager == nil || networkManager.config.Role != RoleServer {
 		return []string{}
 	}
-	
+
 	networkManager.mutex.Lock()
 	defer networkManager.mutex.Unlock()
-	
+
 	players := make([]string, 0, len(networkManager.clients))
 	for id := range networkManager.clients {
 		players = append(players, id)
@@ -519,7 +539,7 @@ func GetConnectedPlayers() []string {
 func SetOnConnectCallback(callback func(playerID string)) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager != nil {
 		networkManager.onConnect = callback
 	}
@@ -529,7 +549,7 @@ func SetOnConnectCallback(callback func(playerID string)) {
 func SetOnDisconnectCallback(callback func(playerID string)) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager != nil {
 		networkManager.onDisconnect = callback
 	}
@@ -539,7 +559,7 @@ func SetOnDisconnectCallback(callback func(playerID string)) {
 func SetOnGameStateCallback(callback func(playerID string, data []byte)) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager != nil {
 		networkManager.onGameState = callback
 	}
@@ -549,7 +569,7 @@ func SetOnGameStateCallback(callback func(playerID string, data []byte)) {
 func SetOnPlayerInputCallback(callback func(playerID string, data []byte)) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager != nil {
 		networkManager.onPlayerInput = callback
 	}
@@ -561,11 +581,11 @@ func SetOnPlayerInputCallback(callback func(playerID string, data []byte)) {
 func SendGameState(data []byte, targetPlayerID string) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager == nil {
 		return
 	}
-	
+
 	networkManager.outgoingMsgs <- NetworkMessage{
 		Type:     MsgGameState,
 		PlayerID: targetPlayerID, // "all" for broadcast
@@ -577,11 +597,11 @@ func SendGameState(data []byte, targetPlayerID string) {
 func SendPlayerInput(data []byte) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager == nil || networkManager.config.Role != RoleClient {
 		return
 	}
-	
+
 	networkManager.outgoingMsgs <- NetworkMessage{
 		Type:     MsgPlayerInput,
 		PlayerID: networkManager.config.PlayerID,
@@ -593,14 +613,14 @@ func SendPlayerInput(data []byte) {
 func PingServer() {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager == nil || networkManager.config.Role != RoleClient {
 		return
 	}
-	
+
 	// Send current timestamp as data
 	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-	
+
 	networkManager.outgoingMsgs <- NetworkMessage{
 		Type:     MsgPing,
 		PlayerID: "server",
@@ -612,24 +632,24 @@ func PingServer() {
 // This is a helper function to standardize network command line arguments
 func ParseNetworkArgs() *NetworkConfig {
 	config := DefaultNetworkConfig()
-	
+
 	// Define command line flags
 	var role string
 	flag.StringVar(&role, "role", "server", "Role: server or client")
 	flag.StringVar(&config.Address, "connect", "localhost", "Server address to connect to (client only)")
 	flag.IntVar(&config.Port, "port", 8080, "Port to use for connection")
 	flag.StringVar(&config.GameName, "name", config.GameName, "Name of the multiplayer game")
-	
+
 	// Parse flags
 	flag.Parse()
-	
+
 	// Set role based on flag
 	if role == "client" {
 		config.Role = RoleClient
 	} else {
 		config.Role = RoleServer
 	}
-	
+
 	return config
 }
 
@@ -638,20 +658,20 @@ func ParseNetworkArgs() *NetworkConfig {
 func DrawNetworkStatus(x, y, color int) {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
-	
+
 	if networkManager == nil {
 		return
 	}
-	
+
 	networkManager.mutex.Lock()
 	defer networkManager.mutex.Unlock()
-	
+
 	// Display network error if any
 	if networkManager.networkError != "" {
 		Print(networkManager.networkError, x, y, color)
 		return
 	}
-	
+
 	// Display waiting message if waiting for players
 	if networkManager.waitingForPlayers {
 		if networkManager.config.Role == RoleServer {
@@ -662,7 +682,7 @@ func DrawNetworkStatus(x, y, color int) {
 		}
 		return
 	}
-	
+
 	// Display role information
 	if networkManager.config.Role == RoleServer {
 		Print("server mode", x, y, color)
@@ -678,18 +698,18 @@ func InitNetworkFromMultiplayerSettings(settings *MultiplayerSettings) error {
 	if settings == nil {
 		return fmt.Errorf("multiplayer settings cannot be nil")
 	}
-	
+
 	// Skip if multiplayer is not enabled
 	if !settings.Enabled {
 		return nil
 	}
-	
+
 	config := &NetworkConfig{
 		Role:     RoleServer,
 		Port:     settings.Port,
 		GameName: settings.GameName,
 	}
-	
+
 	// Set address based on server/client role
 	if settings.IsServer {
 		// Server listens on all interfaces
@@ -699,7 +719,7 @@ func InitNetworkFromMultiplayerSettings(settings *MultiplayerSettings) error {
 		config.Role = RoleClient
 		config.Address = settings.ServerIP
 	}
-	
+
 	return InitNetwork(config)
 }
 
@@ -728,7 +748,7 @@ func GetLocalIP() string {
 		// Look for IPv4 addresses
 		for _, addr := range addrs {
 			var ip net.IP
-			
+
 			// Extract IP from address
 			switch v := addr.(type) {
 			case *net.IPNet:
