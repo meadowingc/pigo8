@@ -12,11 +12,11 @@ import (
 
 // Settings defines configurable parameters for the PIGO8 console.
 type Settings struct {
-	ScaleFactor  int    // Integer scaling factor for the window (Default: 4).
-	WindowTitle  string // Title displayed on the window bar (Default: "PIGO-8 Game").
-	TargetFPS    int    // Target ticks per second (Default: 30).
-	ScreenWidth  int    // Custom screen width (Default: 128 for PICO-8 compatibility).
-	ScreenHeight int    // Custom screen height (Default: 128 for PICO-8 compatibility).
+	ScaleFactor       int    // Integer scaling factor for the window (Default: 4).
+	WindowTitle       string // Title displayed on the window bar (Default: "PIGO-8 Game").
+	TargetFPS         int    // Target ticks per second (Default: 30).
+	ScreenWidth       int    // Custom screen width (Default: 128 for PICO-8 compatibility).
+	ScreenHeight      int    // Custom screen height (Default: 128 for PICO-8 compatibility).
 }
 
 // NewSettings creates a new Settings object with default values.
@@ -88,6 +88,12 @@ func InsertGame(cartridge Cartridge) {
 	} else {
 		loadedCartridge = cartridge
 	}
+}
+
+// CurrentCartridge returns the currently loaded cartridge.
+// This is useful for accessing the game state from network callbacks.
+func CurrentCartridge() Cartridge {
+	return loadedCartridge
 }
 
 // --- Internal Ebiten Game Implementation ---
@@ -189,6 +195,22 @@ func PlayGameWith(settings *Settings) {
 	if cfg == nil {
 		log.Println("Warning: pigo8.PlayGameWith called with nil Settings, using defaults.")
 		cfg = NewSettings()
+	}
+
+	// Check for network configuration from command line arguments
+	networkConfig := ParseNetworkArgs()
+	
+	// Set game name from window title if not specified
+	if networkConfig.GameName == "PIGO8 Game" {
+		networkConfig.GameName = cfg.WindowTitle
+	}
+	
+	// Initialize networking if enabled (determined by ParseNetworkArgs)
+	if IsNetworkInitialized() || networkConfig != nil {
+		if err := InitNetwork(networkConfig); err != nil {
+			log.Printf("Warning: Failed to initialize network: %v", err)
+		}
+		defer ShutdownNetwork()
 	}
 
 	// Reset time tracking variables
