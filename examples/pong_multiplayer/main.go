@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
+	"math"
 	"time"
 
 	p8 "github.com/drpaneas/pigo8"
@@ -170,9 +170,25 @@ func (g *Game) Update() {
 		}
 	} else if g.isClient {
 		// Client controls right paddle
-		if p8.Btn(p8.UP) || p8.Btn(p8.DOWN) {
-			g.sendPlayerInput()
+		// Always send input state for more responsive control with UDP
+		g.sendPlayerInput()
+
+		// Implement client-side prediction for smoother feel
+		// We'll still use the server's authoritative updates, but predict movement locally
+		// for immediate visual feedback
+		predictedY := g.rightPaddle.y
+
+		// Calculate predicted position based on input
+		if p8.Btn(p8.UP) && predictedY > courtTop+1 {
+			predictedY -= g.rightPaddle.speed
 		}
+		if p8.Btn(p8.DOWN) && predictedY+g.rightPaddle.height < courtBottom-1 {
+			predictedY += g.rightPaddle.speed
+		}
+
+		// Apply prediction, but allow server corrections if there's a significant difference
+		// This provides responsive local movement while still allowing server to be authoritative
+		g.rightPaddle.y = predictedY
 	}
 
 	// Server handles game logic
@@ -210,7 +226,8 @@ func (g *Game) Update() {
 		g.ball.y += g.ball.dy
 
 		// Send game state to client more frequently for better responsiveness
-		if time.Since(g.lastStateUpdate) > 16*time.Millisecond {
+		// Use a very high update frequency for UDP networking to ensure smooth paddle movement
+		if time.Since(g.lastStateUpdate) > 4*time.Millisecond {
 			g.sendGameState()
 			g.lastStateUpdate = time.Now()
 		}
@@ -295,14 +312,18 @@ func (g *Game) sendGameState() {
 
 // sendPlayerInput sends the player's input to the server
 func (g *Game) sendPlayerInput() {
-	if !g.isClient || time.Since(g.lastInputSent) < 16*time.Millisecond {
+	if !g.isClient || time.Since(g.lastInputSent) < 8*time.Millisecond {
 		return
 	}
 
+	// Create input message with current button states
 	input := PlayerInput{
 		Up:   p8.Btn(p8.UP),
 		Down: p8.Btn(p8.DOWN),
 	}
+
+	// Log the input being sent for debugging
+	log.Printf("Client sending input: Up=%v, Down=%v", input.Up, input.Down)
 
 	data, err := json.Marshal(input)
 	if err != nil {
@@ -310,6 +331,7 @@ func (g *Game) sendPlayerInput() {
 		return
 	}
 
+	// Send input to server
 	p8.SendPlayerInput(data)
 	g.lastInputSent = time.Now()
 }
@@ -328,15 +350,35 @@ func handleGameState(_ string, data []byte) {
 		return
 	}
 
+	// Log received game state for debugging
+	log.Printf("Client received game state: ball=(%v,%v), left=%v, right=%v",
+		state.BallX, state.BallY, state.LeftPaddleY, state.RightPaddleY)
+
 	// Update game state
 	game.ball.x = state.BallX
 	game.ball.y = state.BallY
 	game.ball.dx = state.BallDX
 	game.ball.dy = state.BallDY
 
-	// Always update both paddles from server state
+	// Update left paddle (server's paddle) from server state
 	game.leftPaddle.y = state.LeftPaddleY
-	game.rightPaddle.y = state.RightPaddleY
+
+	// For the right paddle (client's paddle), we need to handle client-side prediction reconciliation
+	if game.isClient {
+		// Calculate the difference between our predicted position and server's position
+		diff := math.Abs(game.rightPaddle.y - state.RightPaddleY)
+
+		// If the difference is significant (more than a small threshold), use server position
+		// This prevents the paddle from getting too far out of sync
+		if diff > 3.0 {
+			// Smoothly interpolate to the server position rather than snapping
+			game.rightPaddle.y += (state.RightPaddleY - game.rightPaddle.y) * 0.5
+		}
+		// Otherwise, keep using our predicted position for smoother local movement
+	} else {
+		// For the server or spectators, always use the authoritative position
+		game.rightPaddle.y = state.RightPaddleY
+	}
 
 	game.leftScore = state.LeftScore
 	game.rightScore = state.RightScore
@@ -346,7 +388,7 @@ func handleGameState(_ string, data []byte) {
 }
 
 // handlePlayerInput processes player input received from the client
-func handlePlayerInput(_ string, data []byte) {
+func handlePlayerInput(playerID string, data []byte) {
 	game, ok := p8.CurrentCartridge().(*Game)
 	if !ok {
 		log.Printf("Error: current cartridge is not a Game")
@@ -363,14 +405,20 @@ func handlePlayerInput(_ string, data []byte) {
 		return
 	}
 
+	// Log received input for debugging
+	log.Printf("Server received input from client %s: Up=%v, Down=%v", playerID, input.Up, input.Down)
+
 	// Update right paddle based on client input
-	// Apply more movement per input to compensate for network latency
+	// Use the same speed as the left paddle for consistency
 	if input.Up && game.rightPaddle.y > courtTop+1 {
-		game.rightPaddle.y -= game.rightPaddle.speed * 2
+		game.rightPaddle.y -= game.rightPaddle.speed
 	}
 	if input.Down && game.rightPaddle.y+game.rightPaddle.height < courtBottom-1 {
-		game.rightPaddle.y += game.rightPaddle.speed * 2
+		game.rightPaddle.y += game.rightPaddle.speed
 	}
+
+	// Immediately send updated game state after processing input
+	game.sendGameState()
 }
 
 // handlePlayerConnect is called when a player connects
@@ -418,32 +466,49 @@ func collide(b Ball, p Paddle) bool {
 // No longer needed as we use p8.DrawNetworkStatus
 
 func main() {
-	// Parse command line flags using the standardized PIGO8 function
-	config := p8.ParseNetworkArgs()
+	// Create the game
+	game := &Game{}
+	p8.InsertGame(game)
+	game.Init()
 
-	// Set game name
-	config.GameName = "PIGO8 Multiplayer Pong"
-
-	// Initialize network
-	if err := p8.InitNetwork(config); err != nil {
-		fmt.Printf("Error initializing network: %v\n", err)
-		os.Exit(1)
-	}
-	defer p8.ShutdownNetwork()
-
-	// Set up network callbacks
+	// IMPORTANT: Register network callbacks BEFORE initializing the network
+	log.Printf("Registering network callbacks...")
 	p8.SetOnGameStateCallback(handleGameState)
 	p8.SetOnPlayerInputCallback(handlePlayerInput)
 	p8.SetOnConnectCallback(handlePlayerConnect)
 	p8.SetOnDisconnectCallback(handlePlayerDisconnect)
 
-	// Create and start the game
-	game := &Game{}
-	p8.InsertGame(game)
-	game.Init()
-
+	// Configure the game settings
 	settings := p8.NewSettings()
 	settings.TargetFPS = 60
-	settings.WindowTitle = "PIGO-8 Multiplayer Pong"
-	p8.PlayGameWith(settings)
+	settings.WindowTitle = "PIGO8 Multiplayer Pong"
+
+	// Initialize network manually first to ensure callbacks are registered
+	config := p8.ParseNetworkArgs()
+	config.GameName = "PIGO8 Multiplayer Pong"
+	if err := p8.InitNetwork(config); err != nil {
+		log.Printf("Error initializing network: %v", err)
+	}
+
+	// Force register callbacks directly on the network manager as a fallback
+	log.Printf("Force registering callbacks to ensure they're set...")
+	p8.ForceRegisterCallbacks(
+		handleGameState,
+		handlePlayerInput,
+		handlePlayerConnect,
+		handlePlayerDisconnect,
+	)
+
+	// Verify callbacks are registered
+	if !p8.AreCallbacksRegistered() {
+		log.Printf("WARNING: Callbacks are still not registered after force registration!")
+	} else {
+		log.Printf("SUCCESS: All callbacks are now registered")
+	}
+
+	// Start the game without reinitializing the network
+	log.Printf("Starting game with network already initialized")
+
+	// Use our new function that doesn't reinitialize the network
+	p8.PlayGameWithoutNetwork(settings)
 }

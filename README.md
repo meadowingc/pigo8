@@ -134,6 +134,7 @@ Comprehensive documentation can be found on the [PIGO8 Wiki](https://drpaneas.gi
 * **Palette Hex**: [examples/palette_hex](https://github.com/drpaneas/pigo8/tree/main/examples/palette_hex) - Using hex values for custom palettes
 * **Pong**: [examples/pong](https://github.com/drpaneas/pigo8/tree/main/examples/pong) - Complete Pong game implementation
 * **Spritesheet**: [examples/spritesheet](https://github.com/drpaneas/pigo8/tree/main/examples/spritesheet) - Working with spritesheets
+* **Multiplayer**: [examples/pong_multiplayer](https://github.com/drpaneas/pigo8/tree/main/examples/pong_multiplayer) - Complete Pong multiplayer game implementation
 
 ## Contributing
 

@@ -265,3 +265,61 @@ func PlayGameWith(settings *Settings) {
 func Play() {
 	PlayGameWith(NewSettings())
 }
+
+// PlayGameWithoutNetwork runs the PIGO8 console with the given settings
+// but does not reinitialize the network. This is useful when you have
+// already initialized the network and registered callbacks.
+func PlayGameWithoutNetwork(settings *Settings) {
+	// Use default settings if nil is passed
+	cfg := settings
+	if cfg == nil {
+		log.Println("Warning: pigo8.PlayGameWithoutNetwork called with nil Settings, using defaults.")
+		cfg = NewSettings()
+	}
+
+	// Reset time tracking variables
+	elapsedTime = 0.0
+
+	// Update logical screen dimensions if custom values are provided
+	if cfg.ScreenWidth > 0 {
+		ScreenWidth = cfg.ScreenWidth
+	} else {
+		ScreenWidth = DefaultWidth
+		cfg.ScreenWidth = DefaultWidth
+	}
+
+	if cfg.ScreenHeight > 0 {
+		ScreenHeight = cfg.ScreenHeight
+	} else {
+		ScreenHeight = DefaultHeight
+		cfg.ScreenHeight = DefaultHeight
+	}
+
+	// Try to load custom palette from palette.hex if it exists
+	loadPaletteFromHexFile()
+
+	// Configure Ebitengine window using Settings object
+	ebiten.SetWindowTitle(cfg.WindowTitle)
+	winWidth := ScreenWidth * cfg.ScaleFactor
+	winHeight := ScreenHeight * cfg.ScaleFactor
+	if winWidth <= 0 || winHeight <= 0 {
+		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default %dx%d.", winWidth, winHeight, cfg.ScaleFactor, DefaultWidth, DefaultHeight)
+		winWidth, winHeight = DefaultWidth, DefaultHeight
+	}
+	ebiten.SetWindowSize(winWidth, winHeight)
+	ebiten.SetTPS(cfg.TargetFPS)
+
+	// Calculate time increment based on target FPS
+	timeIncrement = 1.0 / float64(cfg.TargetFPS)
+
+	internalGame := &game{
+		initialized: false,
+	}
+
+	log.Println("Booting PIGO8 console without reinitializing network...")
+	err := ebiten.RunGame(internalGame)
+	if err != nil {
+		log.Panicf("pico8.PlayGameWithoutNetwork: Ebitengine loop failed: %v", err)
+	}
+	log.Println("PIGO8 console shutdown.")
+}
