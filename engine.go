@@ -127,6 +127,17 @@ func (g *game) Layout(_, _ int) (screenWidth, screenHeight int) {
 	return ScreenWidth, ScreenHeight
 }
 
+// ResetGame fully resets the game state
+func (g *game) ResetGame() {
+	log.Println("Resetting game...")
+	// Reset all game state
+	g.initialized = false
+	g.firstFrameDrawn = false
+	g.paused = false
+	g.pauseSelected = EngPauseOptionContinue
+	// Reset any other engine state here if needed
+}
+
 // Update implements ebiten.Game.
 func (g *game) Update() error {
 	if !g.initialized {
@@ -146,7 +157,6 @@ func (g *game) Update() error {
 
 		// Check for START button press to toggle pause menu
 		if Btnp(START) {
-			fmt.Println("START button pressed in engine.go")
 			// Toggle pause state
 			g.paused = !g.paused
 			if g.paused {
@@ -185,8 +195,8 @@ func (g *game) Update() error {
 					g.paused = false
 				case EngPauseOptionReset:
 					// Reset the game
-					g.paused = false
-					loadedCartridge.Init()
+					g.ResetGame()
+					// The next frame will trigger initialization
 				case EngPauseOptionExit:
 					// Exit the game immediately
 					fmt.Println("Exiting application...")
