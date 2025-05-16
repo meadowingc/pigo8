@@ -98,8 +98,8 @@ func Rect[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
 
 	// Apply camera offset
-	fx1, fy1 = ApplyCameraOffset(fx1, fy1)
-	fx2, fy2 = ApplyCameraOffset(fx2, fy2)
+	fx1, fy1 = applyCameraOffset(fx1, fy1)
+	fx2, fy2 = applyCameraOffset(fx2, fy2)
 
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
@@ -161,8 +161,8 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
 
 	// Apply camera offset
-	fx1, fy1 = ApplyCameraOffset(fx1, fy1)
-	fx2, fy2 = ApplyCameraOffset(fx2, fy2)
+	fx1, fy1 = applyCameraOffset(fx1, fy1)
+	fx2, fy2 = applyCameraOffset(fx2, fy2)
 
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
@@ -352,7 +352,7 @@ func Circ[X Number, Y Number, R Number](x X, y Y, radius R, options ...interface
 	fx, fy, fr := float64(x), float64(y), float64(radius)
 
 	// Apply camera offset
-	fx, fy = ApplyCameraOffset(fx, fy)
+	fx, fy = applyCameraOffset(fx, fy)
 
 	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
 	if !ok {
@@ -397,7 +397,7 @@ func Circfill[X Number, Y Number, R Number](x X, y Y, radius R, options ...inter
 	fx, fy, fr := float64(x), float64(y), float64(radius)
 
 	// Apply camera offset
-	fx, fy = ApplyCameraOffset(fx, fy)
+	fx, fy = applyCameraOffset(fx, fy)
 
 	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
 	if !ok {

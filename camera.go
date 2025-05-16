@@ -1,14 +1,5 @@
 package pigo8
 
-import (
-	"golang.org/x/exp/constraints"
-)
-
-// CameraNumber covers ints, floats for camera coordinates
-type CameraNumber interface {
-	constraints.Integer | constraints.Float
-}
-
 // Camera state
 var (
 	// cameraX is the current camera X offset
@@ -40,7 +31,7 @@ var (
 //	Print("SCORE: 1000", 2, 2) // Draw UI
 //	Camera(playerX-64, playerY-64) // Set camera to follow player
 //	Map() // Draw scrolling map
-func Camera(args ...interface{}) {
+func Camera(args ...any) {
 	// Reset camera if no arguments
 	if len(args) == 0 {
 		cameraX = 0
@@ -67,18 +58,8 @@ func Camera(args ...interface{}) {
 	}
 }
 
-// CameraG is the generic version of Camera that accepts any number type for coordinates.
-// The x and y coordinates can be any integer or float type (e.g., int, float64)
-// due to the use of generics [X CameraNumber, Y CameraNumber]. They are converted internally
-// to float64 for camera calculations.
-func CameraG[X CameraNumber, Y CameraNumber](x X, y Y) {
-	// Set camera position
-	cameraX = float64(x)
-	cameraY = float64(y)
-}
-
 // convertToFloat64 attempts to convert a value to float64
-func convertToFloat64(value interface{}) (float64, bool) {
+func convertToFloat64(value any) (float64, bool) {
 	switch v := value.(type) {
 	case int:
 		return float64(v), true
@@ -109,8 +90,8 @@ func convertToFloat64(value interface{}) (float64, bool) {
 	}
 }
 
-// ApplyCameraOffset applies the current camera offset to the given coordinates
+// applyCameraOffset applies the current camera offset to the given coordinates
 // and returns the transformed coordinates
-func ApplyCameraOffset(x, y float64) (float64, float64) {
+func applyCameraOffset(x, y float64) (float64, float64) {
 	return x - cameraX, y - cameraY
 }

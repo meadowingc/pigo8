@@ -200,7 +200,7 @@ func Pset(x, y int, colorIndex ...int) {
 	}
 
 	// Apply camera offset
-	fx, fy := ApplyCameraOffset(float64(x), float64(y))
+	fx, fy := applyCameraOffset(float64(x), float64(y))
 	x, y = int(fx), int(fy)
 
 	// Check bounds
@@ -338,7 +338,7 @@ func Print(str string, args ...int) (int, int) {
 	}
 
 	// Apply camera offset
-	fx, fy := ApplyCameraOffset(float64(posX), float64(posY))
+	fx, fy := applyCameraOffset(float64(posX), float64(posY))
 	drawX, drawY := int(fx), int(fy)
 
 	// --- Prepare for Drawing ---

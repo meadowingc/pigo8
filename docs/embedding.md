@@ -129,7 +129,7 @@ PIGO8 now supports custom color palettes through a `palette.hex` file. This allo
 
 Each line in the palette.hex file should contain a single hex color code, for example:
 
-```
+```sh
 c60021
 e70000
 e76121

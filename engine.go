@@ -25,8 +25,8 @@ func NewSettings() *Settings {
 		ScaleFactor:  4,
 		WindowTitle:  "PIGO-8 Game",
 		TargetFPS:    30,
-		ScreenWidth:  128, // Default PICO-8 width
-		ScreenHeight: 128, // Default PICO-8 height
+		ScreenWidth:  128,   // Default PICO-8 width
+		ScreenHeight: 128,   // Default PICO-8 height
 		Multiplayer:  false, // Networking disabled by default
 	}
 }
@@ -125,7 +125,7 @@ func (g *game) Update() error {
 	// Only call Update after the first frame has been drawn
 	if g.firstFrameDrawn {
 		UpdateConnectedGamepads()
-		UpdateMouseState()
+		updateMouseState()
 		loadedCartridge.Update()
 
 		// Update elapsed time

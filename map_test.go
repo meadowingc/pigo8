@@ -51,10 +51,10 @@ func TestMgetAndMset(t *testing.T) {
 		assert.Equal(t, 0, Mget(10, 10), "Mget for empty cell should return 0")
 	})
 
-	// Test MgetG alias
-	t.Run("MgetG alias", func(t *testing.T) {
-		assert.Equal(t, 1, MgetG(0, 0), "MgetG(0, 0) should return sprite 1")
-		assert.Equal(t, 42, MgetG(5, 7), "MgetG(5, 7) should return sprite 42")
+	// Test Mget
+	t.Run("Mget", func(t *testing.T) {
+		assert.Equal(t, 1, Mget(0, 0), "Mget(0, 0) should return sprite 1")
+		assert.Equal(t, 42, Mget(5, 7), "Mget(5, 7) should return sprite 42")
 	})
 
 	// Test Mset
@@ -72,10 +72,10 @@ func TestMgetAndMset(t *testing.T) {
 		assert.Equal(t, 77, Mget(11, 11), "After Mset(11.7, 11.7, 77.9), Mget(11, 11) should return 77")
 	})
 
-	// Test MsetG alias
-	t.Run("MsetG alias", func(t *testing.T) {
-		MsetG(12, 12, 88)
-		assert.Equal(t, 88, Mget(12, 12), "After MsetG(12, 12, 88), Mget should return 88")
+	// Test Mset alias
+	t.Run("Mset alias", func(t *testing.T) {
+		Mset(12, 12, 88)
+		assert.Equal(t, 88, Mget(12, 12), "After Mset(12, 12, 88), Mget should return 88")
 	})
 
 	// Test map cell creation and update

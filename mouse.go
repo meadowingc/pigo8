@@ -16,9 +16,9 @@ var (
 	}
 )
 
-// UpdateMouseState updates the internal mouse state.
+// updateMouseState updates the internal mouse state.
 // This should be called once per frame in the game's Update method.
-func UpdateMouseState() {
+func updateMouseState() {
 	// Update mouse position
 	mouseX, mouseY = ebiten.CursorPosition()
 

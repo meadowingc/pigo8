@@ -155,10 +155,10 @@ func Map(args ...any) {
 	}
 
 	// Call the generic implementation
-	MapG(mx, my, remainingArgs...)
+	mapG(mx, my, remainingArgs...)
 }
 
-// MapG is the generic version of Map that accepts any number type for coordinates.
+// mapG is the generic version of Map that accepts any number type for coordinates.
 // The mx and my coordinates can be any integer or float type (e.g., int, float64)
 // due to the use of generics [MX Number, MY Number]. They are converted internally
 // to integers for map calculations.
@@ -170,12 +170,12 @@ func Map(args ...any) {
 //
 // Usage:
 //
-//	MapG(0, 0) // Draw map at (0,0) with default size
-//	MapG(mx, my) // Draw map at specified coordinates
-//	MapG(mx, my, sx, sy) // Draw map at specified coordinates with screen offset
-//	MapG(mx, my, sx, sy, w, h) // Draw map with custom dimensions
-//	MapG(mx, my, sx, sy, w, h, layers) // Draw map with layer filtering
-func MapG[MX Number, MY Number](mx MX, my MY, args ...any) {
+//	mapG(0, 0) // Draw map at (0,0) with default size
+//	mapG(mx, my) // Draw map at specified coordinates
+//	mapG(mx, my, sx, sy) // Draw map at specified coordinates with screen offset
+//	mapG(mx, my, sx, sy, w, h) // Draw map with custom dimensions
+//	mapG(mx, my, sx, sy, w, h, layers) // Draw map with layer filtering
+func mapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 	if !ensureMapResources() {
 		return
 	}
@@ -370,11 +370,6 @@ func Mget[C Number, R Number](column C, row R) int {
 	return 0
 }
 
-// MgetG is an alias for Mget to maintain naming consistency with other functions
-func MgetG[C Number, R Number](column C, row R) int {
-	return Mget(column, row)
-}
-
 // Mset sets the sprite number at the specified map coordinates.
 // This mimics PICO-8's mset(column, row, sprite) function.
 //
@@ -436,9 +431,4 @@ func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
 
 	// Add the new cell to the map
 	currentMap.Cells = append(currentMap.Cells, newCell)
-}
-
-// MsetG is an alias for Mset to maintain naming consistency with other functions
-func MsetG[C Number, R Number, S Number](column C, row R, sprite S) {
-	Mset(column, row, sprite)
 }
