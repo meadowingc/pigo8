@@ -32,8 +32,8 @@ type AudioPlayer struct {
 var audioPlayerInstance *AudioPlayer
 var audioPlayerOnce sync.Once
 
-// GetAudioPlayer returns the singleton AudioPlayer instance
-func GetAudioPlayer() *AudioPlayer {
+// getAudioPlayer returns the singleton AudioPlayer instance
+func getAudioPlayer() *AudioPlayer {
 	audioPlayerOnce.Do(func() {
 		audioContext := audio.NewContext(SampleRate)
 		audioPlayerInstance = &AudioPlayer{
@@ -114,7 +114,7 @@ func Music(n int, exclusive ...bool) {
 	// Default exclusive to false
 	shouldBeExclusive := len(exclusive) > 0 && exclusive[0]
 
-	ap := GetAudioPlayer()
+	ap := getAudioPlayer()
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
@@ -174,7 +174,7 @@ func Music(n int, exclusive ...bool) {
 // StopMusic stops the audio file with the given ID
 // If id is -1, it stops all audio files
 func StopMusic(id int) {
-	ap := GetAudioPlayer()
+	ap := getAudioPlayer()
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 

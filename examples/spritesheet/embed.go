@@ -4,7 +4,6 @@ package main
 
 import (
 	"embed"
-	"log"
 	
 	p8 "github.com/drpaneas/pigo8"
 )
@@ -18,8 +17,5 @@ func init() {
 	// Register the embedded resources with PIGO8
 	p8.RegisterEmbeddedResources(resources, "spritesheet.json", "", "palette.hex")
 
-	// Initialize audio player if audio files are present
-	if p8.GetAudioPlayer() != nil {
-		log.Println("Audio system initialized")
-	}
+	// Audio will be automatically initialized if audio files are present
 }

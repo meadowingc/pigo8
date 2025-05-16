@@ -109,7 +109,6 @@ package main
 
 import (
 	"embed"
-	"log"
 	
 	p8 "github.com/drpaneas/pigo8"
 )
@@ -175,10 +174,7 @@ func init() {
 	content += ")\n"
 
 	content += `
-	// Initialize audio player if audio files are present
-	if p8.GetAudioPlayer() != nil {
-		log.Println("Audio system initialized")
-	}
+	// Audio will be automatically initialized if audio files are present
 }
 `
 	// Write the file

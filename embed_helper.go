@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 )
 
 const none = "none"
@@ -66,6 +67,12 @@ func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string,
 	}
 
 	log.Printf("Registered custom embedded resources: spritesheet=%s, map=%s, palette=%s, audio files=%d", spritesheetDisplay, mapDisplay, paletteDisplay, len(filteredAudioPaths))
+	
+	// Automatically initialize audio if there are audio files
+	if len(filteredAudioPaths) > 0 || hasEmbeddedAudioFiles(resources) {
+		initAudioPlayer()
+		log.Println("Audio system initialized automatically")
+	}
 }
 
 // tryLoadEmbeddedFile attempts to load a file from embedded resources
@@ -175,7 +182,54 @@ func fileExists(filename string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	return err == nil && !info.IsDir()
+	return !info.IsDir()
+}
+
+// hasEmbeddedAudioFiles checks if there are any music*.wav files in the embedded resources
+func hasEmbeddedAudioFiles(resources fs.FS) bool {
+	hasAudio := false
+	
+	// Walk through the embedded filesystem to find audio files
+	_ = fs.WalkDir(resources, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // Continue even if there's an error
+		}
+		
+		// Skip directories
+		if d.IsDir() {
+			return nil
+		}
+		
+		// Check if the file is a music*.wav file
+		if strings.HasPrefix(filepath.Base(path), "music") && strings.HasSuffix(path, ".wav") {
+			hasAudio = true
+			return fs.SkipAll // Stop walking once we find one audio file
+		}
+		
+		return nil
+	})
+	
+	return hasAudio
+}
+
+// initAudioPlayer initializes the audio player
+func initAudioPlayer() {
+	// Use the existing getAudioPlayer function to initialize the audio player
+	// This ensures we're using the same singleton pattern
+	ap := getAudioPlayer()
+	
+	// Verify that the audio player was initialized successfully
+	if ap == nil {
+		log.Println("Error: Failed to initialize audio player")
+		return
+	}
+	
+	// Check if any audio files were loaded
+	if len(ap.musicData) == 0 {
+		log.Println("Warning: Audio player initialized but no audio files were loaded")
+	} else {
+		log.Printf("Audio system initialized successfully with %d audio files", len(ap.musicData))
+	}
 }
 
 // tryLoadEmbeddedMap attempts to load a map from embedded resources

@@ -16,4 +16,6 @@ var resources embed.FS
 func init() {
 	// Register the embedded resources with PIGO8
 	p8.RegisterEmbeddedResources(resources, "spritesheet.json", "map.json")
+
+	// Audio will be automatically initialized if audio files are present
 }
