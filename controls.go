@@ -27,16 +27,21 @@ const (
 )
 
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
-// This assumes a standard layout mapping common on many controllers.
+// Mapped specifically for Xbox controller layout.
 var pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
+	// D-Pad (on Xbox, these are the actual D-pad buttons, not the left stick)
 	LEFT:   ebiten.StandardGamepadButtonLeftLeft,
 	RIGHT:  ebiten.StandardGamepadButtonLeftRight,
 	UP:     ebiten.StandardGamepadButtonLeftTop,
 	DOWN:   ebiten.StandardGamepadButtonLeftBottom,
-	O:      ebiten.StandardGamepadButtonRightBottom, // A / Cross
-	X:      ebiten.StandardGamepadButtonRightLeft,   // B / Circle
-	START:  ebiten.StandardGamepadButtonCenterRight, // Start / Options
-	SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select / Back / Share
+	
+	// Face buttons (A/B/X/Y on Xbox)
+	O:      ebiten.StandardGamepadButtonRightLeft,   // X button on Xbox (left face button)
+	X:      ebiten.StandardGamepadButtonRightBottom, // A button on Xbox (bottom face button)
+	
+	// Start/Select (Menu/View on Xbox)
+	START:  ebiten.StandardGamepadButtonCenterRight, // Start/Menu button
+	SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select/View button
 }
 
 // pico8ButtonToKeyboardP0 maps PICO-8 button indices to default keyboard keys for Player 0.
@@ -104,31 +109,6 @@ func getGamepadID(playerIndex int) (ebiten.GamepadID, bool) {
 //
 // buttonIndex: The PICO-8 button index (0-15).
 // playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
-//
-//	Keyboard input is only checked for playerIndex 0.
-//	Mouse input is available for all player indices.
-//
-// Usage:
-//
-//	Btn(buttonIndex)
-//	Btn(buttonIndex, playerIndex)
-//
-// Example:
-//
-//	// Check if the left button/arrow key is held for player 0
-//	if Btn(LEFT) {
-//		// Move left
-//	}
-//
-//	// Check if the left mouse button is held
-//	if Btn(MOUSE_LEFT) {
-//		// Handle left mouse button
-//	}
-//
-//	// Check if the 'O' button (gamepad only) is held for player 1 (index 1)
-//	if Btn(O, 1) {
-//		// Player 1 action
-//	}
 func Btn(buttonIndex int, playerIndex ...int) bool {
 	pIdx := 0 // Default to player 0
 	if len(playerIndex) > 0 {
@@ -136,7 +116,6 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 	}
 
 	// --- Mouse Check ---
-	// Mouse buttons are available regardless of player index
 	switch buttonIndex {
 	case MouseLeft:
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
@@ -153,31 +132,52 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 	}
 
 	// --- Keyboard Check (Player 0 Only) ---
-	keyboardPressed := false
 	if pIdx == 0 {
 		if key, ok := pico8ButtonToKeyboardP0[buttonIndex]; ok {
-			keyboardPressed = ebiten.IsKeyPressed(key)
+			if ebiten.IsKeyPressed(key) {
+				return true
+			}
 		}
 	}
 
 	// --- Gamepad Check ---
-	gamepadPressed := false
-	// Validate PICO-8 player index range (0-7) for gamepad
-	if pIdx >= 0 && pIdx <= 7 {
-		// Get the corresponding Ebitengine GamepadID for the player index
-		gamepadID, ok := getGamepadID(pIdx)
-		// Check if the standard button mapping exists
-		standardButton, mappingExists := pico8ButtonToStandard[buttonIndex]
+	// Get the first connected gamepad for this player (simplified version)
+	ids := ebiten.AppendGamepadIDs(nil)
+	if pIdx < 0 || pIdx >= len(ids) {
+		return false
+	}
+	gamepadID := ids[pIdx]
 
-		// Only proceed if gamepad connected, button is mapped, and layout/button available
-		if ok && mappingExists &&
-			ebiten.IsStandardGamepadLayoutAvailable(gamepadID) &&
-			ebiten.IsStandardGamepadButtonAvailable(gamepadID, standardButton) {
-			gamepadPressed = ebiten.IsStandardGamepadButtonPressed(gamepadID, standardButton)
+	// Check if we have a standard mapping for this button
+	if standardButton, ok := pico8ButtonToStandard[buttonIndex]; ok {
+		// First try standard gamepad layout
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			return ebiten.IsStandardGamepadButtonPressed(gamepadID, standardButton)
+		}
+		
+		// Fallback to direct button mapping for non-standard gamepads
+		// This is a simple fallback and might need adjustment
+		switch buttonIndex {
+		case LEFT:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft))
+		case RIGHT:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight))
+		case UP:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop))
+		case DOWN:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom))
+		case O:  // B button on Xbox (right face button)
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1)  // B button
+		case X:  // A button on Xbox (bottom face button)
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0)  // A button
+		case START:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton9)
+		case SELECT:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton8)
 		}
 	}
 
-	return keyboardPressed || gamepadPressed
+	return false
 }
 
 // Note: For "just pressed" behavior similar to PICO-8's btnp(), you would use
@@ -221,7 +221,6 @@ func Btnp(buttonIndex int, playerIndex ...int) bool {
 	}
 
 	// --- Mouse Check ---
-	// Mouse buttons are available regardless of player index
 	switch buttonIndex {
 	case MouseLeft:
 		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
@@ -238,29 +237,49 @@ func Btnp(buttonIndex int, playerIndex ...int) bool {
 	}
 
 	// --- Keyboard Check (Player 0 Only) ---
-	keyboardJustPressed := false
 	if pIdx == 0 {
 		if key, ok := pico8ButtonToKeyboardP0[buttonIndex]; ok {
-			keyboardJustPressed = inpututil.IsKeyJustPressed(key)
+			if inpututil.IsKeyJustPressed(key) {
+				return true
+			}
 		}
 	}
 
 	// --- Gamepad Check ---
-	gamepadJustPressed := false
-	// Validate PICO-8 player index range (0-7) for gamepad
-	if pIdx >= 0 && pIdx <= 7 {
-		// Get the corresponding Ebitengine GamepadID
-		gamepadID, ok := getGamepadID(pIdx)
-		// Map to standard button
-		standardButton, mappingExists := pico8ButtonToStandard[buttonIndex]
+	// Get the first connected gamepad for this player (simplified version)
+	ids := ebiten.AppendGamepadIDs(nil)
+	if pIdx < 0 || pIdx >= len(ids) {
+		return false
+	}
+	gamepadID := ids[pIdx]
 
-		// Only proceed if gamepad connected, button is mapped, and layout/button available
-		if ok && mappingExists &&
-			ebiten.IsStandardGamepadLayoutAvailable(gamepadID) &&
-			ebiten.IsStandardGamepadButtonAvailable(gamepadID, standardButton) {
-			gamepadJustPressed = inpututil.IsStandardGamepadButtonJustPressed(gamepadID, standardButton)
+	// Check if we have a standard mapping for this button
+	if standardButton, ok := pico8ButtonToStandard[buttonIndex]; ok {
+		// First try standard gamepad layout
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			return inpututil.IsStandardGamepadButtonJustPressed(gamepadID, standardButton)
+		}
+		
+		// Fallback to direct button mapping for non-standard gamepads
+		switch buttonIndex {
+		case LEFT:
+			return ebiten.GamepadAxisValue(gamepadID, 0) < -0.5 && inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft))
+		case RIGHT:
+			return ebiten.GamepadAxisValue(gamepadID, 0) > 0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight))
+		case UP:
+			return ebiten.GamepadAxisValue(gamepadID, 1) < -0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop))
+		case DOWN:
+			return ebiten.GamepadAxisValue(gamepadID, 1) > 0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom))
+		case O:  // B button on Xbox (right face button)
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1)  // B button
+		case X:  // A button on Xbox (bottom face button)
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0)  // A button
+		case START:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton9)
+		case SELECT:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton8)
 		}
 	}
 
-	return keyboardJustPressed || gamepadJustPressed
+	return false
 }
