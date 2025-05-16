@@ -10,7 +10,7 @@ import (
 func TestNetworkConfig(t *testing.T) {
 	t.Run("DefaultNetworkConfig", func(t *testing.T) {
 		config := DefaultNetworkConfig()
-		
+
 		assert.NotNil(t, config, "DefaultNetworkConfig should not return nil")
 		assert.Equal(t, "PIGO8 Game", config.GameName, "Default game name should be 'PIGO8 Game'")
 		assert.Equal(t, 8080, config.Port, "Default port should be 8080")
@@ -20,7 +20,7 @@ func TestNetworkConfig(t *testing.T) {
 
 	t.Run("DefaultMultiplayerSettings", func(t *testing.T) {
 		settings := DefaultMultiplayerSettings()
-		
+
 		assert.NotNil(t, settings, "DefaultMultiplayerSettings should not return nil")
 		assert.Equal(t, "PIGO8 Game", settings.GameName, "Default game name should be 'PIGO8 Game'")
 		assert.Equal(t, 8080, settings.Port, "Default port should be 8080")
@@ -35,7 +35,7 @@ func TestNetworkFunctions(t *testing.T) {
 	// They don't test actual network functionality since that would require
 	// a more complex setup with real network connections
 
-	t.Run("Network status functions", func(t *testing.T) {
+	t.Run("Network status functions", func(_ *testing.T) {
 		// Just testing that these don't panic
 		IsNetworkInitialized()
 		IsServer()

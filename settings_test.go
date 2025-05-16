@@ -10,7 +10,7 @@ import (
 func TestSettingsCreation(t *testing.T) {
 	t.Run("NewSettings defaults", func(t *testing.T) {
 		settings := NewSettings()
-		
+
 		assert.NotNil(t, settings, "NewSettings should not return nil")
 		assert.Equal(t, 4, settings.ScaleFactor, "Default scale factor should be 4")
 		assert.Equal(t, "PIGO-8 Game", settings.WindowTitle, "Default window title should be 'PIGO-8 Game'")
@@ -49,7 +49,7 @@ func TestGameFunctions(t *testing.T) {
 	t.Run("PlayGameWith function", func(t *testing.T) {
 		// Skip actual execution to avoid starting a game
 		t.Skip("Skipping PlayGameWith test to avoid starting a game")
-		
+
 		// In a real test environment with proper mocks, you would call:
 		// settings := NewSettings()
 		// PlayGameWith(settings)
@@ -58,7 +58,7 @@ func TestGameFunctions(t *testing.T) {
 	t.Run("Play function", func(t *testing.T) {
 		// Skip actual execution to avoid starting a game
 		t.Skip("Skipping Play test to avoid starting a game")
-		
+
 		// In a real test environment with proper mocks, you would call:
 		// Play()
 	})
