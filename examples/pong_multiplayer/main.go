@@ -482,6 +482,8 @@ func main() {
 	settings := p8.NewSettings()
 	settings.TargetFPS = 60
 	settings.WindowTitle = "PIGO8 Multiplayer Pong"
+	// Enable multiplayer
+	settings.Multiplayer = true
 
 	// Initialize network manually first to ensure callbacks are registered
 	config := p8.ParseNetworkArgs()
@@ -506,9 +508,7 @@ func main() {
 		log.Printf("SUCCESS: All callbacks are now registered")
 	}
 
-	// Start the game without reinitializing the network
-	log.Printf("Starting game with network already initialized")
-
-	// Use our new function that doesn't reinitialize the network
-	p8.PlayGameWithoutNetwork(settings)
+	// We need to modify PlayGameWith to avoid reinitializing the network if it's already initialized
+	// For now, we'll just call PlayGameWith directly
+	p8.PlayGameWith(settings)
 }
