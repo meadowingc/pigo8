@@ -39,4 +39,5 @@ examples/*/*.sum
 cmd/embedgen/embedgen
 cmd/editor/editor
 examples/pong/pong
+examples/pong_multiplayer/pong_multiplayer
 cmd/editor/*.json
