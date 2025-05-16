@@ -152,7 +152,7 @@ func (g *game) Update() error {
 
 	// Only call Update after the first frame has been drawn
 	if g.firstFrameDrawn {
-		UpdateConnectedGamepads()
+		updateConnectedGamepads()
 		updateMouseState()
 
 		// Check for START button press to toggle pause menu
