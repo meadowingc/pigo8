@@ -1,10 +1,23 @@
 package pigo8
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// --- Pause Menu Constants ---
+
+// Pause menu option constants
+const (
+	// Using different names to avoid conflicts with pause_menu.go
+	EngPauseOptionContinue = iota
+	EngPauseOptionReset
+	EngPauseOptionExit
+	EngPauseOptionCount // Used to track the number of options
 )
 
 // --- Settings ---
@@ -103,6 +116,10 @@ func CurrentCartridge() Cartridge {
 type game struct {
 	initialized     bool
 	firstFrameDrawn bool // Track if the first frame has been drawn
+
+	// Pause menu state
+	paused        bool
+	pauseSelected int
 }
 
 // Layout implements ebiten.Game.
@@ -126,10 +143,62 @@ func (g *game) Update() error {
 	if g.firstFrameDrawn {
 		UpdateConnectedGamepads()
 		updateMouseState()
-		loadedCartridge.Update()
 
-		// Update elapsed time
-		elapsedTime += timeIncrement
+		// Check for START button press to toggle pause menu
+		if Btnp(START) {
+			fmt.Println("START button pressed in engine.go")
+			// Toggle pause state
+			g.paused = !g.paused
+			if g.paused {
+				// Reset selection to Continue when pausing
+				g.pauseSelected = EngPauseOptionContinue
+				fmt.Println("Game paused")
+			} else {
+				fmt.Println("Game unpaused")
+			}
+		}
+
+		// Update pause menu or game logic based on pause state
+		if g.paused {
+			// Handle pause menu navigation
+			// Navigate up
+			if Btnp(UP) {
+				g.pauseSelected--
+				if g.pauseSelected < 0 {
+					g.pauseSelected = EngPauseOptionCount - 1
+				}
+			}
+
+			// Navigate down
+			if Btnp(DOWN) {
+				g.pauseSelected++
+				if g.pauseSelected >= EngPauseOptionCount {
+					g.pauseSelected = 0
+				}
+			}
+
+			// Process selection with X button
+			if Btnp(X) {
+				switch g.pauseSelected {
+				case EngPauseOptionContinue:
+					// Continue the game (unpause)
+					g.paused = false
+				case EngPauseOptionReset:
+					// Reset the game
+					g.paused = false
+					loadedCartridge.Init()
+				case EngPauseOptionExit:
+					// Exit the game immediately
+					fmt.Println("Exiting application...")
+					os.Exit(0) // This should immediately terminate the program
+				}
+			}
+		} else {
+			// Only update game logic when not paused
+			loadedCartridge.Update()
+			// Update elapsed time
+			elapsedTime += timeIncrement
+		}
 	}
 	return nil
 }
@@ -144,6 +213,38 @@ func (g *game) Draw(screen *ebiten.Image) {
 
 	// Call the user's Draw function
 	loadedCartridge.Draw()
+
+	// Draw pause menu on top if active
+	if g.paused {
+		// Calculate menu dimensions
+		menuWidth := 80
+		menuHeight := 40
+		menuX := (ScreenWidth - menuWidth) / 2
+		menuY := (ScreenHeight - menuHeight) / 2
+
+		// Determine background color - use the darkest color in the palette
+		darkColor := findDarkestColorIndex()
+		lightColor := findLightestColorIndex()
+		midColor := findMidToneColorIndex()
+
+		// Draw menu background and border
+		Rectfill(menuX, menuY, menuX+menuWidth, menuY+menuHeight, darkColor)
+		Rect(menuX, menuY, menuX+menuWidth, menuY+menuHeight, lightColor)
+
+		// Draw title
+		Print("pause", menuX+(menuWidth-30)/2, menuY+6, midColor)
+
+		// Draw menu options
+		optionY := menuY + 15
+		for i, option := range []string{"resume", "restart", "quit game"} {
+			if i == g.pauseSelected {
+				// Draw selection cursor
+				Print(">", menuX+10, optionY, midColor)
+			}
+			Print(option, menuX+20, optionY, lightColor)
+			optionY += 8
+		}
+	}
 
 	// Mark that the first frame has been drawn
 	if !g.firstFrameDrawn {
