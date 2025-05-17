@@ -1,0 +1,74 @@
+# Version of the configuration format
+version: 2
+
+# Project name (defaults to the name of the git repo)
+project_name: pigo8
+
+# This allows you to change the name of the final binary
+dist: dist
+
+# Build configuration
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+# Archive configuration
+archives:
+  - format: binary
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+# Checksum configuration
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# Changelog configuration
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - '^refactor:'
+      - '^style:'
+
+# GitHub release configuration
+release:
+  github:
+    owner: drpaneas
+    name: pigo8
+  draft: true
+  prerelease: false
+  name_template: "{{.ProjectName}} {{.Version}}"
+  extra_files:
+    - glob: LICENSE
+    - glob: README.md
+    - glob: CHANGELOG.md
+
+# Snapcraft configuration (optional)
+snapcrafts: []
+
+# Docker configuration (optional)
+dockers: []
+
+# Homebrew tap configuration (optional)
+brews: []
+
+# Scoop configuration (optional)
+scoops: []
+
+# NFPM (Deb/RPM) configuration (optional)
+nfpms: []
