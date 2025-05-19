@@ -45,7 +45,7 @@ type myGame struct {
 	hoverX        int   // X coordinate of the pixel being hovered over (-1 if none)
 	hoverY        int   // Y coordinate of the pixel being hovered over (-1 if none)
 	gridSize      int   // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
-	lastWheelTime int64 // Last time the mouse wheel was scrolled (for debouncing)
+	lastWheelTime int64 // Last time the mouse wheel was scrolled or keyboard was used (for debouncing)
 	mapMode       bool  // Whether we are in map mode
 
 	// Map editor state
@@ -992,6 +992,7 @@ func (g *myGame) handleEditorMode() {
 	g.handleSpriteSelection(mx, my)
 	g.handlePaletteSelection(mx, my)
 	g.handleWheel()
+	g.handleKeyboardNavigation()
 }
 
 func (g *myGame) toggleSpriteFlags(mx, my int) {
@@ -1099,7 +1100,7 @@ func (g *myGame) handlePaletteSelection(mx, my int) {
 
 func (g *myGame) handleWheel() {
 	now := time.Now().UnixNano() / int64(time.Millisecond)
-	if now-g.lastWheelTime <= 500 {
+	if now-g.lastWheelTime <= 150 { // 150ms debounce for wheel and keyboard
 		return
 	}
 	if p8.Btnp(p8.MouseWheelUp) && g.gridSize < 4 {
@@ -1108,6 +1109,37 @@ func (g *myGame) handleWheel() {
 		g.updateDrawingCanvas()
 	} else if p8.Btnp(p8.MouseWheelDown) && g.gridSize > 1 {
 		g.gridSize = max(1, g.gridSize/2)
+		g.lastWheelTime = now
+		g.updateDrawingCanvas()
+	}
+}
+
+// handleKeyboardNavigation handles keyboard arrow key navigation between sprites
+func (g *myGame) handleKeyboardNavigation() {
+	now := time.Now().UnixNano() / int64(time.Millisecond)
+	if now-g.lastWheelTime <= 150 { // 150ms debounce for keyboard navigation
+		return
+	}
+
+	currentRow := g.currentSprite / spriteSheetCols
+	currentCol := g.currentSprite % spriteSheetCols
+	moved := false
+
+	if p8.Btnp(p8.LEFT) && currentCol > 0 {
+		g.currentSprite--
+		moved = true
+	} else if p8.Btnp(p8.RIGHT) && currentCol < spriteSheetCols-1 {
+		g.currentSprite++
+		moved = true
+	} else if p8.Btnp(p8.UP) && currentRow > 0 {
+		g.currentSprite -= spriteSheetCols
+		moved = true
+	} else if p8.Btnp(p8.DOWN) && currentRow < spriteSheetRows-1 {
+		g.currentSprite += spriteSheetCols
+		moved = true
+	}
+
+	if moved {
 		g.lastWheelTime = now
 		g.updateDrawingCanvas()
 	}
