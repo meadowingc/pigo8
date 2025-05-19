@@ -11,11 +11,13 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	p8 "github.com/drpaneas/pigo8"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -50,6 +52,14 @@ type myGame struct {
 	lastWheelTime int64     // Last time the mouse wheel was scrolled or keyboard was used (for debouncing)
 	mapMode       bool      // Whether we are in map mode
 	copiedSprite  [8][8]int // Buffer for copied sprite data
+
+	// Undo/Redo state
+	undoStack    []string      // Stack of saved state filenames for undo
+	redoStack    []string      // Stack of saved state filenames for redo
+	fs           afero.Fs      // Virtual filesystem for state snapshots
+	stateMutex   sync.Mutex    // Mutex for thread-safe access to state
+	lastSaveTime time.Time     // Last time a state was saved
+	saveCooldown time.Duration // Minimum time between saves
 
 	// Map editor state
 	mapCameraX int                      // Camera X position in the map (in sprites)
@@ -109,6 +119,12 @@ func (g *myGame) forEachSelectedSprite(fn func(row, col int)) {
 
 func (g *myGame) Init() {
 	initSquareColors()
+
+	// Initialize virtual filesystem and undo/redo stacks
+	g.fs = afero.NewMemMapFs()
+	g.undoStack = make([]string, 0)
+	g.redoStack = make([]string, 0)
+	g.saveCooldown = 100 * time.Millisecond
 
 	// Initialize sprite flags to false
 	for row := range spriteSheetRows {
@@ -987,6 +1003,146 @@ func (g *myGame) placeGridSprites(x, y int) {
 	}
 }
 
+// saveState saves the current state to a temporary file and updates the undo stack
+func (g *myGame) saveState() error {
+	g.stateMutex.Lock()
+	defer g.stateMutex.Unlock()
+
+	// Don't save too frequently
+	if time.Since(g.lastSaveTime) < g.saveCooldown {
+		return nil
+	}
+
+	// Create a unique filename
+	timestamp := time.Now().UnixNano()
+	filename := fmt.Sprintf("state_%d.json", timestamp)
+
+	// Create state data
+	state := struct {
+		Spritesheet   [24][32][8][8]int
+		SpriteFlags   [24][32][8]bool
+		MapData       [mapWidth][mapHeight]int
+		CurrentSprite int
+		CurrentColor  int
+	}{
+		Spritesheet:   spritesheet,
+		SpriteFlags:   spriteFlags,
+		MapData:       g.mapData,
+		CurrentSprite: g.currentSprite,
+		CurrentColor:  g.currentColor,
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("error marshaling state: %w", err)
+	}
+
+	// Save to virtual filesystem
+	if err := afero.WriteFile(g.fs, filename, data, 0644); err != nil {
+		return fmt.Errorf("error saving state: %w", err)
+	}
+
+	// Update undo stack and clear redo stack
+	g.undoStack = append(g.undoStack, filename)
+	g.redoStack = g.redoStack[:0] // Clear redo stack
+
+	// Limit undo stack size (keep last 50 states)
+	if len(g.undoStack) > 50 {
+		// Remove oldest state file
+		oldest := g.undoStack[0]
+		g.fs.Remove(oldest)
+		g.undoStack = g.undoStack[1:]
+	}
+
+	g.lastSaveTime = time.Now()
+	return nil
+}
+
+// loadState loads a state from the virtual filesystem
+func (g *myGame) loadState(filename string) error {
+	g.stateMutex.Lock()
+	defer g.stateMutex.Unlock()
+
+	// Read from virtual filesystem
+	data, err := afero.ReadFile(g.fs, filename)
+	if err != nil {
+		return fmt.Errorf("error reading state: %w", err)
+	}
+
+	// Unmarshal state
+	var state struct {
+		Spritesheet   [24][32][8][8]int
+		SpriteFlags   [24][32][8]bool
+		MapData       [mapWidth][mapHeight]int
+		CurrentSprite int
+		CurrentColor  int
+	}
+
+	if err := json.Unmarshal(data, &state); err != nil {
+		return fmt.Errorf("error unmarshaling state: %w", err)
+	}
+
+	// Apply state
+	spritesheet = state.Spritesheet
+	spriteFlags = state.SpriteFlags
+	g.mapData = state.MapData
+	g.currentSprite = state.CurrentSprite
+	g.currentColor = state.CurrentColor
+
+	// Update the display
+	g.updateDrawingCanvas()
+	updateMapSprites(-1) // Update all sprites
+
+	return nil
+}
+
+// undo reverts to the previous state
+func (g *myGame) undo() {
+	if len(g.undoStack) < 2 {
+		return // Need at least 2 states to undo (current + previous)
+	}
+
+	// Pop the current state and move to redo stack
+	current := g.undoStack[len(g.undoStack)-1]
+	g.redoStack = append(g.redoStack, current)
+	g.undoStack = g.undoStack[:len(g.undoStack)-1]
+
+	// Load previous state
+	if len(g.undoStack) > 0 {
+		prevState := g.undoStack[len(g.undoStack)-1]
+		if err := g.loadState(prevState); err != nil {
+			log.Printf("Error undoing: %v", err)
+		}
+	}
+}
+
+// redo re-applies the next state
+func (g *myGame) redo() {
+	if len(g.redoStack) == 0 {
+		return
+	}
+
+	// Pop from redo stack and push to undo stack
+	next := g.redoStack[len(g.redoStack)-1]
+	g.redoStack = g.redoStack[:len(g.redoStack)-1]
+	g.undoStack = append(g.undoStack, next)
+
+	// Load the state
+	if err := g.loadState(next); err != nil {
+		log.Printf("Error redoing: %v", err)
+	}
+}
+
+// saveCurrentStateIfNeeded saves the current state if enough time has passed
+func (g *myGame) saveCurrentStateIfNeeded() {
+	if time.Since(g.lastSaveTime) >= g.saveCooldown {
+		if err := g.saveState(); err != nil {
+			log.Printf("Error saving state: %v", err)
+		}
+	}
+}
+
 // -------------------- Editor Mode --------------------
 func (g *myGame) handleEditorMode() {
 	mx, my := p8.Mouse()
@@ -997,6 +1153,19 @@ func (g *myGame) handleEditorMode() {
 	g.handleWheel()
 	g.handleKeyboardNavigation()
 	g.handleCopyPaste()
+
+	// Handle undo/redo with Cmd+Z/Cmd+Shift+Z or Cmd+Y
+	if ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl) {
+		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
+			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+				g.redo()
+			} else {
+				g.undo()
+			}
+		} else if inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			g.redo()
+		}
+	}
 }
 
 func (g *myGame) toggleSpriteFlags(mx, my int) {
@@ -1018,6 +1187,8 @@ func (g *myGame) toggleSpriteFlags(mx, my int) {
 }
 
 func (g *myGame) toggleFlagAtIndex(i int) {
+	g.saveCurrentStateIfNeeded()
+
 	base := g.currentSprite
 	r, c := base/spriteSheetCols, base%spriteSheetCols
 	cur := spriteFlags[r][c][i]
@@ -1073,6 +1244,12 @@ func (g *myGame) drawAt(row, col, colorIndex int) {
 	r := base/spriteSheetCols + row/8
 	c := base%spriteSheetCols + col/8
 	pr, pc := row%8, col%8
+
+	// Only save state if the color is actually changing
+	if spritesheet[r][c][pr][pc] != colorIndex {
+		g.saveCurrentStateIfNeeded()
+	}
+
 	setSquareColor(row, col, colorIndex)
 	spritesheet[r][c][pr][pc] = colorIndex
 	p8.Sset(c*8+pc, r*8+pr, colorIndex)
@@ -1150,6 +1327,7 @@ func (g *myGame) handleCopyPaste() {
 
 	// Check for CMD+V (Paste)
 	if inpututil.IsKeyJustPressed(ebiten.KeyV) && (ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl)) {
+		g.saveCurrentStateIfNeeded()
 		g.pasteSprite()
 	}
 }
