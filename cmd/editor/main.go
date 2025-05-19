@@ -60,7 +60,7 @@ type myGame struct {
 	stateMutex   sync.Mutex    // Mutex for thread-safe access to state
 	lastSaveTime time.Time     // Last time a state was saved
 	saveCooldown time.Duration // Minimum time between saves
-	
+
 	// Key state tracking
 	lastUndoTime int64 // Last time undo was triggered
 	lastRedoTime int64 // Last time redo was triggered
@@ -179,6 +179,11 @@ func (g *myGame) Init() {
 
 	// Initialize the drawing canvas with the default sprite (1)
 	g.updateDrawingCanvas()
+
+	// Save the initial state to the undo stack
+	if err := g.saveState(); err != nil {
+		log.Printf("Failed to save initial state: %v", err)
+	}
 }
 
 // Define the sprite structure to match PIGO8's format
@@ -1017,7 +1022,7 @@ func (g *myGame) saveState() error {
 	if time.Since(g.lastSaveTime) < g.saveCooldown {
 		return nil
 	}
-	
+
 	// If we have a redo stack, clear it when making new changes after undo
 	if len(g.redoStack) > 0 {
 		// Clean up old redo states
@@ -1188,11 +1193,6 @@ func (g *myGame) handleUndoRedo() {
 					g.undo()
 				}
 			}
-		} else if inpututil.IsKeyJustPressed(ebiten.KeyY) {
-			// Redo with Cmd+Y
-			if g.canTriggerAction(&g.lastRedoTime) {
-				g.redo()
-			}
 		}
 	}
 }
@@ -1289,16 +1289,15 @@ func (g *myGame) drawAt(row, col, colorIndex int) {
 	c := base%spriteSheetCols + col/8
 	pr, pc := row%8, col%8
 
-	// Only save state if the color is actually changing
 	if spritesheet[r][c][pr][pc] != colorIndex {
+		setSquareColor(row, col, colorIndex)
+		spritesheet[r][c][pr][pc] = colorIndex
+		// ... (mutate all state you want to track for undo)
 		g.saveCurrentStateIfNeeded()
+		p8.Sset(c*8+pc, r*8+pr, colorIndex)
+		updateMapSprites(r*spriteSheetCols + c)
+		g.updateDrawingCanvas()
 	}
-
-	setSquareColor(row, col, colorIndex)
-	spritesheet[r][c][pr][pc] = colorIndex
-	p8.Sset(c*8+pc, r*8+pr, colorIndex)
-	updateMapSprites(r*spriteSheetCols + c)
-	g.updateDrawingCanvas()
 }
 
 func (g *myGame) handleSpriteSelection(mx, my int) {
