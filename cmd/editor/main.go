@@ -44,8 +44,8 @@ const (
 )
 
 type myGame struct {
-	currentColor  int       // Current selected color from palette
-	currentSprite int       // Current selected sprite from spritesheet (0-255)
+	currentColor  int
+	currentSprite int
 	hoverX        int       // X coordinate of the pixel being hovered over (-1 if none)
 	hoverY        int       // Y coordinate of the pixel being hovered over (-1 if none)
 	gridSize      int       // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
@@ -65,6 +65,9 @@ type myGame struct {
 	lastUndoTime int64 // Last time undo was triggered
 	lastRedoTime int64 // Last time redo was triggered
 	keyCooldown  int64 // Minimum time between undo/redo actions in milliseconds
+
+	// Debug state
+	lastDebugPrint int64 // Last time debug info was printed (for rate limiting)
 
 	// Map editor state
 	mapCameraX int                      // Camera X position in the map (in sprites)
@@ -365,10 +368,14 @@ func (g *myGame) drawMapMode() {
 func (g *myGame) drawMapTiles(vx, vy int) {
 	cols := mapViewWidth / unit
 	rows := mapViewHeight / unit
+
 	for y := 0; y < rows; y++ {
 		for x := 0; x < cols; x++ {
-			spr := p8.Mget(g.mapCameraX+x, g.mapCameraY+y)
-			p8.Spr(spr, float64(vx+x*8), float64(vy+y*8))
+			tileX, tileY := g.mapCameraX+x, g.mapCameraY+y
+			if tileX >= 0 && tileX < mapWidth && tileY >= 0 && tileY < mapHeight {
+				spr := g.mapData[tileY][tileX] // Use g.mapData directly
+				p8.Spr(spr, float64(vx+x*8), float64(vy+y*8))
+			}
 		}
 	}
 }
@@ -909,6 +916,7 @@ func (g *myGame) loadMapData() error {
 // Refactored Update method with reduced cyclomatic complexity and integrated save-on-toggle logic
 func (g *myGame) Update() {
 	g.toggleMapMode()
+	g.handleUndoRedo() // Handle undo/redo in both modes
 	if g.mapMode {
 		g.handleMapMode()
 	} else {
@@ -919,6 +927,11 @@ func (g *myGame) Update() {
 // toggleMapMode flips mapMode and saves data on entry/exit
 func (g *myGame) toggleMapMode() {
 	if p8.Btnp(p8.X) {
+		// Save current state before switching modes to ensure all changes are captured
+		if err := g.saveState(); err != nil {
+			log.Printf("Error saving state before mode switch: %v", err)
+		}
+
 		g.mapMode = !g.mapMode
 		if g.mapMode {
 			if err := saveSpritesheet(); err != nil {
@@ -980,8 +993,15 @@ func (g *myGame) mouseInMap(mx, my int) bool {
 
 func (g *myGame) eraseAt(x, y int) {
 	if g.inBounds(x, y) {
-		p8.Mset(x, y, 0)
-		g.mapData[y][x] = 0
+		// Only save if this cell is non-zero (actual change)
+		if g.mapData[y][x] != 0 {
+			log.Printf("Erasing at (%d,%d) - was %d", x, y, g.mapData[y][x])
+			p8.Mset(x, y, 0)
+			g.mapData[y][x] = 0
+			g.saveCurrentStateIfNeeded()
+			log.Printf("After erase - map[%d][%d] = %d, p8.Mget = %d",
+				y, x, g.mapData[y][x], p8.Mget(x, y))
+		}
 	}
 }
 
@@ -995,21 +1015,35 @@ func (g *myGame) placeGridSprites(x, y int) {
 		w, h = 1, 1
 	}
 	base := g.currentSprite
+	changed := false
 
 	for dy := 0; dy < h; dy++ {
 		for dx := 0; dx < w; dx++ {
 			tx, ty := x+dx, y+dy
 			if !g.inBounds(tx, ty) {
+				log.Printf("  Out of bounds: (%d,%d)", tx, ty)
 				continue
 			}
 			row := base/spriteSheetCols + dy
 			col := base%spriteSheetCols + dx
 			if row < spriteSheetRows && col < spriteSheetCols {
 				idx := row*spriteSheetCols + col
-				p8.Mset(tx, ty, idx)
-				g.mapData[ty][tx] = idx
+				// Only mark as changed if we're actually changing the value
+				if g.mapData[ty][tx] != idx {
+					p8.Mset(tx, ty, idx)
+					g.mapData[ty][tx] = idx
+					changed = true
+				}
+			} else {
+				log.Printf("  Invalid sprite position: row=%d, col=%d (max %d,%d)",
+					row, col, spriteSheetRows-1, spriteSheetCols-1)
 			}
 		}
+	}
+
+	// Only save state if something was actually changed
+	if changed {
+		g.saveCurrentStateIfNeeded()
 	}
 }
 
@@ -1020,6 +1054,7 @@ func (g *myGame) saveState() error {
 
 	// Don't save too frequently
 	if time.Since(g.lastSaveTime) < g.saveCooldown {
+		log.Println("Skipping saveState: too soon since last save")
 		return nil
 	}
 
@@ -1078,6 +1113,39 @@ func (g *myGame) saveState() error {
 	return nil
 }
 
+// debugPrintMap prints a small portion of the map data for debugging
+func (g *myGame) debugPrintMap(prefix string) {
+	// Only log map data at most once per second to avoid log spam
+	now := time.Now().Unix()
+	if now == g.lastDebugPrint {
+		return
+	}
+	g.lastDebugPrint = now
+
+	for y := 0; y < 3 && y < mapHeight; y++ {
+		var row []int
+		for x := 0; x < 3 && x < mapWidth; x++ {
+			row = append(row, g.mapData[y][x])
+		}
+	}
+}
+
+// syncMapDataToPigo8 updates PICO-8's internal map memory to match g.mapData
+func (g *myGame) syncMapDataToPigo8() {
+	g.debugPrintMap("Before sync")
+
+	cnt := 0
+	for y := 0; y < mapHeight; y++ {
+		for x := 0; x < mapWidth; x++ {
+			p8.Mset(x, y, g.mapData[y][x])
+			if g.mapData[y][x] != 0 {
+				cnt++
+			}
+		}
+	}
+	log.Printf("Synced map to PIGO8. Non-zero tiles: %d", cnt)
+}
+
 // loadState loads a state from the virtual filesystem
 func (g *myGame) loadState(filename string) error {
 	g.stateMutex.Lock()
@@ -1111,14 +1179,17 @@ func (g *myGame) loadState(filename string) error {
 
 	// Update the display
 	g.updateDrawingCanvas()
-	updateMapSprites(-1) // Update all sprites
+	g.syncMapDataToPigo8() // Sync map data to PICO-8's internal map memory
+	updateMapSprites(-1)   // Update all sprites
 
 	return nil
 }
 
 // undo reverts to the previous state
 func (g *myGame) undo() {
+
 	if len(g.undoStack) < 2 {
+		log.Println("Not enough states to undo")
 		return // Need at least 2 states to undo (current + previous)
 	}
 
@@ -1138,7 +1209,10 @@ func (g *myGame) undo() {
 
 // redo re-applies the next state
 func (g *myGame) redo() {
+	log.Printf("Redo called. Stack sizes - undo: %d, redo: %d", len(g.undoStack), len(g.redoStack))
+
 	if len(g.redoStack) == 0 {
+		log.Println("Nothing to redo")
 		return
 	}
 
@@ -1147,9 +1221,13 @@ func (g *myGame) redo() {
 	g.redoStack = g.redoStack[:len(g.redoStack)-1]
 	g.undoStack = append(g.undoStack, next)
 
+	log.Printf("Redoing state from %s", next)
 	// Load the state
 	if err := g.loadState(next); err != nil {
 		log.Printf("Error redoing: %v", err)
+	} else {
+		log.Printf("Redo successful. New stack sizes - undo: %d, redo: %d",
+			len(g.undoStack), len(g.redoStack))
 	}
 }
 
@@ -1328,7 +1406,7 @@ func (g *myGame) handleWheel() {
 		return
 	}
 	if p8.Btnp(p8.MouseWheelUp) && g.gridSize < 4 {
-		g.gridSize = max(1, g.gridSize*2)
+		g.gridSize = min(g.gridSize*2, 8)
 		g.lastWheelTime = now
 		g.updateDrawingCanvas()
 	} else if p8.Btnp(p8.MouseWheelDown) && g.gridSize > 1 {
