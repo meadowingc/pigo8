@@ -14,6 +14,8 @@ import (
 	"time"
 
 	p8 "github.com/drpaneas/pigo8"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const (
@@ -40,13 +42,14 @@ const (
 )
 
 type myGame struct {
-	currentColor  int   // Current selected color from palette
-	currentSprite int   // Current selected sprite from spritesheet (0-255)
-	hoverX        int   // X coordinate of the pixel being hovered over (-1 if none)
-	hoverY        int   // Y coordinate of the pixel being hovered over (-1 if none)
-	gridSize      int   // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
-	lastWheelTime int64 // Last time the mouse wheel was scrolled or keyboard was used (for debouncing)
-	mapMode       bool  // Whether we are in map mode
+	currentColor  int       // Current selected color from palette
+	currentSprite int       // Current selected sprite from spritesheet (0-255)
+	hoverX        int       // X coordinate of the pixel being hovered over (-1 if none)
+	hoverY        int       // Y coordinate of the pixel being hovered over (-1 if none)
+	gridSize      int       // Size of the working grid (1=8x8, 2=16x16, 4=32x32, 8=64x64)
+	lastWheelTime int64     // Last time the mouse wheel was scrolled or keyboard was used (for debouncing)
+	mapMode       bool      // Whether we are in map mode
+	copiedSprite  [8][8]int // Buffer for copied sprite data
 
 	// Map editor state
 	mapCameraX int                      // Camera X position in the map (in sprites)
@@ -993,6 +996,7 @@ func (g *myGame) handleEditorMode() {
 	g.handlePaletteSelection(mx, my)
 	g.handleWheel()
 	g.handleKeyboardNavigation()
+	g.handleCopyPaste()
 }
 
 func (g *myGame) toggleSpriteFlags(mx, my int) {
@@ -1115,6 +1119,41 @@ func (g *myGame) handleWheel() {
 }
 
 // handleKeyboardNavigation handles keyboard arrow key navigation between sprites
+// copySprite copies the current sprite data to the clipboard
+func (g *myGame) copySprite() {
+	r, c := g.currentSprite/spriteSheetCols, g.currentSprite%spriteSheetCols
+	for y := 0; y < 8; y++ {
+		for x := 0; x < 8; x++ {
+			g.copiedSprite[y][x] = spritesheet[r][c][y][x]
+		}
+	}
+}
+
+// pasteSprite pastes the copied sprite data to the current sprite
+func (g *myGame) pasteSprite() {
+	r, c := g.currentSprite/spriteSheetCols, g.currentSprite%spriteSheetCols
+	for y := 0; y < 8; y++ {
+		for x := 0; x < 8; x++ {
+			spritesheet[r][c][y][x] = g.copiedSprite[y][x]
+		}
+	}
+	updateMapSprites(g.currentSprite)
+	g.updateDrawingCanvas()
+}
+
+// handleCopyPaste handles keyboard shortcuts for copy and paste
+func (g *myGame) handleCopyPaste() {
+	// Check for CMD+C (Copy)
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) && (ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl)) {
+		g.copySprite()
+	}
+
+	// Check for CMD+V (Paste)
+	if inpututil.IsKeyJustPressed(ebiten.KeyV) && (ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl)) {
+		g.pasteSprite()
+	}
+}
+
 func (g *myGame) handleKeyboardNavigation() {
 	now := time.Now().UnixNano() / int64(time.Millisecond)
 	if now-g.lastWheelTime <= 150 { // 150ms debounce for keyboard navigation
