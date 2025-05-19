@@ -60,6 +60,11 @@ type myGame struct {
 	stateMutex   sync.Mutex    // Mutex for thread-safe access to state
 	lastSaveTime time.Time     // Last time a state was saved
 	saveCooldown time.Duration // Minimum time between saves
+	
+	// Key state tracking
+	lastUndoTime int64 // Last time undo was triggered
+	lastRedoTime int64 // Last time redo was triggered
+	keyCooldown  int64 // Minimum time between undo/redo actions in milliseconds
 
 	// Map editor state
 	mapCameraX int                      // Camera X position in the map (in sprites)
@@ -1012,6 +1017,15 @@ func (g *myGame) saveState() error {
 	if time.Since(g.lastSaveTime) < g.saveCooldown {
 		return nil
 	}
+	
+	// If we have a redo stack, clear it when making new changes after undo
+	if len(g.redoStack) > 0 {
+		// Clean up old redo states
+		for _, filename := range g.redoStack {
+			g.fs.Remove(filename)
+		}
+		g.redoStack = g.redoStack[:0]
+	}
 
 	// Create a unique filename
 	timestamp := time.Now().UnixNano()
@@ -1143,6 +1157,46 @@ func (g *myGame) saveCurrentStateIfNeeded() {
 	}
 }
 
+// canTriggerAction checks if enough time has passed since the last action
+func (g *myGame) canTriggerAction(lastActionTime *int64) bool {
+	now := time.Now().UnixNano() / int64(time.Millisecond)
+	if now-*lastActionTime < 200 { // 200ms cooldown
+		return false
+	}
+	*lastActionTime = now
+	return true
+}
+
+// handleUndoRedo manages the undo/redo key presses with proper debouncing
+func (g *myGame) handleUndoRedo() {
+	// Initialize key cooldown if not set
+	if g.keyCooldown == 0 {
+		g.keyCooldown = 200 // 200ms cooldown by default
+	}
+
+	// Check for Cmd+Z (Undo) or Cmd+Shift+Z (Redo)
+	if ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl) {
+		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
+			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+				// Redo with Cmd+Shift+Z
+				if g.canTriggerAction(&g.lastRedoTime) {
+					g.redo()
+				}
+			} else {
+				// Undo with Cmd+Z
+				if g.canTriggerAction(&g.lastUndoTime) {
+					g.undo()
+				}
+			}
+		} else if inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			// Redo with Cmd+Y
+			if g.canTriggerAction(&g.lastRedoTime) {
+				g.redo()
+			}
+		}
+	}
+}
+
 // -------------------- Editor Mode --------------------
 func (g *myGame) handleEditorMode() {
 	mx, my := p8.Mouse()
@@ -1154,18 +1208,8 @@ func (g *myGame) handleEditorMode() {
 	g.handleKeyboardNavigation()
 	g.handleCopyPaste()
 
-	// Handle undo/redo with Cmd+Z/Cmd+Shift+Z or Cmd+Y
-	if ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyControl) {
-		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
-			if ebiten.IsKeyPressed(ebiten.KeyShift) {
-				g.redo()
-			} else {
-				g.undo()
-			}
-		} else if inpututil.IsKeyJustPressed(ebiten.KeyY) {
-			g.redo()
-		}
-	}
+	// Handle undo/redo with proper debouncing
+	g.handleUndoRedo()
 }
 
 func (g *myGame) toggleSpriteFlags(mx, my int) {
