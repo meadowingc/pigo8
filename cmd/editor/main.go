@@ -1467,16 +1467,17 @@ func (g *myGame) handleKeyboardNavigation() {
 	currentCol := g.currentSprite % spriteSheetCols
 	moved := false
 
-	if p8.Btnp(p8.LEFT) && currentCol > 0 {
+	switch {
+	case p8.Btnp(p8.LEFT) && currentCol > 0:
 		g.currentSprite--
 		moved = true
-	} else if p8.Btnp(p8.RIGHT) && currentCol < spriteSheetCols-1 {
+	case p8.Btnp(p8.RIGHT) && currentCol < spriteSheetCols-1:
 		g.currentSprite++
 		moved = true
-	} else if p8.Btnp(p8.UP) && currentRow > 0 {
+	case p8.Btnp(p8.UP) && currentRow > 0:
 		g.currentSprite -= spriteSheetCols
 		moved = true
-	} else if p8.Btnp(p8.DOWN) && currentRow < spriteSheetRows-1 {
+	case p8.Btnp(p8.DOWN) && currentRow < spriteSheetRows-1:
 		g.currentSprite += spriteSheetCols
 		moved = true
 	}

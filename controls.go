@@ -45,21 +45,21 @@ func isSteamDeck() bool {
 // initButtonMappings initializes the button mappings based on the current platform
 func initButtonMappings() {
 	if isSteamDeck() {
-		// Steam Deck specific mappings
+		// Steam Deck specific mappings using keyboard keys
 		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
 			// D-pad directions
-			LEFT:  ebiten.StandardGamepadButtonLeftLeft,
-			RIGHT: ebiten.StandardGamepadButtonLeftRight,
-			UP:    ebiten.StandardGamepadButtonLeftTop,
-			DOWN:  ebiten.StandardGamepadButtonLeftBottom,
+			LEFT:  ebiten.StandardGamepadButton(ebiten.KeyArrowLeft),
+			RIGHT: ebiten.StandardGamepadButton(ebiten.KeyArrowRight),
+			UP:    ebiten.StandardGamepadButton(ebiten.KeyArrowUp),
+			DOWN:  ebiten.StandardGamepadButton(ebiten.KeyArrowDown),
 
-			// Face buttons (Steam Deck: B=O, A=X, Y=triangle, X=square)
-			O: ebiten.StandardGamepadButtonRightRight,  // B button (right face button)
-			X: ebiten.StandardGamepadButtonRightBottom, // A button (bottom face button)
+			// Face buttons
+			O: ebiten.StandardGamepadButton(ebiten.KeyEscape), // B button
+			X: ebiten.StandardGamepadButton(ebiten.KeyEnter),  // A button
 
 			// Menu buttons
-			START:  ebiten.StandardGamepadButtonCenterRight, // Start button
-			SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select button
+			START:  ebiten.StandardGamepadButton(ebiten.KeyTab),    // Start button
+			SELECT: ebiten.StandardGamepadButton(ebiten.KeyEscape), // Select button (mapped to same as B)
 		}
 	} else {
 		// Default mappings for other platforms (Xbox-style)
