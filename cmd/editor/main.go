@@ -1118,7 +1118,7 @@ func (g *myGame) saveState() error {
 }
 
 // debugPrintMap prints a small portion of the map data for debugging
-func (g *myGame) debugPrintMap(prefix string) {
+func (g *myGame) debugPrintMap() {
 	// Only log map data at most once per second to avoid log spam
 	now := time.Now().Unix()
 	if now == g.lastDebugPrint {
@@ -1126,17 +1126,17 @@ func (g *myGame) debugPrintMap(prefix string) {
 	}
 	g.lastDebugPrint = now
 
+	// Print first 3x3 section of the map for debugging
 	for y := 0; y < 3 && y < mapHeight; y++ {
-		var row []int
 		for x := 0; x < 3 && x < mapWidth; x++ {
-			row = append(row, g.mapData[y][x])
+			log.Printf("map[%d][%d] = %d", x, y, g.mapData[y][x])
 		}
 	}
 }
 
 // syncMapDataToPigo8 updates PICO-8's internal map memory to match g.mapData
 func (g *myGame) syncMapDataToPigo8() {
-	g.debugPrintMap("Before sync")
+	g.debugPrintMap()
 
 	cnt := 0
 	for y := 0; y < mapHeight; y++ {
