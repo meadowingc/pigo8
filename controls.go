@@ -2,6 +2,9 @@
 package pigo8
 
 import (
+	"os/exec"
+	"strings"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -24,34 +27,88 @@ const (
 	MouseWheelDown
 )
 
+// isSteamDeck checks if the game is running on a Steam Deck by checking the hostname
+func isSteamDeck() bool {
+	// Execute uname --nodename command to get the hostname
+	cmd := exec.Command("uname", "--nodename")
+	output, err := cmd.Output()
+	if err != nil {
+		// Command failed, likely not a Linux system or uname not available
+		return false
+	}
+
+	// Trim whitespace and check if the output is exactly "steamdeck"
+	hostname := strings.TrimSpace(string(output))
+	return hostname == "steamdeck"
+}
+
+// initButtonMappings initializes the button mappings based on the current platform
+func initButtonMappings() {
+	if isSteamDeck() {
+		// Steam Deck specific mappings
+		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
+			// D-pad directions
+			LEFT:  ebiten.StandardGamepadButtonLeftLeft,
+			RIGHT: ebiten.StandardGamepadButtonLeftRight,
+			UP:    ebiten.StandardGamepadButtonLeftTop,
+			DOWN:  ebiten.StandardGamepadButtonLeftBottom,
+
+			// Face buttons (Steam Deck: B=O, A=X, Y=triangle, X=square)
+			O: ebiten.StandardGamepadButtonRightRight,  // B button (right face button)
+			X: ebiten.StandardGamepadButtonRightBottom, // A button (bottom face button)
+
+			// Menu buttons
+			START:  ebiten.StandardGamepadButtonCenterRight, // Start button
+			SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select button
+		}
+	} else {
+		// Default mappings for other platforms (Xbox-style)
+		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
+			// D-pad directions
+			LEFT:  ebiten.StandardGamepadButtonLeftLeft,
+			RIGHT: ebiten.StandardGamepadButtonLeftRight,
+			UP:    ebiten.StandardGamepadButtonLeftTop,
+			DOWN:  ebiten.StandardGamepadButtonLeftBottom,
+
+			// Face buttons (Xbox-style: A=bottom, B=right, X=left, Y=top)
+			O: ebiten.StandardGamepadButtonRightRight,  // B button
+			X: ebiten.StandardGamepadButtonRightBottom, // A button
+
+			// Menu buttons
+			START:  ebiten.StandardGamepadButtonCenterRight, // Start button
+			SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select button
+		}
+	}
+}
+
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
-// Mapped specifically for Xbox controller layout.
-var pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
-	// D-Pad (on Xbox, these are the actual D-pad buttons, not the left stick)
-	LEFT:  ebiten.StandardGamepadButtonLeftLeft,
-	RIGHT: ebiten.StandardGamepadButtonLeftRight,
-	UP:    ebiten.StandardGamepadButtonLeftTop,
-	DOWN:  ebiten.StandardGamepadButtonLeftBottom,
+var pico8ButtonToStandard map[int]ebiten.StandardGamepadButton
 
-	// Face buttons (A/B/X/Y on Xbox)
-	O: ebiten.StandardGamepadButtonRightLeft,   // X button on Xbox (left face button)
-	X: ebiten.StandardGamepadButtonRightBottom, // A button on Xbox (bottom face button)
-
-	// Start/Select (Menu/View on Xbox)
-	START:  ebiten.StandardGamepadButtonCenterRight, // Start/Menu button
-	SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select/View button
+// init initializes the button mappings when the package is imported
+func init() {
+	initButtonMappings()
 }
 
 // pico8ButtonToKeyboardP0 maps PICO-8 button indices to default keyboard keys for Player 0.
+// Updated for better Steam Deck keyboard/on-screen keyboard support
 var pico8ButtonToKeyboardP0 = map[int]ebiten.Key{
+	// Arrow keys for direction
 	LEFT:   ebiten.KeyLeft,
 	RIGHT:  ebiten.KeyRight,
 	UP:     ebiten.KeyUp,
 	DOWN:   ebiten.KeyDown,
+	
+	// Face buttons (mapped to common game keys)
 	O:      ebiten.KeyZ,          // PICO-8 O button ('Z' key)
 	X:      ebiten.KeyX,          // PICO-8 X button ('X' key)
-	START:  ebiten.KeyEnter,      // Often mapped to Enter/Return
-	SELECT: ebiten.KeyShiftRight, // Often mapped to Shift (Right)
+	
+	// Menu buttons
+	START:  ebiten.KeyEnter,      // Start/Confirm
+	SELECT: ebiten.KeyTab,        // Select/Back
+	
+	// Additional Steam Deck specific mappings
+	// These are useful for Steam Deck's on-screen keyboard
+	// You can add more mappings as needed
 }
 
 // connectedGamepadIDs stores the currently connected gamepad IDs.
