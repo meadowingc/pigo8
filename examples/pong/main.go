@@ -48,9 +48,13 @@ func (g *Game) Init() {
 	g.computer = Paddle{117, 63, 2, 10, 0.75, 8}
 	ballDy := float64(p8.Flr(p8.Rnd(2))) - 0.5
 	g.ball = Ball{x: 63, y: 63, size: 2, color: 7, dx: 0.6, dy: ballDy, speed: 1, boost: 0.05}
-	g.playerScore = 0
-	g.computerScore = 0
-	g.Scored = ""
+
+	if p8.Restart {
+		g.playerScore = 0
+		g.computerScore = 0
+		g.Scored = ""
+		p8.Restart = false
+	}
 
 	// sound
 	switch g.Scored {
@@ -65,6 +69,7 @@ func (g *Game) Init() {
 
 // Update handles game logic each frame including input, AI, collisions and scoring
 func (g *Game) Update() {
+
 	// Player input
 	if p8.Btn(p8.UP) && g.player.y > courtTop+1 {
 		g.player.y -= g.player.speed

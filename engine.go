@@ -129,6 +129,9 @@ func (g *game) Layout(_, _ int) (screenWidth, screenHeight int) {
 	return ScreenWidth, ScreenHeight
 }
 
+// Restart is a flag that indicates if the game should be restarted
+var Restart bool
+
 // ResetGame fully resets the game state
 func (g *game) ResetGame() {
 	log.Println("Resetting game...")
@@ -138,6 +141,7 @@ func (g *game) ResetGame() {
 	g.paused = false
 	g.pauseSelected = EngPauseOptionContinue
 	// Reset any other engine state here if needed
+	Restart = true
 }
 
 // Update implements ebiten.Game.
@@ -212,6 +216,7 @@ func (g *game) Update() error {
 			elapsedTime += timeIncrement
 		}
 	}
+
 	return nil
 }
 

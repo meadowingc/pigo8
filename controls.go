@@ -93,19 +93,19 @@ func init() {
 // Updated for better Steam Deck keyboard/on-screen keyboard support
 var pico8ButtonToKeyboardP0 = map[int]ebiten.Key{
 	// Arrow keys for direction
-	LEFT:   ebiten.KeyLeft,
-	RIGHT:  ebiten.KeyRight,
-	UP:     ebiten.KeyUp,
-	DOWN:   ebiten.KeyDown,
-	
+	LEFT:  ebiten.KeyLeft,
+	RIGHT: ebiten.KeyRight,
+	UP:    ebiten.KeyUp,
+	DOWN:  ebiten.KeyDown,
+
 	// Face buttons (mapped to common game keys)
-	O:      ebiten.KeyZ,          // PICO-8 O button ('Z' key)
-	X:      ebiten.KeyX,          // PICO-8 X button ('X' key)
-	
+	O: ebiten.KeyZ, // PICO-8 O button ('Z' key)
+	X: ebiten.KeyX, // PICO-8 X button ('X' key)
+
 	// Menu buttons
-	START:  ebiten.KeyEnter,      // Start/Confirm
-	SELECT: ebiten.KeyTab,        // Select/Back
-	
+	START:  ebiten.KeyEnter, // Start/Confirm
+	SELECT: ebiten.KeyTab,   // Select/Back
+
 	// Additional Steam Deck specific mappings
 	// These are useful for Steam Deck's on-screen keyboard
 	// You can add more mappings as needed

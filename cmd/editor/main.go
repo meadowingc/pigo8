@@ -1062,7 +1062,9 @@ func (g *myGame) saveState() error {
 	if len(g.redoStack) > 0 {
 		// Clean up old redo states
 		for _, filename := range g.redoStack {
-			g.fs.Remove(filename)
+			if err := g.fs.Remove(filename); err != nil && !os.IsNotExist(err) {
+				log.Printf("Error removing redo state file %s: %v", filename, err)
+			}
 		}
 		g.redoStack = g.redoStack[:0]
 	}
@@ -1105,7 +1107,9 @@ func (g *myGame) saveState() error {
 	if len(g.undoStack) > 50 {
 		// Remove oldest state file
 		oldest := g.undoStack[0]
-		g.fs.Remove(oldest)
+		if err := g.fs.Remove(oldest); err != nil && !os.IsNotExist(err) {
+			log.Printf("Error removing old state file %s: %v", oldest, err)
+		}
 		g.undoStack = g.undoStack[1:]
 	}
 
