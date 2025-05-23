@@ -107,3 +107,11 @@ func Sqrt[T Number](a T) float64 {
 
 	return math.Sqrt(value)
 }
+
+// Sign returns the Sign of a float, with 0 treated as +1
+func Sign(v float64) float64 {
+	if v < 0 {
+		return -1
+	}
+	return 1
+}

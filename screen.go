@@ -3,6 +3,7 @@ package pigo8
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 
 	// "fmt" // Not needed for this version
 
@@ -287,13 +288,13 @@ func Cursor(args ...int) {
 	}
 }
 
-// Print draws the given string onto the current drawing screen.
+// Print draws the given value (converted to a string using fmt.Sprintf) onto the current drawing screen.
 // Uses the internal `currentScreen` variable.
 // It mimics the PICO-8 PRINT(str, [x, y], [color]) function, including implicit cursor tracking.
 // It returns the X and Y coordinates of the pixel immediately following the printed string.
 //
 // Args:
-//   - str: The string to print.
+//   - s: The value to print. It will be converted to a string using fmt.Sprintf("%v", s).
 //   - args: Optional arguments interpreted based on PICO-8 logic:
 //   - If len(args) == 0: Prints at current cursor (cursorX, cursorY) with current cursorColor.
 //   - If len(args) == 1: Prints at current cursor (cursorX, cursorY) with color args[0] (overrides cursorColor).
@@ -311,11 +312,14 @@ func Cursor(args ...int) {
 //
 //	// Assume cursor starts at (0, 0), color is 7 (white)
 //	Cursor(0, 0, 6) // Set current color to light gray
-//	_, _ = Print("1 HELLO")         // Draws at (0,0) in light gray, cursor moves to (0, 6).
-//	_, _ = Print("2 WORLD", 8)      // Draws at (0,6) in red, cursor moves to (0, 12).
-//	_, _ = Print("3 AT", 20, 20)     // Draws at (20,20) in light gray, cursor moves to (20, 26).
-//	endX, endY := Print("4 DONE")    // Draws at (20, 26) in light gray, cursor moves to (20, 32).
-func Print(str string, args ...int) (int, int) {
+//	_, _ = Print("1 HELLO")         // Draws "1 HELLO" at (0,0) in light gray, cursor moves to (0, 6).
+//	_, _ = Print(2.718, 8)          // Draws "2.718" at (0,6) in red, cursor moves to (0, 12).
+//	_, _ = Print("3 AT", 20, 20)     // Draws "3 AT" at (20,20) in light gray, cursor moves to (20, 26).
+//	endX, endY := Print("4 DONE")    // Draws "4 DONE" at (20, 26) in light gray, cursor moves to (20, 32).
+//	_, _ = Print(true)              // Draws "true" at current cursor with current color.
+func Print(s any, args ...int) (int, int) {
+	str := fmt.Sprintf("%v", s)
+
 	// Check if screen is ready
 	if currentScreen == nil {
 		log.Println("Warning: Print() called before screen was ready.")

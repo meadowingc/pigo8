@@ -4,8 +4,6 @@
 package main
 
 import (
-	"fmt"
-
 	p8 "github.com/drpaneas/pigo8"
 )
 
@@ -16,6 +14,7 @@ const (
 	courtTop    = 10
 	courtBottom = 127
 	centerX     = (courtRight + courtLeft) / 2
+	centerY     = (courtBottom + courtTop) / 2
 	lineLen     = 4
 )
 
@@ -44,10 +43,13 @@ type Game struct {
 
 // Init initializes the game state with default paddle and ball positions
 func (g *Game) Init() {
-	g.player = Paddle{8, 63, 2, 10, 1, 12}
-	g.computer = Paddle{117, 63, 2, 10, 0.75, 8}
+	difficulty := 1.5
+	paddleHeight := 10.0 // 10
+	paddleWidth := 2.0   // 2
+	g.player = Paddle{courtLeft + paddleWidth*2, centerY + paddleHeight/2, paddleWidth, paddleHeight, 1.0 * difficulty, 12}
+	g.computer = Paddle{courtRight - paddleWidth*3, centerY + paddleHeight/2, paddleWidth, paddleHeight, 0.75 * difficulty, 8}
 	ballDy := float64(p8.Flr(p8.Rnd(2))) - 0.5
-	g.ball = Ball{x: 63, y: 63, size: 2, color: 7, dx: 0.6, dy: ballDy, speed: 1, boost: 0.05}
+	g.ball = Ball{x: centerX, y: centerY, size: 2, color: 7, dx: 1.0 * difficulty, dy: ballDy, speed: 1.0 * difficulty, boost: 0.05 * difficulty}
 
 	if p8.Restart {
 		g.playerScore = 0
@@ -89,10 +91,10 @@ func (g *Game) Update() {
 		}
 	} else {
 		// return to center
-		if mid > 73 {
+		if mid > ((centerY + g.player.height/2) + g.player.height) {
 			g.computer.y -= g.computer.speed
 		}
-		if mid < 53 {
+		if mid < ((centerY + g.player.height/2) - g.player.height) {
 			g.computer.y += g.computer.speed
 		}
 	}
@@ -106,7 +108,7 @@ func (g *Game) Update() {
 	if collide(g.ball, g.player) {
 		// adjust dy if player changes paddle angle
 		if p8.Btn(p8.UP) || p8.Btn(p8.DOWN) {
-			g.ball.dy += sign(g.ball.dy) * g.ball.boost * 2
+			g.ball.dy += p8.Sign(g.ball.dy) * g.ball.boost * 2
 		}
 		g.ball.dx = -(g.ball.dx - g.ball.boost)
 		p8.Music(1)
@@ -153,22 +155,14 @@ func (g *Game) Draw() {
 	p8.Rectfill(g.computer.x, g.computer.y, g.computer.x+g.computer.width, g.computer.y+g.computer.height, g.computer.color)
 
 	// Scores
-	p8.Print(fmt.Sprint(g.playerScore), 30, 2)
-	p8.Print(fmt.Sprint(g.computerScore), 95, 2)
+	p8.Print(g.playerScore, centerX/2, 2, 12)
+	p8.Print(g.computerScore, centerX+centerX/2, 2, 8)
 }
 
 // collide checks axis-aligned collision between ball and paddle
 func collide(b Ball, p Paddle) bool {
 	return b.x+b.size >= p.x && b.x <= p.x+p.width &&
 		b.y+b.size >= p.y && b.y <= p.y+p.height
-}
-
-// sign returns the sign of a float, with 0 treated as +1
-func sign(v float64) float64 {
-	if v < 0 {
-		return -1
-	}
-	return 1
 }
 
 func main() {
