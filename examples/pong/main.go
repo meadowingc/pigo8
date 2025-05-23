@@ -48,6 +48,9 @@ func (g *Game) Init() {
 	g.computer = Paddle{117, 63, 2, 10, 0.75, 8}
 	ballDy := float64(p8.Flr(p8.Rnd(2))) - 0.5
 	g.ball = Ball{x: 63, y: 63, size: 2, color: 7, dx: 0.6, dy: ballDy, speed: 1, boost: 0.05}
+	g.playerScore = 0
+	g.computerScore = 0
+	g.Scored = ""
 
 	// sound
 	switch g.Scored {
@@ -166,6 +169,7 @@ func sign(v float64) float64 {
 func main() {
 	settings := p8.NewSettings()
 	settings.TargetFPS = 60
+	settings.Fullscreen = true
 	p8.InsertGame(&Game{})
 	p8.PlayGameWith(settings)
 }
