@@ -110,12 +110,6 @@ func (g *Game) initAliens() {
 
 // ---- Input Processing ----
 func (g *Game) processInputs() bool {
-	if pigo8.Btnp(pigo8.START) {
-		g.paused = !g.paused
-	}
-	if g.paused {
-		return g.handlePauseMenu()
-	}
 	if g.gameOver {
 		return g.handleGameOverInput()
 	}
@@ -123,25 +117,6 @@ func (g *Game) processInputs() bool {
 	g.handlePlayerMovement()
 	g.handlePlayerShooting()
 	return true
-}
-
-func (g *Game) handlePauseMenu() bool {
-	// Pause menu navigation
-	if pigo8.Btnp(pigo8.UP) || pigo8.Btnp(pigo8.LEFT) {
-		g.menuItem = (g.menuItem - 1 + 2) % 2
-	}
-	if pigo8.Btnp(pigo8.DOWN) || pigo8.Btnp(pigo8.RIGHT) {
-		g.menuItem = (g.menuItem + 1) % 2
-	}
-	if pigo8.Btnp(pigo8.O) {
-		switch g.menuItem {
-		case 0:
-			g.paused = false
-		case 1:
-			g.gameOver = true
-		}
-	}
-	return false
 }
 
 func (g *Game) handleGameOverInput() bool {
@@ -271,11 +246,6 @@ func (g *Game) handleCollisions() {
 // Draw renders the game elements to the screen each frame
 func (g *Game) Draw() {
 	pigo8.Cls(0)
-
-	if g.paused {
-		g.drawPauseMenu()
-		return
-	}
 	g.drawPlayer()
 	g.drawBullets()
 	g.drawAliens()
@@ -313,16 +283,7 @@ func (g *Game) drawUI() {
 	pigo8.Print(fmt.Sprintf("score: %d", g.score), 4, 4, 7)
 	pigo8.Print(fmt.Sprintf("lives: %d", g.lives), 80, 4, 7)
 }
-func (g *Game) drawPauseMenu() {
-	pigo8.Print("paused", 50, 40, 7)
-	for i, label := range []string{"resume", "quit"} {
-		if g.menuItem == i {
-			pigo8.Print("> "+label, 45, 60+10*i, 7)
-		} else {
-			pigo8.Print("  "+label, 45, 60+10*i, 7)
-		}
-	}
-}
+
 func (g *Game) drawGameOver() {
 	pigo8.Print("game over", 40, 60, 7)
 	pigo8.Print("press o to restart", 20, 70, 7)
