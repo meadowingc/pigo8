@@ -30,6 +30,7 @@ type Settings struct {
 	ScreenWidth  int    // Custom screen width (Default: 128 for PICO-8 compatibility).
 	ScreenHeight int    // Custom screen height (Default: 128 for PICO-8 compatibility).
 	Multiplayer  bool   // Enable multiplayer networking (Default: false).
+	Fullscreen   bool   // Start the game in fullscreen mode (Default: false).
 }
 
 // NewSettings creates a new Settings object with default values.
@@ -41,6 +42,7 @@ func NewSettings() *Settings {
 		ScreenWidth:  128,   // Default PICO-8 width
 		ScreenHeight: 128,   // Default PICO-8 height
 		Multiplayer:  false, // Networking disabled by default
+		Fullscreen:   false, // Windowed mode by default
 	}
 }
 
@@ -365,6 +367,11 @@ func PlayGameWith(settings *Settings) {
 	}
 	ebiten.SetWindowSize(winWidth, winHeight)
 	ebiten.SetTPS(cfg.TargetFPS)
+
+	// Set fullscreen mode if enabled
+	if cfg.Fullscreen {
+		ebiten.SetFullscreen(true)
+	}
 
 	// Calculate time increment based on target FPS
 	timeIncrement = 1.0 / float64(cfg.TargetFPS)
