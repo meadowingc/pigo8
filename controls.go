@@ -11,10 +11,12 @@ import (
 
 // PICO-8 Button Index Constants
 const (
+	// Directional buttons (keyboard and gamepad)
 	LEFT = iota
 	RIGHT
 	UP
 	DOWN
+	// Face buttons (keyboard and gamepad)
 	O // Often mapped to A/Cross on standard controllers
 	X // Often mapped to B/Circle on standard controllers
 	START
@@ -25,6 +27,30 @@ const (
 	MouseMiddle // Mouse wheel press
 	MouseWheelUp
 	MouseWheelDown
+	// Gamepad-specific buttons (for direct mapping)
+	joyUp
+	joyDown
+	joyLeft
+	joyRight
+	joyA
+	joyB
+	joyX
+	joyY
+	// Shoulder buttons and triggers
+	l1 // Left shoulder button
+	r1 // Right shoulder button
+	l2 // Left trigger (analog)
+	r2 // Right trigger (analog)
+	// Stick clicks
+	l3 // Left stick click
+	r3 // Right stick click
+	// Additional Steam Deck back buttons
+	l4 // Back left button 1 (Steam Deck)
+	r4 // Back right button 1 (Steam Deck)
+	l5 // Back left button 2 (Steam Deck)
+	r5 // Back right button 2 (Steam Deck)
+	// Alias for pause button (same as START)
+	PAUSE = START
 )
 
 // isSteamDeck checks if the game is running on a Steam Deck by checking the hostname
@@ -42,47 +68,103 @@ func isSteamDeck() bool {
 	return hostname == "steamdeck"
 }
 
-// initButtonMappings initializes the button mappings based on the current platform
-func initButtonMappings() {
-	if isSteamDeck() {
-		// Steam Deck specific mappings using keyboard keys
-		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
-			// D-pad directions
-			LEFT:  ebiten.StandardGamepadButton(ebiten.GamepadButton14),
-			RIGHT: ebiten.StandardGamepadButton(ebiten.GamepadButton12),
-			UP:    ebiten.StandardGamepadButton(ebiten.GamepadButton12),
-			DOWN:  ebiten.StandardGamepadButton(ebiten.GamepadButton13),
-
-			// Face buttons
-			O: ebiten.StandardGamepadButton(ebiten.GamepadButton2), // B button
-			X: ebiten.StandardGamepadButton(ebiten.GamepadButton0), // A button
-
-			// Menu buttons
-			START:  ebiten.StandardGamepadButton(ebiten.GamepadButton7), // Start button
-			SELECT: ebiten.StandardGamepadButton(ebiten.GamepadButton6), // Select button
-		}
-	} else {
-		// Default mappings for other platforms (Xbox-style)
-		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
-			// D-pad directions
-			LEFT:  ebiten.StandardGamepadButtonLeftLeft,
-			RIGHT: ebiten.StandardGamepadButtonLeftRight,
-			UP:    ebiten.StandardGamepadButtonLeftTop,
-			DOWN:  ebiten.StandardGamepadButtonLeftBottom,
-
-			// Face buttons (Xbox-style: A=bottom, B=right, X=left, Y=top)
-			O: ebiten.StandardGamepadButtonRightRight,  // B button
-			X: ebiten.StandardGamepadButtonRightBottom, // A button
-
-			// Menu buttons
-			START:  ebiten.StandardGamepadButtonCenterRight, // Start button
-			SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select button
-		}
-	}
-}
-
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
 var pico8ButtonToStandard map[int]ebiten.StandardGamepadButton
+
+// pico8AxisToStandard maps PICO-8 direction indices to Ebitengine Standard Gamepad Axes.
+var pico8AxisToStandard map[int]ebiten.StandardGamepadAxis
+
+// initButtonMappings initializes the button and axis mappings based on the current platform
+func initButtonMappings() {
+	// Initialize with common button mappings
+	pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
+		// Face buttons (Xbox-style: A=bottom, B=right, X=left, Y=top)
+		O: ebiten.StandardGamepadButtonRightLeft,   // Left button (X on Xbox, Square on PlayStation)
+		X: ebiten.StandardGamepadButtonRightBottom, // Bottom button (A on Xbox, X on PlayStation)
+
+		// Menu buttons
+		START:  ebiten.StandardGamepadButtonCenterRight, // Start button
+		SELECT: ebiten.StandardGamepadButtonCenterLeft,  // Select/Back button
+
+		// Gamepad-specific buttons
+		joyUp:    ebiten.StandardGamepadButtonLeftTop,
+		joyDown:  ebiten.StandardGamepadButtonLeftBottom,
+		joyLeft:  ebiten.StandardGamepadButtonLeftLeft,
+		joyRight: ebiten.StandardGamepadButtonLeftRight,
+		joyA:     ebiten.StandardGamepadButtonRightBottom, // A button (bottom face button)
+		joyB:     ebiten.StandardGamepadButtonRightRight,  // B button (right face button)
+		joyX:     ebiten.StandardGamepadButtonRightLeft,   // X button (left face button)
+		joyY:     ebiten.StandardGamepadButtonRightTop,    // Y button (top face button)
+	}
+
+	// Initialize axis-based directional controls
+	pico8AxisToStandard = map[int]ebiten.StandardGamepadAxis{
+		LEFT:     ebiten.StandardGamepadAxisLeftStickHorizontal, // Negative X axis for left
+		RIGHT:    ebiten.StandardGamepadAxisLeftStickHorizontal, // Positive X axis for right
+		UP:       ebiten.StandardGamepadAxisLeftStickVertical,   // Negative Y axis for up
+		DOWN:     ebiten.StandardGamepadAxisLeftStickVertical,   // Positive Y axis for down
+		joyLeft:  ebiten.StandardGamepadAxisLeftStickHorizontal, // Negative X axis for left
+		joyRight: ebiten.StandardGamepadAxisLeftStickHorizontal, // Positive X axis for right
+		joyUp:    ebiten.StandardGamepadAxisLeftStickVertical,   // Negative Y axis for up
+		joyDown:  ebiten.StandardGamepadAxisLeftStickVertical,   // Positive Y axis for down
+	}
+
+	// Set platform-specific overrides if needed
+	if isSteamDeck() {
+		// Steam Deck specific button mappings
+		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
+			// Face buttons (A,B,X,Y) - Steam Deck uses XBox layout
+			X: ebiten.StandardGamepadButtonRightLeft,   // X button (Left)
+			O: ebiten.StandardGamepadButtonRightBottom, // A button (Bottom)
+
+			joyA: ebiten.StandardGamepadButtonRightBottom, // A button (bottom)
+			joyB: ebiten.StandardGamepadButtonRightRight,  // B button (right)
+			joyX: ebiten.StandardGamepadButtonRightLeft,   // X button (left)
+			joyY: ebiten.StandardGamepadButtonRightTop,    // Y button (top)
+
+			// D-pad directions
+			UP:       ebiten.StandardGamepadButtonLeftTop,
+			DOWN:     ebiten.StandardGamepadButtonLeftBottom,
+			LEFT:     ebiten.StandardGamepadButtonLeftLeft,
+			RIGHT:    ebiten.StandardGamepadButtonLeftRight,
+			joyUp:    ebiten.StandardGamepadButtonLeftTop,
+			joyDown:  ebiten.StandardGamepadButtonLeftBottom,
+			joyLeft:  ebiten.StandardGamepadButtonLeftLeft,
+			joyRight: ebiten.StandardGamepadButtonLeftRight,
+
+			// Shoulder buttons
+			l1: ebiten.StandardGamepadButtonFrontTopLeft,     // L1
+			r1: ebiten.StandardGamepadButtonFrontTopRight,    // R1
+			l2: ebiten.StandardGamepadButtonFrontBottomLeft,  // L2 (also analog)
+			r2: ebiten.StandardGamepadButtonFrontBottomRight, // R2 (also analog)
+
+			// Stick clicks
+			l3: ebiten.StandardGamepadButtonLeftStick,  // Left stick click
+			r3: ebiten.StandardGamepadButtonRightStick, // Right stick click
+
+			// Menu buttons
+			START:  ebiten.StandardGamepadButtonCenterRight, // Menu button (right)
+			SELECT: ebiten.StandardGamepadButtonCenterLeft,  // View button (left)
+
+			// Steam/Quick Access button is not mappable through standard gamepad API
+		}
+
+		// Map Steam Deck touchpad clicks
+		// These are mapped to mouse buttons for compatibility
+		pico8ButtonToStandard[MouseLeft] = ebiten.StandardGamepadButtonFrontBottomLeft   // Map to L2
+		pico8ButtonToStandard[MouseRight] = ebiten.StandardGamepadButtonFrontBottomRight // Map to R2
+
+		// Map back buttons (L4/L5, R4/R5 on Steam Deck)
+		// These are mapped to L1/R1 for now since they're not standard
+		pico8ButtonToStandard[l4] = ebiten.StandardGamepadButtonFrontTopLeft  // L4 -> L1
+		pico8ButtonToStandard[r4] = ebiten.StandardGamepadButtonFrontTopRight // R4 -> R1
+		pico8ButtonToStandard[l5] = ebiten.StandardGamepadButtonLeftStick     // L5 -> Left stick click
+		pico8ButtonToStandard[r5] = ebiten.StandardGamepadButtonRightStick    // R5 -> Right stick click
+
+		// Note: For full Steam Deck back button support, you might want to use
+		// SDL's game controller API directly or a Steam Input wrapper
+	}
+}
 
 // init initializes the button mappings when the package is imported
 func init() {
@@ -159,7 +241,7 @@ func updateConnectedGamepads() {
 // 	return currentIDs[playerIndex], true
 // }
 
-// Btn checks if a specific PICO-8 button is currently held down via gamepad, keyboard (Player 0 only), or mouse.
+// Btn checks if a specific PICO-8 button is currently held down via gamepad, keyboard (Player 0 only), mouse, or gamepad axes.
 // Mimics the PICO-8 btn() function behavior (returns true while held).
 //
 // buttonIndex: The PICO-8 button index (0-15).
@@ -196,16 +278,82 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 	}
 
 	// --- Gamepad Check ---
-	// Get the first connected gamepad for this player (simplified version)
+	// Get the gamepad for this player
 	ids := ebiten.AppendGamepadIDs(nil)
 	if pIdx < 0 || pIdx >= len(ids) {
 		return false
 	}
 	gamepadID := ids[pIdx]
 
-	// Check if we have a standard mapping for this button
+	// Check directional inputs (both D-pad and analog stick)
+	switch buttonIndex {
+	case LEFT, joyLeft:
+		// Check D-pad left or left stick left
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			// Check D-pad left
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) {
+				return true
+			}
+			// Check left stick left
+			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) < -0.5 {
+				return true
+			}
+		}
+		// Fallback for non-standard gamepads
+		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft)) ||
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -0.5
+
+	case RIGHT, joyRight:
+		// Check D-pad right or left stick right
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			// Check D-pad right
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) {
+				return true
+			}
+			// Check left stick right
+			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) > 0.5 {
+				return true
+			}
+		}
+		// Fallback for non-standard gamepads
+		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight)) ||
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > 0.5
+
+	case UP, joyUp:
+		// Check D-pad up or left stick up
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			// Check D-pad up
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) {
+				return true
+			}
+			// Check left stick up
+			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) < -0.5 {
+				return true
+			}
+		}
+		// Fallback for non-standard gamepads
+		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop)) ||
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -0.5
+
+	case DOWN, joyDown:
+		// Check D-pad down or left stick down
+		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
+			// Check D-pad down
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) {
+				return true
+			}
+			// Check left stick down
+			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) > 0.5 {
+				return true
+			}
+		}
+		// Fallback for non-standard gamepads
+		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom)) ||
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) > 0.5
+	}
+
+	// Then check standard button mappings
 	if standardButton, ok := pico8ButtonToStandard[buttonIndex]; ok {
-		// First try standard gamepad layout
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			return ebiten.IsStandardGamepadButtonPressed(gamepadID, standardButton)
 		}
@@ -317,22 +465,37 @@ func Btnp(buttonIndex int, playerIndex ...int) bool {
 
 		// Fallback to direct button mapping for non-standard gamepads
 		switch buttonIndex {
-		case LEFT:
-			return ebiten.GamepadAxisValue(gamepadID, 0) < -0.5 && inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft))
-		case RIGHT:
-			return ebiten.GamepadAxisValue(gamepadID, 0) > 0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight))
-		case UP:
-			return ebiten.GamepadAxisValue(gamepadID, 1) < -0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop))
-		case DOWN:
-			return ebiten.GamepadAxisValue(gamepadID, 1) > 0.5 && ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom))
-		case O: // B button on Xbox (right face button)
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1) // B button
-		case X: // A button on Xbox (bottom face button)
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0) // A button
+		// Directional buttons (D-pad and left stick)
+		case LEFT, joyLeft:
+			// Check D-pad left or left stick left
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft)) ||
+				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -0.5
+		case RIGHT, joyRight:
+			// Check D-pad right or left stick right
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight)) ||
+				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > 0.5
+		case UP, joyUp:
+			// Check D-pad up or left stick up
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop)) ||
+				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -0.5
+		case DOWN, joyDown:
+			// Check D-pad down or left stick down
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom)) ||
+				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) > 0.5
+		// Face buttons
+		case O, joyB: // B button (right face button)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton1)
+		case X, joyA: // A button (bottom face button)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton0)
+		case joyX: // X button (left face button)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton2)
+		case joyY: // Y button (top face button)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton3)
+		// Menu buttons
 		case START:
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton9)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton9)
 		case SELECT:
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton8)
+			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton8)
 		}
 	}
 
