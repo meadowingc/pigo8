@@ -71,9 +71,6 @@ func isSteamDeck() bool {
 // pico8ButtonToStandard maps PICO-8 button indices to Ebitengine Standard Gamepad Buttons.
 var pico8ButtonToStandard map[int]ebiten.StandardGamepadButton
 
-// pico8AxisToStandard maps PICO-8 direction indices to Ebitengine Standard Gamepad Axes.
-var pico8AxisToStandard map[int]ebiten.StandardGamepadAxis
-
 // initButtonMappings initializes the button and axis mappings based on the current platform
 func initButtonMappings() {
 	// Initialize with common button mappings
@@ -95,18 +92,6 @@ func initButtonMappings() {
 		joyB:     ebiten.StandardGamepadButtonRightRight,  // B button (right face button)
 		joyX:     ebiten.StandardGamepadButtonRightLeft,   // X button (left face button)
 		joyY:     ebiten.StandardGamepadButtonRightTop,    // Y button (top face button)
-	}
-
-	// Initialize axis-based directional controls
-	pico8AxisToStandard = map[int]ebiten.StandardGamepadAxis{
-		LEFT:     ebiten.StandardGamepadAxisLeftStickHorizontal, // Negative X axis for left
-		RIGHT:    ebiten.StandardGamepadAxisLeftStickHorizontal, // Positive X axis for right
-		UP:       ebiten.StandardGamepadAxisLeftStickVertical,   // Negative Y axis for up
-		DOWN:     ebiten.StandardGamepadAxisLeftStickVertical,   // Positive Y axis for down
-		joyLeft:  ebiten.StandardGamepadAxisLeftStickHorizontal, // Negative X axis for left
-		joyRight: ebiten.StandardGamepadAxisLeftStickHorizontal, // Positive X axis for right
-		joyUp:    ebiten.StandardGamepadAxisLeftStickVertical,   // Negative Y axis for up
-		joyDown:  ebiten.StandardGamepadAxisLeftStickVertical,   // Positive Y axis for down
 	}
 
 	// Set platform-specific overrides if needed

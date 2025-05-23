@@ -177,24 +177,24 @@ func (g *game) Update() error {
 		// Update pause menu or game logic based on pause state
 		if g.paused {
 			// Handle pause menu navigation
-			// Navigate up
-			if Btnp(UP) {
+			// Navigate up (keyboard or gamepad)
+			if Btnp(UP) || Btnp(joyUp) {
 				g.pauseSelected--
 				if g.pauseSelected < 0 {
 					g.pauseSelected = EngPauseOptionCount - 1
 				}
 			}
 
-			// Navigate down
-			if Btnp(DOWN) {
+			// Navigate down (keyboard or gamepad)
+			if Btnp(DOWN) || Btnp(joyDown) {
 				g.pauseSelected++
 				if g.pauseSelected >= EngPauseOptionCount {
 					g.pauseSelected = 0
 				}
 			}
 
-			// Process selection with X button
-			if Btnp(X) {
+			// Process selection with X button (keyboard) or A button (gamepad)
+			if Btnp(X) || Btnp(joyA) || Btnp(O) { // O is often the confirm button on some controllers
 				switch g.pauseSelected {
 				case EngPauseOptionContinue:
 					// Continue the game (unpause)
