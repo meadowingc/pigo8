@@ -34,7 +34,7 @@ const (
 	mapHeight = 320
 
 	// Default colors
-	defaultColor     = 1 // Default color (usually red in PICO-8 palette)
+	defaultColor     = 1 // Default color
 	transparentColor = 0 // Transparent color
 
 	// UI constants
@@ -358,7 +358,7 @@ func (g *myGame) drawMapMode() {
 
 	// 3) border and UI text
 	p8.Rect(viewX, viewY,
-		viewX+mapViewWidth, viewY+mapViewHeight, 1)
+		viewX+mapViewWidth, viewY+mapViewHeight, g.getUIElementColor())
 	p8.Camera() // reset for text
 	g.printMapInfo(viewX, viewY, mx, my)
 }
@@ -400,7 +400,7 @@ func (g *myGame) drawMapHover(vx, vy, mx, my int) {
 					float64(vy+y*8),
 					float64(vx+(x+1)*8-1),
 					float64(vy+(y+1)*8-1),
-					1,
+					g.getUIElementColor(), // Hover color
 				)
 			}
 		}
@@ -458,10 +458,10 @@ func (g *myGame) drawEditorCanvas() {
 	if g.hoverX >= 0 && g.hoverY >= 0 {
 		p8.Print(
 			fmt.Sprintf("pixel: (%d,%d)", g.hoverX, g.hoverY),
-			startX, startY-10, 1,
+			startX, startY-10, g.getUIElementColor(),
 		)
 	}
-	p8.Rect(startX-1, startY-1, endX+1, endY+1, 1)
+	p8.Rect(startX-1, startY-1, endX+1, endY+1, g.getUIElementColor())
 }
 
 // drawSpritesheetPanel draws the spritesheet area and label
@@ -492,13 +492,13 @@ func (g *myGame) drawSpritesheetPanel() {
 	if g.gridSize >= 1 {
 		g.drawSelectionBorder(sx, sy)
 	}
-	p8.Rect(sx-1, sy-1, ex+1, ey+1, 1)
+	p8.Rect(sx-1, sy-1, ex+1, ey+1, g.getUIElementColor())
 
 	sizeText := map[int]string{1: "8x8", 2: "16x16", 4: "32x32"}[g.gridSize]
 	p8.Print(
 		fmt.Sprintf("spritesheet - sprite: %d - grid: %s",
 			g.currentSprite, sizeText),
-		sx, ey+4, 1,
+		sx, ey+4, g.getUIElementColor(),
 	)
 }
 
@@ -523,7 +523,7 @@ func (g *myGame) drawSelectionBorder(sx, sy int) {
 		y2 = maxY
 	}
 
-	p8.Rect(x1, y1, x2, y2, 1)
+	p8.Rect(x1, y1, x2, y2, g.getUIElementColor())
 }
 
 // drawSelectionAndPalette draws the selection and palette
@@ -717,7 +717,7 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		checkboxY := y
 
 		// Draw checkbox outline
-		p8.Rect(checkboxX, checkboxY, checkboxX+checkboxSize-1, checkboxY+checkboxSize-1, 1)
+		p8.Rect(checkboxX, checkboxY, checkboxX+checkboxSize-1, checkboxY+checkboxSize-1, g.getUIElementColor())
 
 		// Check the flag state across all selected sprites
 		allTrue := true
@@ -735,21 +735,21 @@ func (g *myGame) drawCheckboxes(x, y int) {
 		// Fill the checkbox based on state
 		if allTrue {
 			// All sprites have this flag set - fill with solid color
-			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1)
+			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, g.getUIElementColor())
 		} else if !allFalse {
 			// Mixed state - some sprites have this flag set, others don't - show a pattern
-			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1) // Use a different color
+			p8.Rectfill(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, g.getUIElementColor()) // Use a different color
 			// Draw a pattern to indicate mixed state
-			p8.Line(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, 1)
-			p8.Line(checkboxX+checkboxSize-3, checkboxY+2, checkboxX+2, checkboxY+checkboxSize-3, 1)
+			p8.Line(checkboxX+2, checkboxY+2, checkboxX+checkboxSize-3, checkboxY+checkboxSize-3, g.getUIElementColor())
+			p8.Line(checkboxX+checkboxSize-3, checkboxY+2, checkboxX+2, checkboxY+checkboxSize-3, g.getUIElementColor())
 		}
 
 		// Draw flag number
-		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, 1)
+		p8.Print(strconv.Itoa(i), checkboxX+1, checkboxY+checkboxSize+2, g.getUIElementColor())
 	}
 
 	// Draw label
-	p8.Print("flags", x, y-10, 1)
+	p8.Print("flags", x, y-10, g.getUIElementColor())
 }
 
 // drawPalette draws the color palette below the grid
@@ -775,7 +775,7 @@ func (g *myGame) drawPalette(x, y int) {
 
 		// Highlight the currently selected color with a white border
 		if i == g.currentColor {
-			p8.Rect(px-1, py-1, px+11, py+11, 1) // White highlight border
+			p8.Rect(px-1, py-1, px+11, py+11, g.getUIElementColor()) // White highlight border
 		}
 	}
 }
@@ -1499,6 +1499,15 @@ func (g *myGame) handleKeyboardNavigation() {
 		g.lastWheelTime = now
 		g.updateDrawingCanvas()
 	}
+}
+
+// getUIElementColor returns the appropriate color for UI elements based on the active palette.
+// It returns 7 (white) if the default PICO-8 palette is active, otherwise defaultColor (1).
+func (g *myGame) getUIElementColor() int {
+	if p8.IsDefaultPico8PaletteActive() {
+		return 7 // PICO-8 white
+	}
+	return defaultColor // Defined as 1 (dark-blue)
 }
 
 func main() {

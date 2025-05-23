@@ -18,6 +18,27 @@ import (
 var pico8FontTTF []byte
 
 var (
+	// originalPico8Palette holds the an immutable copy of the standard 16 PICO-8 colors.
+	// This is used as a reference to check if the current palette is the default.
+	originalPico8Palette = []color.Color{
+		color.RGBA{R: 0, G: 0, B: 0, A: 255},       // 0 black
+		color.RGBA{R: 29, G: 43, B: 83, A: 255},    // 1 dark-blue
+		color.RGBA{R: 126, G: 37, B: 83, A: 255},   // 2 dark-purple
+		color.RGBA{R: 0, G: 135, B: 81, A: 255},    // 3 dark-green
+		color.RGBA{R: 171, G: 82, B: 54, A: 255},   // 4 brown
+		color.RGBA{R: 95, G: 87, B: 79, A: 255},    // 5 dark-gray
+		color.RGBA{R: 194, G: 195, B: 199, A: 255}, // 6 light-gray
+		color.RGBA{R: 255, G: 241, B: 232, A: 255}, // 7 white
+		color.RGBA{R: 255, G: 0, B: 77, A: 255},    // 8 red
+		color.RGBA{R: 255, G: 163, B: 0, A: 255},   // 9 orange
+		color.RGBA{R: 255, G: 236, B: 39, A: 255},  // 10 yellow
+		color.RGBA{R: 0, G: 228, B: 54, A: 255},    // 11 green
+		color.RGBA{R: 41, G: 173, B: 255, A: 255},  // 12 blue
+		color.RGBA{R: 131, G: 118, B: 156, A: 255}, // 13 indigo
+		color.RGBA{R: 255, G: 119, B: 168, A: 255}, // 14 pink
+		color.RGBA{R: 255, G: 204, B: 170, A: 255}, // 15 peach
+	}
+
 	// Pico8Palette defines the standard 16 PICO-8 colors.
 	Pico8Palette = []color.Color{
 		color.RGBA{R: 0, G: 0, B: 0, A: 255},       // 0 black
@@ -522,3 +543,20 @@ func SetPaletteColor(colorIndex int, newColor color.Color) {
 
 // No alpha transparency functions needed - using only binary transparency
 // where colors are either fully visible or fully transparent
+
+// IsDefaultPico8PaletteActive checks if the current p8.Pico8Palette is the standard PICO-8 palette.
+// It compares the current palette's length and RGBA values against the original PICO-8 colors.
+func IsDefaultPico8PaletteActive() bool {
+	if len(Pico8Palette) != len(originalPico8Palette) {
+		return false
+	}
+	for i := range Pico8Palette {
+		// Compare RGBA values directly. ebiten.Color.RGBA() returns premultiplied alpha values.
+		r1, g1, b1, a1 := Pico8Palette[i].RGBA()
+		r2, g2, b2, a2 := originalPico8Palette[i].RGBA()
+		if r1 != r2 || g1 != g2 || b1 != b2 || a1 != a2 {
+			return false
+		}
+	}
+	return true
+}
