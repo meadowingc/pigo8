@@ -226,18 +226,18 @@ func updateConnectedGamepads() {
 // 	return currentIDs[playerIndex], true
 // }
 
-// Btn checks if a specific PICO-8 button is currently held down via gamepad, keyboard (Player 0 only), mouse, or gamepad axes.
-// Mimics the PICO-8 btn() function behavior (returns true while held).
-//
-// buttonIndex: The PICO-8 button index (0-15).
-// playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
-func Btn(buttonIndex int, playerIndex ...int) bool {
-	pIdx := 0 // Default to player 0
-	if len(playerIndex) > 0 {
-		pIdx = playerIndex[0]
+// isMouseButton checks if the given buttonIndex corresponds to a mouse button or wheel.
+func isMouseButton(buttonIndex int) bool {
+	switch buttonIndex {
+	case MouseLeft, MouseRight, MouseMiddle, MouseWheelUp, MouseWheelDown:
+		return true
+	default:
+		return false
 	}
+}
 
-	// --- Mouse Check ---
+// handleMouseInput checks if the specified PICO-8 mouse button/wheel is currently active.
+func handleMouseInput(buttonIndex int) bool {
 	switch buttonIndex {
 	case MouseLeft:
 		return ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
@@ -252,99 +252,77 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 		_, wheelY := ebiten.Wheel()
 		return wheelY > 0
 	}
+	return false
+}
 
-	// --- Keyboard Check (Player 0 Only) ---
-	if pIdx == 0 {
-		if key, ok := pico8ButtonToKeyboardP0[buttonIndex]; ok {
-			if ebiten.IsKeyPressed(key) {
-				return true
-			}
-		}
+// handleKeyboardInput checks if the specified PICO-8 button is pressed on the keyboard for Player 0.
+func handleKeyboardInput(buttonIndex int) bool {
+	if key, ok := pico8ButtonToKeyboardP0[buttonIndex]; ok {
+		return ebiten.IsKeyPressed(key)
 	}
+	return false
+}
 
-	// --- Gamepad Check ---
-	// Get the gamepad for this player
-	ids := ebiten.AppendGamepadIDs(nil)
-	if pIdx < 0 || pIdx >= len(ids) {
+// isDirectionButton checks if the buttonIndex corresponds to a directional PICO-8 button.
+func isDirectionButton(buttonIndex int) bool {
+	switch buttonIndex {
+	case LEFT, RIGHT, UP, DOWN, joyLeft, joyRight, joyUp, joyDown:
+		return true
+	default:
 		return false
 	}
-	gamepadID := ids[pIdx]
+}
 
-	// Check directional inputs (both D-pad and analog stick)
+// handleGamepadDirectionalInput checks for directional inputs (D-pad and analog stick) on the gamepad.
+func handleGamepadDirectionalInput(buttonIndex int, gamepadID ebiten.GamepadID) bool {
+	axisThreshold := 0.5
 	switch buttonIndex {
 	case LEFT, joyLeft:
-		// Check D-pad left or left stick left
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
-			// Check D-pad left
-			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) {
-				return true
-			}
-			// Check left stick left
-			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) < -0.5 {
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) ||
+				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) < -axisThreshold {
 				return true
 			}
 		}
-		// Fallback for non-standard gamepads
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft)) ||
-			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -0.5
-
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -axisThreshold
 	case RIGHT, joyRight:
-		// Check D-pad right or left stick right
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
-			// Check D-pad right
-			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) {
-				return true
-			}
-			// Check left stick right
-			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) > 0.5 {
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) ||
+				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) > axisThreshold {
 				return true
 			}
 		}
-		// Fallback for non-standard gamepads
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight)) ||
-			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > 0.5
-
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > axisThreshold
 	case UP, joyUp:
-		// Check D-pad up or left stick up
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
-			// Check D-pad up
-			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) {
-				return true
-			}
-			// Check left stick up
-			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) < -0.5 {
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) ||
+				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) < -axisThreshold {
 				return true
 			}
 		}
-		// Fallback for non-standard gamepads
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop)) ||
-			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -0.5
-
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -axisThreshold
 	case DOWN, joyDown:
-		// Check D-pad down or left stick down
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
-			// Check D-pad down
-			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) {
-				return true
-			}
-			// Check left stick down
-			if ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) > 0.5 {
+			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) ||
+				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) > axisThreshold {
 				return true
 			}
 		}
-		// Fallback for non-standard gamepads
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom)) ||
-			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) > 0.5
+			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) > axisThreshold
 	}
+	return false
+}
 
-	// Then check standard button mappings
+// handleGamepadStandardButtonInput checks for standard PICO-8 button presses on the gamepad.
+func handleGamepadStandardButtonInput(buttonIndex int, gamepadID ebiten.GamepadID) bool {
 	if standardButton, ok := pico8ButtonToStandard[buttonIndex]; ok {
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			return ebiten.IsStandardGamepadButtonPressed(gamepadID, standardButton)
 		}
-
-		// Fallback to direct button mapping for non-standard gamepads
-		// This is a simple fallback and might need adjustment
 		switch buttonIndex {
 		case LEFT:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft))
@@ -354,18 +332,58 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop))
 		case DOWN:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom))
-		case O: // B button on Xbox (right face button)
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1) // B button
-		case X: // A button on Xbox (bottom face button)
-			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0) // A button
+		case O:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1)
+		case X:
+			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0)
 		case START:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton9)
 		case SELECT:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton8)
+		default:
+			if btn, found := pico8ButtonToStandard[buttonIndex]; found {
+				return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(btn))
+			}
 		}
 	}
-
 	return false
+}
+
+// Btn checks if a specific PICO-8 button is currently held down via gamepad, keyboard (Player 0 only), mouse, or gamepad axes.
+// Mimics the PICO-8 btn() function behavior (returns true while held).
+//
+// buttonIndex: The PICO-8 button index (0-15).
+// playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
+func Btn(buttonIndex int, playerIndex ...int) bool {
+	pIdx := 0 // Default to player 0
+	if len(playerIndex) > 0 {
+		pIdx = playerIndex[0]
+	}
+
+	// Check mouse input first
+	if isMouseButton(buttonIndex) {
+		return handleMouseInput(buttonIndex)
+	}
+
+	// Check keyboard input (player 0 only)
+	if pIdx == 0 && handleKeyboardInput(buttonIndex) {
+		return true
+	}
+
+	// Check gamepad input
+	ids := ebiten.AppendGamepadIDs(nil)
+	if pIdx < 0 || pIdx >= len(ids) {
+		return false // No gamepad connected for this player index
+	}
+	gamepadID := ids[pIdx]
+
+	// Check directional inputs first
+	if isDirectionButton(buttonIndex) {
+		return handleGamepadDirectionalInput(buttonIndex, gamepadID)
+	}
+
+	// Then check standard button mappings
+	return handleGamepadStandardButtonInput(buttonIndex, gamepadID)
 }
 
 // Note: For "just pressed" behavior similar to PICO-8's btnp(), you would use
