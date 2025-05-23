@@ -10,6 +10,13 @@ import (
 	"sync"
 )
 
+const (
+	// Pico8MapWidth defines the width of the PIGO-8 map in tiles.
+	Pico8MapWidth = 320
+	// Pico8MapHeight defines the height of the PIGO-8 map in tiles.
+	Pico8MapHeight = 320
+)
+
 // mapCell holds a single cell's data from a PICO-8 map export.
 type mapCell struct {
 	X      int `json:"x"`
@@ -431,4 +438,46 @@ func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
 
 	// Add the new cell to the map
 	currentMap.Cells = append(currentMap.Cells, newCell)
+}
+
+// SetMap directly sets the entire PICO-8 map data from a byte slice.
+// The data slice should contain Pico8MapHeight * Pico8MapWidth bytes,
+// representing sprite IDs in row-major order.
+func SetMap(data []byte) {
+	if len(data) != Pico8MapWidth*Pico8MapHeight {
+		log.Printf("Warning: SetMap received data of incorrect length. Expected %d, got %d", Pico8MapWidth*Pico8MapHeight, len(data))
+		return
+	}
+
+	// Ensure map is loaded/initialized
+	if currentMap == nil {
+		loaded, err := loadMap() // Try to load existing, or get a default structure
+		if err != nil {
+			log.Printf("Warning: Failed to load/initialize map for SetMap(): %v. Creating a new one.", err)
+			// Initialize a new MapData if loadMap fails or returns nil without error (e.g. no file)
+			currentMap = &MapData{
+				Width:  Pico8MapWidth,
+				Height: Pico8MapHeight,
+				Cells:  make([]mapCell, 0, Pico8MapWidth*Pico8MapHeight/2), // Pre-allocate assuming sparse map
+			}
+		} else {
+			currentMap = loaded
+		}
+	}
+
+	// Clear existing cells and set new dimensions if necessary
+	currentMap.Cells = make([]mapCell, 0, Pico8MapWidth*Pico8MapHeight/2) // Pre-allocate assuming sparse map
+	currentMap.Width = Pico8MapWidth
+	currentMap.Height = Pico8MapHeight
+
+	for y := 0; y < Pico8MapHeight; y++ {
+		for x := 0; x < Pico8MapWidth; x++ {
+			spriteID := int(data[y*Pico8MapWidth+x])
+			if spriteID != 0 { // PICO-8 map data often omits 0s, we'll do the same for storage
+				currentMap.Cells = append(currentMap.Cells, mapCell{X: x, Y: y, Sprite: spriteID})
+			}
+		}
+	}
+	// After updating the map, it's a good idea to inform any systems that cache map data
+	// or rely on its visual representation that it has changed. For now, this is implicit.
 }

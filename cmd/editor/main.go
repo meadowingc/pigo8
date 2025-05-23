@@ -54,25 +54,23 @@ type myGame struct {
 	copiedSprite  [8][8]int // Buffer for copied sprite data
 
 	// Undo/Redo state
-	undoStack    []string      // Stack of saved state filenames for undo
-	redoStack    []string      // Stack of saved state filenames for redo
-	fs           afero.Fs      // Virtual filesystem for state snapshots
-	stateMutex   sync.Mutex    // Mutex for thread-safe access to state
-	lastSaveTime time.Time     // Last time a state was saved
-	saveCooldown time.Duration // Minimum time between saves
+	undoStack      []string      // Stack of saved state filenames for undo
+	redoStack      []string      // Stack of saved state filenames for redo
+	fs             afero.Fs      // Virtual filesystem for state snapshots
+	stateMutex     sync.Mutex    // Mutex for thread-safe access to state
+	lastSaveTime   time.Time     // Last time a state was saved
+	saveCooldown   time.Duration // Minimum time between saves
+	undoInProgress bool          // Flag to prevent re-entrant undo/redo operations
 
 	// Key state tracking
 	lastUndoTime int64 // Last time undo was triggered
 	lastRedoTime int64 // Last time redo was triggered
 	keyCooldown  int64 // Minimum time between undo/redo actions in milliseconds
 
-	// Debug state
-	lastDebugPrint int64 // Last time debug info was printed (for rate limiting)
-
 	// Map editor state
-	mapCameraX int                      // Camera X position in the map (in sprites)
-	mapCameraY int                      // Camera Y position in the map (in sprites)
-	mapData    [mapWidth][mapHeight]int // The map data - stores sprite indices
+	mapCameraX int                                      // Camera X position in the map (in sprites)
+	mapCameraY int                                      // Camera Y position in the map (in sprites)
+	mapData    [p8.Pico8MapHeight][p8.Pico8MapWidth]int // The map data for PICO-8 (64 rows, 128 columns)
 }
 
 type mapData struct {
@@ -934,9 +932,16 @@ func (g *myGame) toggleMapMode() {
 
 		g.mapMode = !g.mapMode
 		if g.mapMode {
+			// When entering map mode, save the current spritesheet first
 			if err := saveSpritesheet(); err != nil {
-				fmt.Println("Error saving spritesheet:", err)
-				os.Exit(1)
+				log.Printf("Error saving spritesheet before entering map mode: %v", err)
+				// Decide if this is a fatal error or if we can proceed
+				// For now, we'll log and continue, but PIGO-8 might not have the latest sprites
+			}
+			// Then, instruct PIGO-8 to reload this spritesheet
+			if err := p8.LoadSpritesheet("spritesheet.json"); err != nil {
+				log.Printf("Error loading spritesheet into PIGO-8: %v", err)
+				// Similar to above, log and continue for now
 			}
 		} else {
 			if err := g.saveMapData(); err != nil {
@@ -1077,7 +1082,7 @@ func (g *myGame) saveState() error {
 	state := struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [mapWidth][mapHeight]int
+		MapData       [p8.Pico8MapHeight][p8.Pico8MapWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}{
@@ -1117,37 +1122,37 @@ func (g *myGame) saveState() error {
 	return nil
 }
 
-// debugPrintMap prints a small portion of the map data for debugging
-func (g *myGame) debugPrintMap() {
-	// Only log map data at most once per second to avoid log spam
-	now := time.Now().Unix()
-	if now == g.lastDebugPrint {
-		return
-	}
-	g.lastDebugPrint = now
-
-	// Print first 3x3 section of the map for debugging
-	for y := 0; y < 3 && y < mapHeight; y++ {
-		for x := 0; x < 3 && x < mapWidth; x++ {
-			log.Printf("map[%d][%d] = %d", x, y, g.mapData[y][x])
-		}
-	}
-}
-
 // syncMapDataToPigo8 updates PICO-8's internal map memory to match g.mapData
+// using the bulk SetMap operation.
 func (g *myGame) syncMapDataToPigo8() {
-	g.debugPrintMap()
+	// g.mapData is now [p8.Pico8MapHeight][p8.Pico8MapWidth]int
+	// p8.SetMap expects a flat []byte slice.
 
-	cnt := 0
-	for y := 0; y < mapHeight; y++ {
-		for x := 0; x < mapWidth; x++ {
-			p8.Mset(x, y, g.mapData[y][x])
-			if g.mapData[y][x] != 0 {
-				cnt++
+	mapBytes := make([]byte, p8.Pico8MapHeight*p8.Pico8MapWidth)
+	nonZeroTiles := 0
+
+	for y := 0; y < p8.Pico8MapHeight; y++ {
+		for x := 0; x < p8.Pico8MapWidth; x++ {
+			spriteID := g.mapData[y][x]
+			// Ensure spriteID is within byte range (0-255)
+			// PICO-8 sprite IDs are typically in this range.
+			if spriteID < 0 {
+				spriteID = 0
+			} else if spriteID > 255 {
+				// This case should ideally not happen if mapData stores valid PICO-8 sprite IDs.
+				log.Printf("Warning: Sprite ID %d at map[%d][%d] is out of byte range. Clamping to 255.", spriteID, y, x)
+				spriteID = 255
+			}
+			mapBytes[y*p8.Pico8MapWidth+x] = byte(spriteID)
+			if spriteID != 0 {
+				nonZeroTiles++
 			}
 		}
 	}
-	log.Printf("Synced map to PIGO8. Non-zero tiles: %d", cnt)
+
+	p8.SetMap(mapBytes)
+	log.Printf("Synced map to PIGO8 using SetMap. Non-zero tiles: %d", nonZeroTiles)
+	// g.debugPrintMap() // Commented out: ensure it handles new map dimensions if re-enabled
 }
 
 // loadState loads a state from the virtual filesystem
@@ -1165,7 +1170,7 @@ func (g *myGame) loadState(filename string) error {
 	var state struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [mapWidth][mapHeight]int
+		MapData       [p8.Pico8MapHeight][p8.Pico8MapWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}
@@ -1256,6 +1261,10 @@ func (g *myGame) canTriggerAction(lastActionTime *int64) bool {
 
 // handleUndoRedo manages the undo/redo key presses with proper debouncing
 func (g *myGame) handleUndoRedo() {
+	if g.undoInProgress { // Prevent re-entrant calls
+		return
+	}
+
 	// Initialize key cooldown if not set
 	if g.keyCooldown == 0 {
 		g.keyCooldown = 200 // 200ms cooldown by default
@@ -1267,11 +1276,15 @@ func (g *myGame) handleUndoRedo() {
 			if ebiten.IsKeyPressed(ebiten.KeyShift) {
 				// Redo with Cmd+Shift+Z
 				if g.canTriggerAction(&g.lastRedoTime) {
+					g.undoInProgress = true
+					defer func() { g.undoInProgress = false }()
 					g.redo()
 				}
 			} else {
 				// Undo with Cmd+Z
 				if g.canTriggerAction(&g.lastUndoTime) {
+					g.undoInProgress = true
+					defer func() { g.undoInProgress = false }()
 					g.undo()
 				}
 			}

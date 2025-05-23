@@ -233,3 +233,24 @@ func loadSpritesheet() ([]SpriteInfo, error) {
 
 	return sprites, nil
 }
+
+// LoadSpritesheet loads sprite data from a specific JSON file and updates the
+// engine's active spritesheet (currentSprites).
+// This function is intended to be called by user code (e.g., an editor) to reload
+// the spritesheet at runtime.
+func LoadSpritesheet(filename string) error {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("error reading spritesheet file %s: %w", filename, err)
+	}
+
+	newSprites, err := loadSpritesheetFromData(data)
+	if err != nil {
+		return fmt.Errorf("error processing spritesheet data from %s: %w", filename, err)
+	}
+
+	// Update the package-level currentSprites variable (defined in engine.go)
+	currentSprites = newSprites
+	log.Printf("Successfully loaded and updated spritesheet from %s. %d sprites processed.", filename, len(currentSprites))
+	return nil
+}
