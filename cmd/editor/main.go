@@ -1511,18 +1511,34 @@ func (g *myGame) getUIElementColor() int {
 }
 
 func main() {
+	// Store initial default map view dimensions (pixels) from global vars
+	initialDefaultMapViewWidthPx := mapViewWidth
+	initialDefaultMapViewHeightPx := mapViewHeight
+
+	// Calculate UI overhead in tiles based on initial global defaults for editor and map view
+	// global 'width' and 'height' are editor total tiles (e.g., 48, 27)
+	// global 'unit' is pixels per tile (e.g., 8)
+	uiWidthOverheadInTiles := width - (initialDefaultMapViewWidthPx / unit)
+	uiHeightOverheadInTiles := height - (initialDefaultMapViewHeightPx / unit)
+
 	// Parse command line flags
-	widthFlag := flag.Int("w", mapViewWidth, "map viewport width in pixels")
-	heightFlag := flag.Int("h", mapViewHeight, "map viewport height in pixels")
+	// Default values for flags are the initialDefaultMapViewWidth/Height
+	widthFlag := flag.Int("w", initialDefaultMapViewWidthPx, "map viewport width in pixels")
+	heightFlag := flag.Int("h", initialDefaultMapViewHeightPx, "map viewport height in pixels")
 	flag.Parse()
 
-	// Update map viewport dimensions
+	// Update global map viewport dimensions (pixels) from flags
 	mapViewWidth = *widthFlag
 	mapViewHeight = *heightFlag
 
-	// Ensure dimensions are multiples of 8 (sprite size)
+	// Ensure new map viewport dimensions are multiples of 'unit' (sprite size)
 	mapViewWidth = (mapViewWidth / unit) * unit
 	mapViewHeight = (mapViewHeight / unit) * unit
+
+	// Recalculate global editor window dimensions (tiles: global 'width', 'height')
+	// based on the new map view dimensions (now in global mapViewWidth/Height) and the UI overhead
+	width = (mapViewWidth / unit) + uiWidthOverheadInTiles
+	height = (mapViewHeight / unit) + uiHeightOverheadInTiles
 
 	// Initialize spritesheet if it doesn't exist
 	if err := initPico8Spritesheet(); err != nil {
@@ -1530,10 +1546,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if width > 256 || height > 256 {
+		log.Printf("Editor window size is too large: %dx%d tiles.\n", width, height)
+		os.Exit(1)
+	}
+
 	settings := p8.NewSettings()
+	// These use the recalculated global 'width' and 'height'
 	settings.ScreenWidth = width * unit
 	settings.ScreenHeight = height * unit
-	settings.ScaleFactor = 5
+	settings.ScaleFactor = 3
 	p8.InsertGame(&myGame{})
 	p8.PlayGameWith(settings)
 }
