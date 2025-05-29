@@ -891,7 +891,7 @@ func (g *myGame) applyMapData(mapData mapData) {
 		}
 	}
 
-	fmt.Printf("Loaded map: %dx%d with %d cells\n", mapData.Width, mapData.Height, len(mapData.Cells))
+	fmt.Printf("Loaded map: %dx%d tiles. View: %dx%d pixels (%dx%d tiles). %d cells\n", mapData.Width, mapData.Height, mapViewWidth, mapViewHeight, mapViewWidth/unit, mapViewHeight/unit, len(mapData.Cells))
 }
 
 // saveMapData saves the current map to map.json
