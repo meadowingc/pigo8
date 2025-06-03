@@ -169,14 +169,28 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 		return // Argument parsing logged an issue
 	}
 
-	// Get the actual color from the palette
-	var actualColor color.Color
-	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
-		actualColor = Pico8Palette[drawColorIndex]
-	} else {
-		actualColor = Pico8Palette[0] // Fallback to black
-		log.Printf("Error: Invalid effective drawing color index %d for Rectfill(). Defaulting to black.", drawColorIndex)
+	originalColorIndex := drawColorIndex
+
+	// Validate originalColorIndex against DrawPaletteMap bounds
+	if len(DrawPaletteMap) == 0 || originalColorIndex < 0 || originalColorIndex >= len(DrawPaletteMap) {
+		log.Printf("Warning: Rectfill() DrawPaletteMap not ready or originalColorIndex %d invalid for map size %d. Ignoring.", originalColorIndex, len(DrawPaletteMap))
+		return
 	}
+	mappedColorIndex := DrawPaletteMap[originalColorIndex]
+
+	// Validate mappedColorIndex against Pico8Palette and PaletteTransparency bounds
+	if mappedColorIndex < 0 || mappedColorIndex >= len(Pico8Palette) || mappedColorIndex >= len(PaletteTransparency) {
+		log.Printf("Warning: Rectfill() mappedColorIndex %d is out of bounds for Pico8Palette (size %d) or PaletteTransparency (size %d). Original: %d. Ignoring.", mappedColorIndex, len(Pico8Palette), len(PaletteTransparency), originalColorIndex)
+		return
+	}
+
+	// Check if the mapped color is transparent
+	if PaletteTransparency[mappedColorIndex] {
+		return // Don't draw transparent rectangles
+	}
+
+	// Get the actual color from the palette using the mapped index
+	actualColor := Pico8Palette[mappedColorIndex]
 
 	// Draw filled rectangle using Ebitengine vector graphics
 	vector.DrawFilledRect(
