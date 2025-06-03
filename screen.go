@@ -241,8 +241,8 @@ func Pset(x, y int, colorIndex ...int) {
 	// Get the mapped color from the draw palette
 	// Ensure DrawPaletteMap is initialized and originalColor is a valid index
 	if len(DrawPaletteMap) == 0 || originalColor < 0 || originalColor >= len(DrawPaletteMap) {
-	    log.Printf("Warning: Pset() DrawPaletteMap not ready or originalColor %d invalid for map size %d. Ignoring.", originalColor, len(DrawPaletteMap))
-	    return
+		log.Printf("Warning: Pset() DrawPaletteMap not ready or originalColor %d invalid for map size %d. Ignoring.", originalColor, len(DrawPaletteMap))
+		return
 	}
 	mappedColor := DrawPaletteMap[originalColor]
 
@@ -264,8 +264,8 @@ func Pset(x, y int, colorIndex ...int) {
 	// Check if the mapped color is transparent
 	// Ensure PaletteTransparency is initialized and mappedColor is a valid index
 	if len(PaletteTransparency) == 0 || mappedColor < 0 || mappedColor >= len(PaletteTransparency) {
-	    log.Printf("Warning: Pset() PaletteTransparency not ready or mappedColor %d invalid for transparency map size %d. Ignoring.", mappedColor, len(PaletteTransparency))
-	    return
+		log.Printf("Warning: Pset() PaletteTransparency not ready or mappedColor %d invalid for transparency map size %d. Ignoring.", mappedColor, len(PaletteTransparency))
+		return
 	}
 	if PaletteTransparency[mappedColor] {
 		// Don't draw transparent pixels
@@ -528,12 +528,13 @@ func Pal(args ...interface{}) {
 		return
 	}
 
-	if p == 0 { // Draw palette
+	switch p {
+	case 0: // Draw palette
 		DrawPaletteMap[c0] = c1
-	} else if p == 1 { // Screen palette
+	case 1: // Screen palette
 		log.Printf("Warning: Pal() with p=1 (screen palette) is not yet implemented.")
 		// For now, screen palette calls do not modify the drawPaletteMap or screen.
-	} else {
+	default:
 		log.Printf("Warning: Pal() called with invalid palette group p=%d. Expected 0 or 1. Aborting.", p)
 	}
 }

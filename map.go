@@ -334,7 +334,7 @@ func EnsureStreamingSystemInitialized() {
 		} else {
 			log.Println("EnsureStreamingSystemInitialized: Spritesheet loaded.")
 
-			if spriteInfoMap == nil || len(spriteInfoMap) == 0 {
+			if len(spriteInfoMap) == 0 {
 				spriteInfoMap = make(map[int]*SpriteInfo, len(currentSprites))
 				for i := range currentSprites {
 					info := &currentSprites[i]
@@ -346,7 +346,8 @@ func EnsureStreamingSystemInitialized() {
 	}
 
 	if err := initializeStreamingMapSystem(); err != nil {
-		log.Fatalf("EnsureStreamingSystemInitialized: CRITICAL - Failed to initialize streaming map system: %v", err)
+		streamingInitMutex.Unlock()                                                                                   // Unlock before fatal logging
+		log.Fatalf("EnsureStreamingSystemInitialized: CRITICAL - Failed to initialize streaming map system: %v", err) //nolint:gocritic
 	}
 
 	mapCacheIsValid = false
@@ -449,7 +450,7 @@ func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
 		// Ensure mapCacheImage exists and is the correct size
 		if mapCacheImage == nil || mapCacheImage.Bounds().Dx() != requiredCacheWidth || mapCacheImage.Bounds().Dy() != requiredCacheHeight {
 			if mapCacheImage != nil {
-				mapCacheImage.Dispose() // Dispose old image before creating new
+				mapCacheImage.Deallocate() // Dispose old image before creating new
 			}
 			mapCacheImage = ebiten.NewImage(requiredCacheWidth, requiredCacheHeight)
 		} else {
@@ -586,21 +587,6 @@ func loadRegionIntoActiveBuffer(targetWorldX, targetWorldY int) error {
 	return nil
 }
 
-// Helper min/max for integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // Mget returns the sprite number at the specified map coordinates.
 // This mimics PICO-8's mget(column, row) function.
 func Mget[C Number, R Number](column C, row R) int {
@@ -651,8 +637,8 @@ func Mget[C Number, R Number](column C, row R) int {
 		return 0
 	}
 
-	if !(col >= activeTileBufferInstance.BufferWorldX && col < activeTileBufferInstance.BufferWorldX+activeTileBufferInstance.WidthInTiles &&
-		r >= activeTileBufferInstance.BufferWorldY && r < activeTileBufferInstance.BufferWorldY+activeTileBufferInstance.HeightInTiles) {
+	if col < activeTileBufferInstance.BufferWorldX || col >= activeTileBufferInstance.BufferWorldX+activeTileBufferInstance.WidthInTiles ||
+		r < activeTileBufferInstance.BufferWorldY || r >= activeTileBufferInstance.BufferWorldY+activeTileBufferInstance.HeightInTiles {
 		log.Printf("Mget: Target tile (%d,%d) NOT in buffer after load. Buffer: (%d,%d) %dx%d. This is unexpected.",
 			col, r, activeTileBufferInstance.BufferWorldX, activeTileBufferInstance.BufferWorldY, activeTileBufferInstance.WidthInTiles, activeTileBufferInstance.HeightInTiles)
 		return 0

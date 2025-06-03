@@ -68,8 +68,8 @@ type myGame struct {
 	keyCooldown  int64 // Minimum time between undo/redo actions in milliseconds
 
 	// Map editor state
-	mapCameraX int                                      // Camera X position in the map (in sprites)
-	mapCameraY int                                      // Camera Y position in the map (in sprites)
+	mapCameraX int                                                    // Camera X position in the map (in sprites)
+	mapCameraY int                                                    // Camera Y position in the map (in sprites)
 	mapData    [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Represents the full 128x128 map area editable by the streaming system
 }
 

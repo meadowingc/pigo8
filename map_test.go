@@ -155,9 +155,9 @@ func TestMgetWithMapFile(t *testing.T) {
 	// CRITICAL: Force the streaming system to re-initialize to load the new map.json
 	streamingInitMutex.Lock()
 	streamingSystemInitialized = false
-	worldMapStream = nil             // Clear any map data from previous tests/SetMap
+	worldMapStream = nil           // Clear any map data from previous tests/SetMap
 	activeTileBufferInstance = nil // Clear active buffer
-	mapCacheIsValid = false          // Invalidate draw cache
+	mapCacheIsValid = false        // Invalidate draw cache
 	streamingInitMutex.Unlock()
 	// EnsureStreamingSystemInitialized() will be called by Mget/Mset if not already initialized
 

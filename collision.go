@@ -59,10 +59,10 @@ func ColorCollision[X Number, Y Number](x X, y Y, color int) bool {
 //   - y: The y-coordinate of the top-left corner of the area to check (pixel units).
 //   - flag: The sprite flag number (0-7) to check for on underlying map tiles.
 //   - size: (optional) Variadic integers defining the collision area's dimensions in pixels:
-//     - No argument: defaults to an 8x8 pixel area.
-//     - One argument `s`: defines an `s`x`s` pixel square area.
-//     - Two arguments `w, h`: defines a `w`x`h` pixel rectangular area.
-//       (Additional arguments are ignored).
+//   - No argument: defaults to an 8x8 pixel area.
+//   - One argument `s`: defines an `s`x`s` pixel square area.
+//   - Two arguments `w, h`: defines a `w`x`h` pixel rectangular area.
+//     (Additional arguments are ignored).
 //
 // Returns:
 //   - bool: true if any map tile overlapping the specified area has the given flag set, false otherwise.
