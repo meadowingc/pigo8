@@ -80,6 +80,9 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 	fx := float64(x)
 	fy := float64(y)
 
+	// Apply camera offset before using coordinates for drawing
+	screenFx, screenFy := applyCameraOffset(fx, fy)
+
 	// Use internal package variables set by engine.Draw
 	if currentScreen == nil {
 		log.Println("Warning: Spr() called before screen was ready.")
@@ -118,7 +121,7 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 	destHeight := spriteHeight * scaleH
 
 	// Setup drawing options
-	opts := setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH, flipX, flipY)
+	opts := setupDrawOptions(screenFx, screenFy, destWidth, destHeight, scaleW, scaleH, flipX, flipY)
 
 	// Draw the sprite
 	currentScreen.DrawImage(tempImage, opts)
@@ -266,7 +269,61 @@ func setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH float64, fli
 	// Apply final position
 	opts.GeoM.Translate(fx, fy)
 
+	// Ensure nearest-neighbor filtering for pixel-perfect rendering
+	opts.Filter = ebiten.FilterNearest
+
 	return opts
+}
+
+// GetSpriteImage returns the *ebiten.Image for a given sprite ID.
+// It first tries to find a sprite with a matching ID.
+// If not found, it tries to use the spriteID as an index into the spritesheet.
+// Returns nil if the sprite cannot be found.
+func GetSpriteImage(spriteID int) *ebiten.Image {
+	allSprites := CurrentSprites() // Get sprites from engine
+	if allSprites == nil {
+		// This can happen if sprites haven't been loaded yet.
+		// Attempt to load them, similar to Spr/Sspr.
+		loaded, err := loadSpritesheet()
+		if err != nil {
+			log.Printf("Warning: GetSpriteImage failed to load spritesheet: %v", err)
+			return nil
+		}
+		currentSprites = loaded // Store for future calls within this package
+		allSprites = currentSprites
+		if allSprites == nil { // Still nil after attempt
+			log.Println("Warning: GetSpriteImage called when currentSprites is nil and load failed")
+			return nil
+		}
+	}
+
+	var foundSpriteInfo *SpriteInfo
+
+	// Try to find by ID first
+	for i := range allSprites {
+		if allSprites[i].ID == spriteID {
+			foundSpriteInfo = &allSprites[i]
+			break
+		}
+	}
+
+	// If not found by ID, try to use spriteID as an index (fallback)
+	if foundSpriteInfo == nil {
+		if spriteID >= 0 && spriteID < len(allSprites) {
+			// Check if the sprite at this index has been initialized (has an Image)
+			if allSprites[spriteID].Image != nil {
+				foundSpriteInfo = &allSprites[spriteID]
+			}
+		}
+	}
+
+	if foundSpriteInfo != nil && foundSpriteInfo.Image != nil {
+		return foundSpriteInfo.Image
+	}
+
+	// Optionally, log if a sprite is truly not found, but be mindful of performance if called often.
+	// log.Printf("Debug: GetSpriteImage could not find sprite with ID or index: %d", spriteID)
+	return nil
 }
 
 // Sget returns the color number (0-15) of a pixel at the specified coordinates on the spritesheet.
@@ -833,25 +890,29 @@ func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx S
 	// Set up drawing options
 	op := &ebiten.DrawImageOptions{}
 
+	// Apply camera offset to the intended top-left drawing position (dx, dy)
+	screenDrawX, screenDrawY := applyCameraOffset(destX, destY)
+
 	// Apply scaling to match the destination dimensions
 	scaleX := destWidth / float64(sourceWidth)
 	scaleY := destHeight / float64(sourceHeight)
 
+	// Temporary variables for final translation, considering flips
+	finalTranslateX := screenDrawX
+	finalTranslateY := screenDrawY
+
 	// Apply flip transformations if needed
 	if flipX {
 		scaleX *= -1.0
-		// Adjust position to account for the flip
-		destX += destWidth
+		finalTranslateX += destWidth // Adjust translation for horizontal flip
 	}
 	if flipY {
 		scaleY *= -1.0
-		// Adjust position to account for the flip
-		destY += destHeight
+		finalTranslateY += destHeight // Adjust translation for vertical flip
 	}
 
-	// Apply transformations
 	op.GeoM.Scale(scaleX, scaleY)
-	op.GeoM.Translate(destX, destY)
+	op.GeoM.Translate(finalTranslateX, finalTranslateY) // Use camera-adjusted and flip-adjusted coordinates
 
 	// Draw the image to the screen
 	currentScreen.DrawImage(sourceImage, op)

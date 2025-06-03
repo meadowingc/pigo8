@@ -1,5 +1,7 @@
 package pigo8
 
+import "math"
+
 // Camera state
 var (
 	// cameraX is the current camera X offset
@@ -42,7 +44,8 @@ func Camera(args ...any) {
 	// Handle one argument (x only)
 	if len(args) == 1 {
 		if x, ok := convertToFloat64(args[0]); ok {
-			cameraX = x
+			cameraX = math.Round(x)
+			cameraY = 0 // Set cameraY to 0 as per PICO-8 behavior
 		}
 		return
 	}
@@ -50,10 +53,10 @@ func Camera(args ...any) {
 	// Handle two arguments (x and y)
 	if len(args) >= 2 {
 		if x, ok := convertToFloat64(args[0]); ok {
-			cameraX = x
+			cameraX = math.Round(x)
 		}
 		if y, ok := convertToFloat64(args[1]); ok {
-			cameraY = y
+			cameraY = math.Round(y)
 		}
 	}
 }
@@ -94,4 +97,14 @@ func convertToFloat64(value any) (float64, bool) {
 // and returns the transformed coordinates
 func applyCameraOffset(x, y float64) (float64, float64) {
 	return x - cameraX, y - cameraY
+}
+
+// GetCameraX returns the current camera X offset.
+func GetCameraX() float64 {
+	return cameraX
+}
+
+// GetCameraY returns the current camera Y offset.
+func GetCameraY() float64 {
+	return cameraY
 }

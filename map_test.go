@@ -9,31 +9,20 @@ import (
 )
 
 func TestMgetAndMset(t *testing.T) {
-	// Save original map data
-	originalMap := currentMap
+	EnsureStreamingSystemInitialized() // Ensure system is ready
 
-	// Create a temporary map for testing
-	testMap := &MapData{
-		Version:     "1.0",
-		Description: "Test Map",
-		Width:       16,
-		Height:      16,
-		Name:        "test_map",
-		Cells: []mapCell{
-			{X: 0, Y: 0, Sprite: 1},
-			{X: 1, Y: 1, Sprite: 2},
-			{X: 2, Y: 2, Sprite: 3},
-			{X: 5, Y: 7, Sprite: 42},
-		},
-	}
+	// Create a byte slice for the entire default map dimensions
+	testMapData := make([]byte, DefaultPico8MapWidth*DefaultPico8MapHeight)
 
-	// Set the test map as the current map
-	currentMap = testMap
+	// Populate specific sprite data for testing
+	// Simulating the old testMap structure within the dense map
+	testMapData[0*DefaultPico8MapWidth+0] = 1  // {X: 0, Y: 0, Sprite: 1}
+	testMapData[1*DefaultPico8MapWidth+1] = 2  // {X: 1, Y: 1, Sprite: 2}
+	testMapData[2*DefaultPico8MapWidth+2] = 3  // {X: 2, Y: 2, Sprite: 3}
+	testMapData[7*DefaultPico8MapWidth+5] = 42 // {X: 5, Y: 7, Sprite: 42} (Y is row, X is col)
 
-	// Restore original map after test
-	t.Cleanup(func() {
-		currentMap = originalMap
-	})
+	// Set this data as the current map
+	SetMap(testMapData)
 
 	// Test Mget with different coordinate types
 	t.Run("Mget with different coordinate types", func(t *testing.T) {
@@ -47,11 +36,11 @@ func TestMgetAndMset(t *testing.T) {
 		assert.Equal(t, 1, Mget(0.9, 0.9), "Mget(0.9, 0.9) should return sprite 1")
 		assert.Equal(t, 2, Mget(1.5, 1.5), "Mget(1.5, 1.5) should return sprite 2")
 
-		// Empty cell
+		// Empty cell (any cell not explicitly set should be 0)
 		assert.Equal(t, 0, Mget(10, 10), "Mget for empty cell should return 0")
 	})
 
-	// Test Mget
+	// Test Mget (some redundant, but good to keep for clarity from original test)
 	t.Run("Mget", func(t *testing.T) {
 		assert.Equal(t, 1, Mget(0, 0), "Mget(0, 0) should return sprite 1")
 		assert.Equal(t, 42, Mget(5, 7), "Mget(5, 7) should return sprite 42")
@@ -72,104 +61,121 @@ func TestMgetAndMset(t *testing.T) {
 		assert.Equal(t, 77, Mget(11, 11), "After Mset(11.7, 11.7, 77.9), Mget(11, 11) should return 77")
 	})
 
-	// Test Mset alias
-	t.Run("Mset alias", func(t *testing.T) {
+	// Test Mset alias (Mset is not an alias anymore, but the test logic is valid for Mset)
+	t.Run("Mset direct test", func(t *testing.T) { // Renamed from Mset alias
 		Mset(12, 12, 88)
 		assert.Equal(t, 88, Mget(12, 12), "After Mset(12, 12, 88), Mget should return 88")
 	})
 
-	// Test map cell creation and update
-	t.Run("Map cell creation and update", func(t *testing.T) {
-		// Count initial cells
-		initialCellCount := len(currentMap.Cells)
-
-		// Set a sprite at a new position
-		Mset(20, 20, 100)
-
-		// Verify a new cell was added
-		assert.Equal(t, initialCellCount+1, len(currentMap.Cells), "A new cell should be added")
-		assert.Equal(t, 100, Mget(20, 20), "The new cell should have sprite 100")
-
-		// Update the same cell
-		Mset(20, 20, 101)
-
-		// Verify the cell was updated, not added
-		assert.Equal(t, initialCellCount+1, len(currentMap.Cells), "No new cell should be added when updating")
-		assert.Equal(t, 101, Mget(20, 20), "The cell should be updated to sprite 101")
-	})
+	// The "Map cell creation and update" sub-test is removed as it relied on the sparse
+	// nature of the old map (currentMap.Cells). With a dense map, Mset always updates
+	// an existing cell's value, and the concept of "adding" a cell is not applicable.
 }
 
 // TestMgetWithMapFile tests Mget with a real map file
 func TestMgetWithMapFile(t *testing.T) {
 	// Skip this test if we're not in an environment with a map.json file
+	// This check is important because the test manipulates map.json
 	if _, err := os.Stat("map.json"); os.IsNotExist(err) {
-		t.Skip("Skipping test: map.json not found")
+		t.Skip("Skipping test: map.json not found. This test requires a map.json to exist (it will be temporarily overwritten).")
 	}
 
-	// Save original map
-	originalMap := currentMap
-	currentMap = nil // Force reload
+	// Define local structs that match the map.json format for marshalling
+	type tempJSONMapCell struct {
+		X      int `json:"x"`
+		Y      int `json:"y"`
+		Sprite int `json:"sprite"`
+	}
+	type tempJSONMapData struct {
+		Version     string            `json:"version"`
+		Description string            `json:"description"`
+		Width       int               `json:"width"`
+		Height      int               `json:"height"`
+		Name        string            `json:"name"`
+		Cells       []tempJSONMapCell `json:"cells"`
+	}
 
-	// Restore original map after test
-	t.Cleanup(func() {
-		currentMap = originalMap
-	})
-
-	// Create a temporary map.json for testing
-	tempMap := MapData{
+	// Create data for a temporary map.json
+	tempMapFileContent := tempJSONMapData{
 		Version:     "1.0",
-		Description: "Temp Test Map",
-		Width:       16,
+		Description: "Temp Test Map for TestMgetWithMapFile",
+		Width:       16, // Using a small, specific size for this test map file
 		Height:      16,
-		Name:        "temp_map",
-		Cells: []mapCell{
+		Name:        "temp_map_from_file_test",
+		Cells: []tempJSONMapCell{
 			{X: 3, Y: 4, Sprite: 123},
 			{X: 5, Y: 6, Sprite: 456},
 		},
 	}
 
-	// Save the map to a temporary file
-	tempMapData, err := json.Marshal(tempMap)
+	// Marshal the temporary map data to JSON
+	tempMapJSON, err := json.MarshalIndent(tempMapFileContent, "", "  ")
 	if err != nil {
-		t.Fatalf("Failed to marshal temp map: %v", err)
+		t.Fatalf("Failed to marshal temp map data: %v", err)
 	}
 
 	// Save the original map.json if it exists
-	var originalMapData []byte
+	var originalMapJSON []byte
+	var originalMapExists bool
 	if _, err := os.Stat("map.json"); err == nil {
-		originalMapData, err = os.ReadFile("map.json")
+		originalMapExists = true
+		originalMapJSON, err = os.ReadFile("map.json")
 		if err != nil {
 			t.Fatalf("Failed to read original map.json: %v", err)
 		}
 	}
 
-	// Write the temp map
-	err = os.WriteFile("map.json", tempMapData, 0644)
+	// Write the temporary map.json
+	err = os.WriteFile("map.json", tempMapJSON, 0644)
 	if err != nil {
 		t.Fatalf("Failed to write temp map.json: %v", err)
 	}
 
-	// Restore the original map.json after the test
+	// Restore the original map.json (or remove temp) after the test
 	t.Cleanup(func() {
-		if len(originalMapData) > 0 {
-			err := os.WriteFile("map.json", originalMapData, 0644)
+		if originalMapExists {
+			err := os.WriteFile("map.json", originalMapJSON, 0644)
 			if err != nil {
 				t.Logf("Warning: Failed to restore original map.json: %v", err)
 			}
 		} else {
-			// If there was no original map.json, remove the temp one
 			if err := os.Remove("map.json"); err != nil {
-				t.Logf("Warning: Failed to remove temporary map.json: %v", err)
+				t.Logf("Warning: Failed to remove temporary map.json created by test: %v", err)
 			}
 		}
+		// Also, reset the streaming system state after this test so other tests are not affected
+		streamingInitMutex.Lock()
+		streamingSystemInitialized = false
+		worldMapStream = nil
+		activeTileBufferInstance = nil
+		mapCacheIsValid = false
+		streamingInitMutex.Unlock()
 	})
 
+	// CRITICAL: Force the streaming system to re-initialize to load the new map.json
+	streamingInitMutex.Lock()
+	streamingSystemInitialized = false
+	worldMapStream = nil             // Clear any map data from previous tests/SetMap
+	activeTileBufferInstance = nil // Clear active buffer
+	mapCacheIsValid = false          // Invalidate draw cache
+	streamingInitMutex.Unlock()
+	// EnsureStreamingSystemInitialized() will be called by Mget/Mset if not already initialized
+
 	// Test Mget with the file-based map
+	// Note: The map loaded from map.json will have dimensions 16x16 as per tempMapFileContent.
+	// Mget/Mset will operate within these world dimensions.
 	assert.Equal(t, 123, Mget(3, 4), "Mget(3, 4) should return sprite 123 from file")
 	assert.Equal(t, 456, Mget(5, 6), "Mget(5, 6) should return sprite 456 from file")
-	assert.Equal(t, 0, Mget(9, 9), "Mget(9, 9) should return 0 for empty cell")
+	assert.Equal(t, 0, Mget(9, 9), "Mget(9, 9) should return 0 for empty cell in file-loaded map")
 
 	// Test Mset with the file-based map
 	Mset(9, 9, 789)
-	assert.Equal(t, 789, Mget(9, 9), "After Mset(9, 9, 789), Mget should return 789")
+	assert.Equal(t, 789, Mget(9, 9), "After Mset(9, 9, 789), Mget should return 789 in file-loaded map")
+
+	// Test Mget for an out-of-bounds coordinate according to the 16x16 map loaded from the file.
+	// The streaming system's worldMapStream might be larger (DefaultPico8MapWidth x Height) if initializeStreamingMapSystem
+	// decided to create a default one first, but the *loaded data* from map.json is 16x16.
+	// Mget should respect the dimensions of the loaded map data if map.json dictated smaller dimensions.
+	// However, our current initializeStreamingMapSystem prioritizes map.json dimensions for worldMapStream.
+	assert.Equal(t, 0, Mget(20, 20), "Mget(20, 20) should be 0 as it's outside the 16x16 map loaded from file")
 }

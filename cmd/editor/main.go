@@ -70,7 +70,7 @@ type myGame struct {
 	// Map editor state
 	mapCameraX int                                      // Camera X position in the map (in sprites)
 	mapCameraY int                                      // Camera Y position in the map (in sprites)
-	mapData    [p8.Pico8MapHeight][p8.Pico8MapWidth]int // The map data for PICO-8 (64 rows, 128 columns)
+	mapData    [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Represents the full 128x128 map area editable by the streaming system
 }
 
 type mapData struct {
@@ -1082,7 +1082,7 @@ func (g *myGame) saveState() error {
 	state := struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [p8.Pico8MapHeight][p8.Pico8MapWidth]int // Use PICO-8 map dimensions
+		MapData       [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}{
@@ -1128,11 +1128,11 @@ func (g *myGame) syncMapDataToPigo8() {
 	// g.mapData is now [p8.Pico8MapHeight][p8.Pico8MapWidth]int
 	// p8.SetMap expects a flat []byte slice.
 
-	mapBytes := make([]byte, p8.Pico8MapHeight*p8.Pico8MapWidth)
+	mapBytes := make([]byte, p8.DefaultPico8MapHeight*p8.DefaultPico8MapWidth)
 	nonZeroTiles := 0
 
-	for y := 0; y < p8.Pico8MapHeight; y++ {
-		for x := 0; x < p8.Pico8MapWidth; x++ {
+	for y := 0; y < p8.DefaultPico8MapHeight; y++ {
+		for x := 0; x < p8.DefaultPico8MapWidth; x++ {
 			spriteID := g.mapData[y][x]
 			// Ensure spriteID is within byte range (0-255)
 			// PICO-8 sprite IDs are typically in this range.
@@ -1143,7 +1143,7 @@ func (g *myGame) syncMapDataToPigo8() {
 				log.Printf("Warning: Sprite ID %d at map[%d][%d] is out of byte range. Clamping to 255.", spriteID, y, x)
 				spriteID = 255
 			}
-			mapBytes[y*p8.Pico8MapWidth+x] = byte(spriteID)
+			mapBytes[y*p8.DefaultPico8MapWidth+x] = byte(spriteID)
 			if spriteID != 0 {
 				nonZeroTiles++
 			}
@@ -1170,7 +1170,7 @@ func (g *myGame) loadState(filename string) error {
 	var state struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [p8.Pico8MapHeight][p8.Pico8MapWidth]int // Use PICO-8 map dimensions
+		MapData       [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}

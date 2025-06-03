@@ -8,37 +8,84 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 const (
-	// Pico8MapWidth defines the width of the PIGO-8 map in tiles.
-	Pico8MapWidth = 320
-	// Pico8MapHeight defines the height of the PIGO-8 map in tiles.
-	Pico8MapHeight = 320
+	// DefaultPico8MapWidth defines the default width of the PIGO-8 map in tiles if not specified in map.json.
+	DefaultPico8MapWidth = 128
+	// DefaultPico8MapHeight defines the default height of the PIGO-8 map in tiles if not specified in map.json.
+	DefaultPico8MapHeight = 128
+
+	// ActiveTileBufferWidthInTiles defines the width of the streaming buffer in tiles.
+	// Should be larger than screen width in tiles. E.g., Screen=32tiles -> Buffer=64tiles.
+	ActiveTileBufferWidthInTiles = 64
+	// ActiveTileBufferHeightInTiles defines the height of the streaming buffer in tiles.
+	// Should be larger than screen height in tiles. E.g., Screen=30tiles -> Buffer=60tiles.
+	ActiveTileBufferHeightInTiles = 60
 )
 
-// mapCell holds a single cell's data from a PICO-8 map export.
-type mapCell struct {
+// --- Structs for map.json parsing (sparse format) ---
+type mapCellJSON struct {
 	X      int `json:"x"`
 	Y      int `json:"y"`
 	Sprite int `json:"sprite"`
 }
 
-// MapData represents the structure of a PICO-8 map JSON export.
-type MapData struct {
-	Version     string    `json:"version"`
-	Description string    `json:"description"`
-	Width       int       `json:"width"`
-	Height      int       `json:"height"`
-	Name        string    `json:"name"`
-	Cells       []mapCell `json:"cells"`
+type mapDataJSON struct {
+	Version     string        `json:"version"`
+	Description string        `json:"description"`
+	Width       int           `json:"width"`  // World width in tiles
+	Height      int           `json:"height"` // World height in tiles
+	Name        string        `json:"name"`
+	Cells       []mapCellJSON `json:"cells"` // Sparse list of non-zero tiles
+}
+
+// --- Structs for Streaming Map System ---
+
+// TilemapStream holds the entire world's map data.
+// Data is stored as a 1D slice, indexed by [y * WorldWidthInTiles + x].
+type TilemapStream struct {
+	Data               []int // Dense representation of the entire world map
+	WorldWidthInTiles  int
+	WorldHeightInTiles int
+}
+
+// ActiveTileBuffer holds the currently active (buffered) portion of the map.
+// Data is stored as a 1D slice, indexed by [y * WidthInTiles + x] (local buffer coordinates).
+type ActiveTileBuffer struct {
+	Data           []int // Dense representation of the buffered region
+	BufferWorldX   int   // Top-left tile X-coordinate of this buffer in the world
+	BufferWorldY   int   // Top-left tile Y-coordinate of this buffer in the world
+	WidthInTiles   int   // Width of this buffer in tiles (e.g., ActiveTileBufferWidthInTiles)
+	HeightInTiles  int   // Height of this buffer in tiles (e.g., ActiveTileBufferHeightInTiles)
+	IsRegionLoaded bool  // True if this buffer currently holds valid map data
 }
 
 var (
-	currentMap    *MapData
-	spriteInfoMap map[int]*SpriteInfo
+	// Streaming Map System
+	worldMapStream             *TilemapStream
+	activeTileBufferInstance   *ActiveTileBuffer
+	streamingSystemInitialized bool
+	streamingInitMutex         sync.Mutex
+	worldMapMutex              sync.RWMutex // Protects worldMapStream
+	activeBufferMutex          sync.RWMutex // Protects activeTileBufferInstance
 
-	// Memory monitoring
+	spriteInfoMap map[int]*SpriteInfo // Preserved
+
+	// Map Caching (Preserved)
+	mapCacheImage                *ebiten.Image
+	mapCacheIsValid              bool
+	mapCacheDrawnForWorldTileX   int
+	mapCacheDrawnForWorldTileY   int
+	mapCacheWidthInTiles         int
+	mapCacheHeightInTiles        int
+	mapCacheRenderedLayers       int
+	mapCacheRenderedScreenWidth  int
+	mapCacheRenderedScreenHeight int
+
+	// Memory monitoring (Preserved)
 	lastMemoryUsage uint64
 	memoryMutex     sync.Mutex
 )
@@ -72,60 +119,57 @@ func logMemory(label string, forceLog bool) {
 	}
 }
 
-// loadMap tries to load map.json from the current directory, then from common locations,
-// then from custom embedded resources, and finally falls back to default embedded resources.
-func loadMap() (*MapData, error) {
-	const mapFilename = "map.json"
-
-	// Log memory before loading map
-	logMemory("before map load", false)
-
-	// First try to load from the file system
-	data, err := os.ReadFile(mapFilename)
+// loadAndParseMapJSON reads and parses a map JSON file.
+func loadAndParseMapJSON(filename string) (*mapDataJSON, error) {
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		// Check common alternative locations
 		commonLocations := []string{
-			filepath.Join("assets", mapFilename),
-			filepath.Join("resources", mapFilename),
-			filepath.Join("data", mapFilename),
-			filepath.Join("static", mapFilename),
+			filepath.Join("assets", filename),
+			filepath.Join("resources", filename),
+			filepath.Join("data", filename),
+			filepath.Join("static", filename),
 		}
-
+		found := false
 		for _, location := range commonLocations {
 			data, err = os.ReadFile(location)
 			if err == nil {
-				log.Printf("Loaded map from %s", location)
+				log.Printf("Loaded map JSON from %s", location)
+				found = true
 				break
 			}
 		}
-
-		// If still not found, try embedded resources
-		if err != nil {
-			log.Printf("Map file not found in common locations, trying embedded resources")
+		if !found {
+			log.Printf("Map JSON file '%s' not found in common locations, trying embedded resources", filename)
+			// Assuming tryLoadEmbeddedMap() returns []byte, error and is defined elsewhere
 			embeddedData, embErr := tryLoadEmbeddedMap()
 			if embErr != nil {
-				return nil, fmt.Errorf("failed to load embedded map: %w", embErr)
+				return nil, fmt.Errorf("map file '%s' not found locally and failed to load embedded map: %w", filename, embErr)
 			}
 			data = embeddedData
+			log.Printf("Loaded map JSON from embedded resources.")
 		}
 	} else {
-		log.Printf("Using map file from current directory: %s", mapFilename)
+		log.Printf("Loaded map JSON from %s", filename)
 	}
 
-	// Log memory after reading file
-	logMemory("after reading map file", false)
-
-	var m MapData
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("error unmarshalling %s: %w", mapFilename, err)
+	var jsonData mapDataJSON
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		return nil, fmt.Errorf("failed to parse map JSON from %s: %w", filename, err)
 	}
 
-	// Always log when map is loaded, regardless of memory change
-	fileSize := float64(len(data)) / 1024
-	log.Printf("Map: %dx%d tiles, %d cells (%.1f KB)", m.Width, m.Height, len(m.Cells), fileSize)
-	logMemory("after map load", true)
+	// Validate and default map dimensions if necessary
+	if jsonData.Width <= 0 {
+		log.Printf("Warning: map JSON from %s has invalid width %d. Using default %d.", filename, jsonData.Width, DefaultPico8MapWidth)
+		jsonData.Width = DefaultPico8MapWidth
+	}
+	if jsonData.Height <= 0 {
+		log.Printf("Warning: map JSON from %s has invalid height %d. Using default %d.", filename, jsonData.Height, DefaultPico8MapHeight)
+		jsonData.Height = DefaultPico8MapHeight
+	}
+	log.Printf("Parsed map JSON from %s: Version=%s, Desc=%s, Name=%s, Size=%dx%d, Cells=%d",
+		filename, jsonData.Version, jsonData.Description, jsonData.Name, jsonData.Width, jsonData.Height, len(jsonData.Cells))
 
-	return &m, nil
+	return &jsonData, nil
 }
 
 // Map draws a rectangular region of the PICO-8 map to the screen.
@@ -183,9 +227,7 @@ func Map(args ...any) {
 //	mapG(mx, my, sx, sy, w, h) // Draw map with custom dimensions
 //	mapG(mx, my, sx, sy, w, h, layers) // Draw map with layer filtering
 func mapG[MX Number, MY Number](mx MX, my MY, args ...any) {
-	if !ensureMapResources() {
-		return
-	}
+	EnsureStreamingSystemInitialized()
 
 	// Convert generic mx, my to required types
 	mapX := int(mx)
@@ -201,42 +243,132 @@ func mapG[MX Number, MY Number](mx MX, my MY, args ...any) {
 	drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers)
 }
 
-// ensureMapResources ensures all required resources for map rendering are loaded
-// Returns false if resources couldn't be loaded or screen isn't ready
-func ensureMapResources() bool {
-	if currentScreen == nil {
-		log.Println("Warning: Map() called before screen was ready.")
-		return false
-	}
+// initializeStreamingMapSystem sets up the TilemapStream and ActiveTileBuffer.
+// It should be called only once, typically by EnsureStreamingSystemInitialized.
+func initializeStreamingMapSystem() error {
+	logMemory("before streaming map init", true)
 
-	// Lazy-load map data
-	if currentMap == nil {
-		m, err := loadMap()
-		if err != nil {
-			log.Fatalf("Fatal: Failed to load required map for Map(): %v", err)
+	const mapFilename = "map.json"
+	jsonData, err := loadAndParseMapJSON(mapFilename)
+
+	worldWidth := DefaultPico8MapWidth
+	worldHeight := DefaultPico8MapHeight
+
+	if err == nil && jsonData != nil {
+		if jsonData.Width > 0 {
+			worldWidth = jsonData.Width
 		}
-		currentMap = m
+		if jsonData.Height > 0 {
+			worldHeight = jsonData.Height
+		}
+		log.Printf("Initializing streaming map system with world size: %dx%d from %s", worldWidth, worldHeight, mapFilename)
+	} else {
+		log.Printf("Failed to load map '%s' or map data is invalid: %v. Initializing with default world size: %dx%d", mapFilename, err, worldWidth, worldHeight)
 	}
 
-	// Lazy-load sprite info for layer filtering
+	worldMapMutex.Lock()
+	worldMapStream = &TilemapStream{
+		Data:               make([]int, worldWidth*worldHeight),
+		WorldWidthInTiles:  worldWidth,
+		WorldHeightInTiles: worldHeight,
+	}
+
+	if jsonData != nil && len(jsonData.Cells) > 0 {
+		log.Printf("Populating TilemapStream with %d cells from %s", len(jsonData.Cells), mapFilename)
+		populatedTiles := 0
+		for _, cell := range jsonData.Cells {
+			if cell.X >= 0 && cell.X < worldMapStream.WorldWidthInTiles &&
+				cell.Y >= 0 && cell.Y < worldMapStream.WorldHeightInTiles {
+				worldMapStream.Data[cell.Y*worldMapStream.WorldWidthInTiles+cell.X] = cell.Sprite
+				populatedTiles++
+			} else {
+				log.Printf("Warning: cell data out of bounds in %s: (%d, %d) for sprite %d. World size: %dx%d. Skipping cell.",
+					mapFilename, cell.X, cell.Y, cell.Sprite, worldMapStream.WorldWidthInTiles, worldMapStream.WorldHeightInTiles)
+			}
+		}
+		log.Printf("Finished populating TilemapStream. %d cells processed, %d tiles set.", len(jsonData.Cells), populatedTiles)
+	} else if err == nil {
+		log.Printf("Map JSON '%s' loaded but contains no cell data (or jsonData is nil after parse attempt). World map will be default (empty).", mapFilename)
+	}
+	worldMapMutex.Unlock()
+
+	activeBufferMutex.Lock()
+	activeTileBufferInstance = &ActiveTileBuffer{
+		Data:           nil,
+		BufferWorldX:   -1,
+		BufferWorldY:   -1,
+		WidthInTiles:   ActiveTileBufferWidthInTiles,
+		HeightInTiles:  ActiveTileBufferHeightInTiles,
+		IsRegionLoaded: false,
+	}
+	activeBufferMutex.Unlock()
+
+	log.Println("Streaming map system initialized.")
+	logMemory("after streaming map init", true)
+	return nil
+}
+
+// EnsureStreamingSystemInitialized guarantees that the streaming map system is set up.
+// This function is responsible for calling initializeStreamingMapSystem once,
+// loading spritesheets, and setting up map cache parameters.
+// It should be called by map-accessing functions like Mget, Mset, Map.
+func EnsureStreamingSystemInitialized() {
+	if streamingSystemInitialized {
+		return
+	}
+
+	streamingInitMutex.Lock()
+	defer streamingInitMutex.Unlock()
+
+	if streamingSystemInitialized {
+		return
+	}
+
+	log.Println("EnsureStreamingSystemInitialized: Initializing...")
+
 	if currentSprites == nil {
-		sprites, err := loadSpritesheet()
+		var err error
+		currentSprites, err = loadSpritesheet()
 		if err != nil {
-			log.Fatalf("Fatal: Failed to load required spritesheet for Map(): %v", err)
+			log.Printf("EnsureStreamingSystemInitialized: Failed to load spritesheet: %v. Map operations might be affected.", err)
+		} else {
+			log.Println("EnsureStreamingSystemInitialized: Spritesheet loaded.")
+
+			if spriteInfoMap == nil || len(spriteInfoMap) == 0 {
+				spriteInfoMap = make(map[int]*SpriteInfo, len(currentSprites))
+				for i := range currentSprites {
+					info := &currentSprites[i]
+					spriteInfoMap[info.ID] = info
+				}
+				log.Println("EnsureStreamingSystemInitialized: Sprite info map populated.")
+			}
 		}
-		currentSprites = sprites
 	}
 
-	// Build lookup map from sprite ID to SpriteInfo
-	if spriteInfoMap == nil {
-		spriteInfoMap = make(map[int]*SpriteInfo, len(currentSprites))
-		for i := range currentSprites {
-			info := &currentSprites[i]
-			spriteInfoMap[info.ID] = info
-		}
+	if err := initializeStreamingMapSystem(); err != nil {
+		log.Fatalf("EnsureStreamingSystemInitialized: CRITICAL - Failed to initialize streaming map system: %v", err)
 	}
 
-	return true
+	mapCacheIsValid = false
+	if ScreenWidth > 0 && ScreenHeight > 0 {
+		mapCacheWidthInTiles = ScreenWidth / 8
+		mapCacheHeightInTiles = ScreenHeight / 8
+	} else {
+		log.Printf("EnsureStreamingSystemInitialized: ScreenWidth/ScreenHeight not available or zero. Using default map cache dimensions.")
+		mapCacheWidthInTiles = DefaultPico8MapWidth / 2
+		mapCacheHeightInTiles = DefaultPico8MapHeight / 2
+	}
+	if mapCacheWidthInTiles <= 0 {
+		mapCacheWidthInTiles = 16
+	}
+	if mapCacheHeightInTiles <= 0 {
+		mapCacheHeightInTiles = 16
+	}
+
+	log.Printf("EnsureStreamingSystemInitialized: Map cache parameters set (Width: %d tiles, Height: %d tiles).", mapCacheWidthInTiles, mapCacheHeightInTiles)
+
+	log.Println("EnsureStreamingSystemInitialized: System ready.")
+	streamingSystemInitialized = true
 }
 
 // parseMapArgs parses the optional arguments for the Map functions
@@ -244,8 +376,8 @@ func ensureMapResources() bool {
 func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 	// Default parameters
 	sx, sy = 0, 0
-	wTiles = ScreenWidth / 8
-	hTiles = ScreenHeight / 8
+	wTiles = DefaultPico8MapWidth
+	hTiles = DefaultPico8MapHeight
 	layers = 0
 
 	// Process optional arguments
@@ -291,193 +423,336 @@ func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 	return sx, sy, wTiles, hTiles, layers
 }
 
-// drawMapRegion draws a region of the map to the screen
+// drawMapRegion draws a region of the map to the screen using a cache
 func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
-	// Ensure map is loaded
-	if currentMap == nil {
-		log.Println("Warning: Map not loaded for drawing")
+	if wTiles <= 0 || hTiles <= 0 {
 		return
 	}
 
-	// Iterate through the cells in the specified region
-	for _, cell := range currentMap.Cells {
-		// Check if the cell is within our view region
-		if cell.X >= mapX && cell.X < mapX+wTiles &&
-			cell.Y >= mapY && cell.Y < mapY+hTiles {
+	// Check cache validity
+	// ScreenWidth and ScreenHeight are from the pigo8 package, assumed to be globally accessible updated values.
+	cacheIsCurrentlyValid := mapCacheIsValid &&
+		mapCacheImage != nil &&
+		mapCacheDrawnForWorldTileX == mapX &&
+		mapCacheDrawnForWorldTileY == mapY &&
+		mapCacheWidthInTiles == wTiles &&
+		mapCacheHeightInTiles == hTiles &&
+		mapCacheRenderedLayers == layers &&
+		mapCacheRenderedScreenWidth == ScreenWidth &&
+		mapCacheRenderedScreenHeight == ScreenHeight
 
-			// Skip empty cells (sprite 0 is typically empty)
-			if cell.Sprite == 0 {
-				continue
+	if !cacheIsCurrentlyValid {
+		// Invalidate and rebuild cache
+		requiredCacheWidth := wTiles * 8
+		requiredCacheHeight := hTiles * 8
+
+		// Ensure mapCacheImage exists and is the correct size
+		if mapCacheImage == nil || mapCacheImage.Bounds().Dx() != requiredCacheWidth || mapCacheImage.Bounds().Dy() != requiredCacheHeight {
+			if mapCacheImage != nil {
+				mapCacheImage.Dispose() // Dispose old image before creating new
 			}
+			mapCacheImage = ebiten.NewImage(requiredCacheWidth, requiredCacheHeight)
+		} else {
+			mapCacheImage.Clear() // Clear existing image for redraw
+		}
 
-			// Apply layer filtering if specified
-			if layers > 0 {
-				// Get the sprite's flags
-				flagBits, _ := Fget(cell.Sprite)
-				// Check if any of the requested layers match this sprite's flags
-				if flagBits&layers == 0 {
-					continue // Skip this sprite if it doesn't match any requested layers
+		if mapCacheImage == nil { // Still nil after attempt to create
+			log.Println("Error: Failed to create or clear mapCacheImage")
+			return
+		}
+
+		// Iterate through the tiles that should be visible in the cache
+		for ty := 0; ty < hTiles; ty++ {
+			for tx := 0; tx < wTiles; tx++ {
+				worldTileX := mapX + tx
+				worldTileY := mapY + ty
+
+				spriteID := Mget(worldTileX, worldTileY) // Mget handles map boundaries
+				if spriteID == 0 {                       // Empty tile or out of bounds according to Mget's logic
+					continue
+				}
+
+				// Layer check
+				if layers > 0 {
+					flagBits, _ := Fget(spriteID)
+					if flagBits&layers == 0 {
+						continue
+					}
+				}
+
+				tileImg := GetSpriteImage(spriteID) // GetSpriteImage handles nil if sprite not found
+				if tileImg != nil {
+					opts := &ebiten.DrawImageOptions{}
+					opts.Filter = ebiten.FilterNearest
+					opts.GeoM.Translate(float64(tx*8), float64(ty*8))
+					mapCacheImage.DrawImage(tileImg, opts)
 				}
 			}
+		}
 
-			// Calculate screen position
-			screenX := sx + (cell.X-mapX)*8 // 8 pixels per tile
-			screenY := sy + (cell.Y-mapY)*8
+		// Update cache state variables
+		mapCacheDrawnForWorldTileX = mapX
+		mapCacheDrawnForWorldTileY = mapY
+		mapCacheWidthInTiles = wTiles
+		mapCacheHeightInTiles = hTiles
+		mapCacheRenderedLayers = layers
+		mapCacheRenderedScreenWidth = ScreenWidth
+		mapCacheRenderedScreenHeight = ScreenHeight
+		mapCacheIsValid = true
+		// log.Printf("Map cache rebuilt for world (%d,%d) screen (%d,%d) tiles %dx%d layers %d screen_dims %dx%d", mapX, mapY, sx, sy, wTiles, hTiles, layers, ScreenWidth, ScreenHeight)
+	}
 
-			// Draw the sprite
-			Spr(cell.Sprite, screenX, screenY)
+	// Draw the (now valid) cache to the screen
+	screenToDrawOn := CurrentScreen() // Get the main screen from engine
+	if screenToDrawOn == nil || mapCacheImage == nil {
+		// log.Println("Warning: Cannot draw map cache, screenToDrawOn or mapCacheImage is nil.")
+		return
+	}
+
+	drawOpts := &ebiten.DrawImageOptions{}
+	drawOpts.Filter = ebiten.FilterNearest
+	// Apply the global PIGO-8 camera offset. sx and sy are the screen coordinates
+	// passed to Map() (e.g., 0,0 if Map() is called with no arguments).
+	// cameraX and cameraY are the global offsets from the pigo8.Camera() function.
+	finalScreenX := float64(sx) - cameraX
+	finalScreenY := float64(sy) - cameraY
+	drawOpts.GeoM.Translate(finalScreenX, finalScreenY)
+	screenToDrawOn.DrawImage(mapCacheImage, drawOpts)
+}
+
+// loadRegionIntoActiveBuffer loads the specified region of the world map into the active tile buffer.
+// It attempts to center the buffer around targetWorldX, targetWorldY.
+// This function acquires necessary locks.
+func loadRegionIntoActiveBuffer(targetWorldX, targetWorldY int) error {
+	activeBufferMutex.Lock()
+	defer activeBufferMutex.Unlock()
+	worldMapMutex.RLock() // Read-only access to worldMapStream needed
+	defer worldMapMutex.RUnlock()
+
+	if worldMapStream == nil {
+		return fmt.Errorf("loadRegionIntoActiveBuffer: worldMapStream is nil, system not properly initialized")
+	}
+	if activeTileBufferInstance == nil {
+		return fmt.Errorf("loadRegionIntoActiveBuffer: activeTileBufferInstance is nil, system not properly initialized")
+	}
+	if activeTileBufferInstance.WidthInTiles <= 0 || activeTileBufferInstance.HeightInTiles <= 0 {
+		return fmt.Errorf("loadRegionIntoActiveBuffer: activeTileBufferInstance has invalid dimensions (%dx%d)", activeTileBufferInstance.WidthInTiles, activeTileBufferInstance.HeightInTiles)
+	}
+
+	newBufferWorldX := targetWorldX - activeTileBufferInstance.WidthInTiles/2
+	newBufferWorldY := targetWorldY - activeTileBufferInstance.HeightInTiles/2
+
+	if worldMapStream.WorldWidthInTiles > activeTileBufferInstance.WidthInTiles {
+		newBufferWorldX = min(newBufferWorldX, worldMapStream.WorldWidthInTiles-activeTileBufferInstance.WidthInTiles)
+	} else {
+		newBufferWorldX = 0
+	}
+	newBufferWorldX = max(0, newBufferWorldX)
+
+	if worldMapStream.WorldHeightInTiles > activeTileBufferInstance.HeightInTiles {
+		newBufferWorldY = min(newBufferWorldY, worldMapStream.WorldHeightInTiles-activeTileBufferInstance.HeightInTiles)
+	} else {
+		newBufferWorldY = 0
+	}
+	newBufferWorldY = max(0, newBufferWorldY)
+
+	requiredBufferSize := activeTileBufferInstance.WidthInTiles * activeTileBufferInstance.HeightInTiles
+	if activeTileBufferInstance.Data == nil || len(activeTileBufferInstance.Data) != requiredBufferSize {
+		activeTileBufferInstance.Data = make([]int, requiredBufferSize)
+	}
+
+	for y := 0; y < activeTileBufferInstance.HeightInTiles; y++ {
+		for x := 0; x < activeTileBufferInstance.WidthInTiles; x++ {
+			worldX := newBufferWorldX + x
+			worldY := newBufferWorldY + y
+			bufferIndex := y*activeTileBufferInstance.WidthInTiles + x
+
+			if worldX >= 0 && worldX < worldMapStream.WorldWidthInTiles &&
+				worldY >= 0 && worldY < worldMapStream.WorldHeightInTiles {
+				worldIndex := worldY*worldMapStream.WorldWidthInTiles + worldX
+				activeTileBufferInstance.Data[bufferIndex] = worldMapStream.Data[worldIndex]
+			} else {
+				activeTileBufferInstance.Data[bufferIndex] = 0
+			}
 		}
 	}
+
+	activeTileBufferInstance.BufferWorldX = newBufferWorldX
+	activeTileBufferInstance.BufferWorldY = newBufferWorldY
+	activeTileBufferInstance.IsRegionLoaded = true
+
+	// log.Printf("Loaded region into active buffer. Origin: (%d,%d), Target: (%d,%d)", newBufferWorldX, newBufferWorldY, targetWorldX, targetWorldY)
+	// logMemory("after loadRegionIntoActiveBuffer", false)
+	return nil
+}
+
+// Helper min/max for integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Mget returns the sprite number at the specified map coordinates.
 // This mimics PICO-8's mget(column, row) function.
-//
-// column: number of tiles from the left (each tile is 8 pixels wide)
-// row: number of tiles from the top (each tile is 8 pixels tall)
-// returns: the sprite number at the specified tile position, or 0 if no sprite is found
-//
-// Example:
-//
-//	// Get the sprite at map position (5,7)
-//	sprite := Mget(5, 7)
-//
-//	// Convert pixel coordinates to tile coordinates
-//	playerColumn := playerX / 8
-//	playerRow := playerY / 8
-//
-//	// Check what sprite is to the right of the player
-//	spriteToRight := Mget(playerColumn + 1, playerRow)
-//
-//	// Check sprite flag in one operation
-//	flagBits, isSet := Fget(Mget(tileX, tileY))
 func Mget[C Number, R Number](column C, row R) int {
-	// Convert generic column, row to required types
+	EnsureStreamingSystemInitialized()
+
 	col := int(column)
 	r := int(row)
 
-	// Ensure map is loaded
-	if currentMap == nil {
-		loaded, err := loadMap()
-		if err != nil {
-			log.Printf("Warning: Failed to load map for Mget(): %v", err)
-			return 0 // Return 0 if map couldn't be loaded
-		}
-		currentMap = loaded
+	worldMapMutex.RLock()
+	if worldMapStream == nil {
+		log.Printf("Mget: worldMapStream is nil. Streaming system not initialized.")
+		worldMapMutex.RUnlock()
+		return 0
+	}
+	worldWidth := worldMapStream.WorldWidthInTiles
+	worldHeight := worldMapStream.WorldHeightInTiles
+	worldMapMutex.RUnlock()
+
+	if col < 0 || col >= worldWidth || r < 0 || r >= worldHeight {
+		return 0
 	}
 
-	// Iterate through the cells to find the matching position
-	for _, cell := range currentMap.Cells {
-		if cell.X == col && cell.Y == r {
-			return cell.Sprite
-		}
+	activeBufferMutex.RLock()
+	tileInBuff := activeTileBufferInstance != nil &&
+		activeTileBufferInstance.IsRegionLoaded &&
+		col >= activeTileBufferInstance.BufferWorldX && col < activeTileBufferInstance.BufferWorldX+activeTileBufferInstance.WidthInTiles &&
+		r >= activeTileBufferInstance.BufferWorldY && r < activeTileBufferInstance.BufferWorldY+activeTileBufferInstance.HeightInTiles
+
+	if tileInBuff {
+		bufferX := col - activeTileBufferInstance.BufferWorldX
+		bufferY := r - activeTileBufferInstance.BufferWorldY
+		val := activeTileBufferInstance.Data[bufferY*activeTileBufferInstance.WidthInTiles+bufferX]
+		activeBufferMutex.RUnlock()
+		return val
+	}
+	activeBufferMutex.RUnlock()
+
+	if err := loadRegionIntoActiveBuffer(col, r); err != nil {
+		log.Printf("Mget: Error loading region for (%d,%d): %v", col, r, err)
+		return 0
 	}
 
-	// If no cell is found at the specified position, return 0 (empty/transparent)
-	return 0
+	activeBufferMutex.RLock()
+	defer activeBufferMutex.RUnlock()
+
+	if activeTileBufferInstance == nil || !activeTileBufferInstance.IsRegionLoaded {
+		log.Printf("Mget: Active buffer still not loaded after loadRegionIntoActiveBuffer for (%d,%d)", col, r)
+		return 0
+	}
+
+	if !(col >= activeTileBufferInstance.BufferWorldX && col < activeTileBufferInstance.BufferWorldX+activeTileBufferInstance.WidthInTiles &&
+		r >= activeTileBufferInstance.BufferWorldY && r < activeTileBufferInstance.BufferWorldY+activeTileBufferInstance.HeightInTiles) {
+		log.Printf("Mget: Target tile (%d,%d) NOT in buffer after load. Buffer: (%d,%d) %dx%d. This is unexpected.",
+			col, r, activeTileBufferInstance.BufferWorldX, activeTileBufferInstance.BufferWorldY, activeTileBufferInstance.WidthInTiles, activeTileBufferInstance.HeightInTiles)
+		return 0
+	}
+
+	bufferX := col - activeTileBufferInstance.BufferWorldX
+	bufferY := r - activeTileBufferInstance.BufferWorldY
+	if bufferX < 0 || bufferX >= activeTileBufferInstance.WidthInTiles || bufferY < 0 || bufferY >= activeTileBufferInstance.HeightInTiles {
+		log.Printf("Mget: Calculated local buffer coordinates (%d,%d) are out of bounds for buffer size %dx%d. World: (%d,%d). This is a critical error.",
+			bufferX, bufferY, activeTileBufferInstance.WidthInTiles, activeTileBufferInstance.HeightInTiles, col, r)
+		return 0
+	}
+
+	return activeTileBufferInstance.Data[bufferY*activeTileBufferInstance.WidthInTiles+bufferX]
 }
 
 // Mset sets the sprite number at the specified map coordinates.
 // This mimics PICO-8's mset(column, row, sprite) function.
-//
-// column: number of tiles from the left (each tile is 8 pixels wide)
-// row: number of tiles from the top (each tile is 8 pixels tall)
-// sprite: the sprite number to set at the specified tile position
-//
-// Example:
-//
-//	// Set sprite #21 at map position (5,7)
-//	Mset(5, 7, 21)
-//
-//	// Convert pixel coordinates to tile coordinates
-//	playerColumn := playerX / 8
-//	playerRow := playerY / 8
-//
-//	// Change a flower sprite to a flowerless sprite when player is nearby
-//	if playerColumn+1 == flowerColumn && playerRow == flowerRow && btnPressed {
-//		Mset(flowerColumn, flowerRow, flowerlessSprite)
-//		flowerInventory++
-//	}
 func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
-	// Convert generic column, row, sprite to required types
+	EnsureStreamingSystemInitialized()
+
 	col := int(column)
 	r := int(row)
 	spriteNum := int(sprite)
 
-	// Ensure map is loaded
-	if currentMap == nil {
-		loaded, err := loadMap()
-		if err != nil {
-			log.Printf("Warning: Failed to load map for Mset(): %v", err)
-			return // Return if map couldn't be loaded
-		}
-		currentMap = loaded
-	}
-
-	// Validate sprite number
 	if spriteNum < 0 {
-		log.Printf("Warning: Invalid sprite number %d (must be >= 0)", spriteNum)
+		log.Printf("Mset: Invalid sprite number %d for (%d,%d). Must be >= 0.", spriteNum, col, r)
 		return
 	}
 
-	// Check if the cell already exists at the specified position
-	for i, cell := range currentMap.Cells {
-		if cell.X == col && cell.Y == r {
-			// Update existing cell
-			currentMap.Cells[i].Sprite = spriteNum
-			return
-		}
+	worldMapMutex.Lock()
+	if worldMapStream == nil {
+		log.Printf("Mset: worldMapStream is nil. Streaming system not initialized.")
+		worldMapMutex.Unlock()
+		return
 	}
 
-	// If no cell exists at the specified position, create a new one
-	newCell := mapCell{
-		X:      col,
-		Y:      r,
-		Sprite: spriteNum,
+	if col < 0 || col >= worldMapStream.WorldWidthInTiles || r < 0 || r >= worldMapStream.WorldHeightInTiles {
+		log.Printf("Mset: Coordinates (%d,%d) are out of world bounds (%dx%d).",
+			col, r, worldMapStream.WorldWidthInTiles, worldMapStream.WorldHeightInTiles)
+		worldMapMutex.Unlock()
+		return
 	}
 
-	// Add the new cell to the map
-	currentMap.Cells = append(currentMap.Cells, newCell)
+	worldMapStream.Data[r*worldMapStream.WorldWidthInTiles+col] = spriteNum
+	worldMapMutex.Unlock()
+
+	activeBufferMutex.Lock()
+	if activeTileBufferInstance != nil && activeTileBufferInstance.IsRegionLoaded &&
+		col >= activeTileBufferInstance.BufferWorldX && col < activeTileBufferInstance.BufferWorldX+activeTileBufferInstance.WidthInTiles &&
+		r >= activeTileBufferInstance.BufferWorldY && r < activeTileBufferInstance.BufferWorldY+activeTileBufferInstance.HeightInTiles {
+
+		bufferX := col - activeTileBufferInstance.BufferWorldX
+		bufferY := r - activeTileBufferInstance.BufferWorldY
+		activeTileBufferInstance.Data[bufferY*activeTileBufferInstance.WidthInTiles+bufferX] = spriteNum
+	}
+	activeBufferMutex.Unlock()
+
+	mapCacheIsValid = false
+	// log.Printf("Mset: Set tile at (%d,%d) to sprite %d. Map cache invalidated.", col, r, spriteNum)
 }
 
 // SetMap directly sets the entire PICO-8 map data from a byte slice.
-// The data slice should contain Pico8MapHeight * Pico8MapWidth bytes,
+// The data slice should contain DefaultPico8MapHeight * DefaultPico8MapWidth bytes,
 // representing sprite IDs in row-major order.
 func SetMap(data []byte) {
-	if len(data) != Pico8MapWidth*Pico8MapHeight {
-		log.Printf("Warning: SetMap received data of incorrect length. Expected %d, got %d", Pico8MapWidth*Pico8MapHeight, len(data))
+	EnsureStreamingSystemInitialized()
+
+	expectedLen := DefaultPico8MapWidth * DefaultPico8MapHeight
+	if len(data) != expectedLen {
+		log.Printf("Warning: SetMap received data of incorrect length. Expected %d, got %d", expectedLen, len(data))
 		return
 	}
 
-	// Ensure map is loaded/initialized
-	if currentMap == nil {
-		loaded, err := loadMap() // Try to load existing, or get a default structure
-		if err != nil {
-			log.Printf("Warning: Failed to load/initialize map for SetMap(): %v. Creating a new one.", err)
-			// Initialize a new MapData if loadMap fails or returns nil without error (e.g. no file)
-			currentMap = &MapData{
-				Width:  Pico8MapWidth,
-				Height: Pico8MapHeight,
-				Cells:  make([]mapCell, 0, Pico8MapWidth*Pico8MapHeight/2), // Pre-allocate assuming sparse map
-			}
-		} else {
-			currentMap = loaded
+	worldMapMutex.Lock()
+	// Ensure worldMapStream is initialized with default dimensions if it's nil or has different dimensions
+	if worldMapStream == nil || worldMapStream.WorldWidthInTiles != DefaultPico8MapWidth || worldMapStream.WorldHeightInTiles != DefaultPico8MapHeight {
+		log.Printf("SetMap: Initializing/resetting worldMapStream to default dimensions (%dx%d).", DefaultPico8MapWidth, DefaultPico8MapHeight)
+		worldMapStream = &TilemapStream{
+			Data:               make([]int, DefaultPico8MapWidth*DefaultPico8MapHeight),
+			WorldWidthInTiles:  DefaultPico8MapWidth,
+			WorldHeightInTiles: DefaultPico8MapHeight,
 		}
+	} else {
+		// If it exists and has correct dimensions, clear existing data by re-making the slice
+		worldMapStream.Data = make([]int, DefaultPico8MapWidth*DefaultPico8MapHeight)
 	}
 
-	// Clear existing cells and set new dimensions if necessary
-	currentMap.Cells = make([]mapCell, 0, Pico8MapWidth*Pico8MapHeight/2) // Pre-allocate assuming sparse map
-	currentMap.Width = Pico8MapWidth
-	currentMap.Height = Pico8MapHeight
-
-	for y := 0; y < Pico8MapHeight; y++ {
-		for x := 0; x < Pico8MapWidth; x++ {
-			spriteID := int(data[y*Pico8MapWidth+x])
-			if spriteID != 0 { // PICO-8 map data often omits 0s, we'll do the same for storage
-				currentMap.Cells = append(currentMap.Cells, mapCell{X: x, Y: y, Sprite: spriteID})
-			}
-		}
+	for i := 0; i < expectedLen; i++ {
+		worldMapStream.Data[i] = int(data[i])
 	}
-	// After updating the map, it's a good idea to inform any systems that cache map data
-	// or rely on its visual representation that it has changed. For now, this is implicit.
+	worldMapMutex.Unlock()
+
+	activeBufferMutex.Lock()
+	if activeTileBufferInstance != nil {
+		activeTileBufferInstance.IsRegionLoaded = false // Invalidate buffer as world map changed
+		// log.Printf("SetMap: Active tile buffer invalidated.")
+	}
+	activeBufferMutex.Unlock()
+
+	mapCacheIsValid = false
+	log.Printf("SetMap: World map data updated from byte slice. Active buffer and map cache invalidated.")
 }
