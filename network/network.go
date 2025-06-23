@@ -129,7 +129,7 @@ func InitNetwork(config *networkConfig) error {
 			onConnect != nil, onDisconnect != nil, onGameState != nil, onPlayerInput != nil)
 
 		// Clean up the existing network manager
-		shutdownNetwork() // Use the global shutdown function
+		ShutdownNetwork() // Use the global shutdown function
 	}
 
 	// Define localhost addresses as constants
@@ -175,8 +175,8 @@ func InitNetwork(config *networkConfig) error {
 	return err
 }
 
-// shutdownNetwork closes all network connections and stops processing
-func shutdownNetwork() {
+// ShutdownNetwork closes all network connections and stops processing
+func ShutdownNetwork() {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -662,8 +662,8 @@ func (nm *NetworkManager) sendMessage(msg networkMessage) {
 	}
 }
 
-// isNetworkInitialized returns whether the network system has been initialized
-func isNetworkInitialized() bool {
+// IsNetworkInitialized returns whether the network system has been initialized
+func IsNetworkInitialized() bool {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 	return networkManager != nil
@@ -885,25 +885,6 @@ func SendPlayerInput(data []byte) {
 		Type:     msgPlayerInput,
 		PlayerID: networkManager.config.PlayerID,
 		Data:     data,
-	}
-}
-
-// pingServer sends a ping to the server to check connection status
-func pingServer() {
-	networkMutex.Lock()
-	defer networkMutex.Unlock()
-
-	if networkManager == nil || networkManager.config.Role != RoleClient {
-		return
-	}
-
-	// Send current timestamp as data
-	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-
-	networkManager.outgoingMsgs <- networkMessage{
-		Type:     msgPing,
-		PlayerID: "server",
-		Data:     []byte(timestamp),
 	}
 }
 

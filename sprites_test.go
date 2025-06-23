@@ -14,11 +14,11 @@ import (
 func TestSprArguments(t *testing.T) {
 	// --- Setup --- Manage global state
 	originalSprites := currentSprites
-	originalTransparency := PaletteTransparency // Save original transparency settings
+	originalTransparency := paletteTransparency // Save original transparency settings
 
 	// Initialize palette transparency (only black transparent by default)
-	for i := range PaletteTransparency {
-		PaletteTransparency[i] = (i == 0)
+	for i := range paletteTransparency {
+		paletteTransparency[i] = (i == 0)
 	}
 
 	// Create dummy sprite entries with non-sequential IDs
@@ -26,7 +26,7 @@ func TestSprArguments(t *testing.T) {
 	dummyImg2 := ebiten.NewImage(8, 8)
 	dummyImg3 := ebiten.NewImage(8, 8)
 	// Intentionally set IDs out of order with slice index
-	currentSprites = []SpriteInfo{
+	currentSprites = []spriteInfo{
 		{ID: 5, Image: dummyImg1},
 		{ID: 0, Image: dummyImg2},
 		{ID: 10, Image: dummyImg3},
@@ -34,7 +34,7 @@ func TestSprArguments(t *testing.T) {
 
 	t.Cleanup(func() {
 		currentSprites = originalSprites
-		PaletteTransparency = originalTransparency // Restore original transparency settings
+		paletteTransparency = originalTransparency // Restore original transparency settings
 	})
 
 	// Helper function to parse Spr arguments without actually drawing
@@ -476,16 +476,16 @@ func parseSsprTestArgs(sx, sy, sw, sh, dx, dy any, options ...any) SsprTestResul
 // when trying to read pixels from an Ebiten image in a unit test.
 func TestSsprArgumentParsing(t *testing.T) {
 	// Save original transparency settings
-	originalTransparency := PaletteTransparency
+	originalTransparency := paletteTransparency
 
 	// Initialize palette transparency (only black transparent by default)
-	for i := range PaletteTransparency {
-		PaletteTransparency[i] = (i == 0)
+	for i := range paletteTransparency {
+		paletteTransparency[i] = (i == 0)
 	}
 
 	// Restore original transparency settings after test
 	t.Cleanup(func() {
-		PaletteTransparency = originalTransparency
+		paletteTransparency = originalTransparency
 	})
 
 	// Define test cases to reduce cyclomatic complexity
@@ -704,11 +704,11 @@ func TestSsetColorHandling_continued(t *testing.T) {
 		clampedColor := invalidColor
 
 		// Apply the same clamping logic as in Sset
-		if clampedColor >= len(Pico8Palette) {
-			clampedColor = len(Pico8Palette) - 1
+		if clampedColor >= len(pico8Palette) {
+			clampedColor = len(pico8Palette) - 1
 		}
 
-		assert.Equal(t, len(Pico8Palette)-1, clampedColor, "Color should be clamped to max index")
+		assert.Equal(t, len(pico8Palette)-1, clampedColor, "Color should be clamped to max index")
 	})
 
 	t.Run("Color clamping - low", func(t *testing.T) {

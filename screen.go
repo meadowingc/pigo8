@@ -19,8 +19,8 @@ import (
 var pico8FontTTF []byte
 
 var (
-	// DrawPaletteMap stores mappings for the draw palette: DrawPaletteMap[originalColor] = mappedColor
-	DrawPaletteMap []int
+	// drawPaletteMap stores mappings for the draw palette: drawPaletteMap[originalColor] = mappedColor
+	drawPaletteMap []int
 
 	// originalPico8Palette holds the an immutable copy of the standard 16 PICO-8 colors.
 	// This is used as a reference to check if the current palette is the default.
@@ -43,8 +43,8 @@ var (
 		color.RGBA{R: 255, G: 204, B: 170, A: 255}, // 15 peach
 	}
 
-	// Pico8Palette defines the standard 16 PICO-8 colors.
-	Pico8Palette = []color.Color{
+	// pico8Palette defines the standard 16 PICO-8 colors.
+	pico8Palette = []color.Color{
 		color.RGBA{R: 0, G: 0, B: 0, A: 255},       // 0 black
 		color.RGBA{R: 29, G: 43, B: 83, A: 255},    // 1 dark-blue
 		color.RGBA{R: 126, G: 37, B: 83, A: 255},   // 2 dark-purple
@@ -63,16 +63,16 @@ var (
 		color.RGBA{R: 255, G: 204, B: 170, A: 255}, // 15 peach
 	}
 
-	// PaletteTransparency defines which colors in the Pico8Palette should be treated as transparent
+	// paletteTransparency defines which colors in the Pico8Palette should be treated as transparent
 	// By default, only color 0 (black) is transparent
-	PaletteTransparency = []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
+	paletteTransparency = []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}
 
 	// pico8FaceSource is the loaded source for the PICO-8 TTF font.
 	pico8FaceSource *text.GoTextFaceSource
 
-	// DefaultFontSize is the default size used for the Print function.
+	// defaultFontSize is the default size used for the Print function.
 	// PICO-8 font is typically 6px high.
-	DefaultFontSize = 6.0
+	defaultFontSize = 6.0
 
 	// These variables hold the internal state for the cursor used by Print.
 	// They were moved from main.go.
@@ -83,7 +83,7 @@ var (
 
 func init() {
 	// Initialize the font face source from embedded TTF.
-	DrawPaletteMap = make([]int, len(Pico8Palette)) // Initialize before use
+	drawPaletteMap = make([]int, len(pico8Palette)) // Initialize before use
 	resetDrawPaletteMapInternal()
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(pico8FontTTF))
@@ -106,11 +106,11 @@ func Cls(colorIndex ...int) {
 		idx = colorIndex[0]
 	}
 
-	if idx < 0 || idx >= len(Pico8Palette) {
+	if idx < 0 || idx >= len(pico8Palette) {
 		log.Printf("Warning: Cls() called with invalid color index %d. Defaulting to 0.", idx)
 		idx = 0
 	}
-	currentScreen.Fill(Pico8Palette[idx])
+	currentScreen.Fill(pico8Palette[idx])
 
 	// Reset the global print cursor position
 	cursorX = 0
@@ -178,7 +178,7 @@ func Pget(x, y int) int {
 	r1, g1, b1, a1 := pixelColor.RGBA()
 
 	// Iterate through the palette to find a match
-	for i, paletteColor := range Pico8Palette {
+	for i, paletteColor := range pico8Palette {
 		// Retrieve RGBA values for the palette color in the same format
 		r2, g2, b2, a2 := paletteColor.RGBA()
 		// Compare the raw uint32 values
@@ -222,16 +222,16 @@ func Pset(x, y int, colorIndex ...int) {
 	if len(colorIndex) > 0 {
 		originalColor = colorIndex[0]
 		// Validate originalColor against the DrawPaletteMap size
-		if originalColor < 0 || originalColor >= len(DrawPaletteMap) {
-			log.Printf("Warning: Pset() called with invalid original color index %d. Draw palette map has %d entries. Ignoring.", originalColor, len(DrawPaletteMap))
+		if originalColor < 0 || originalColor >= len(drawPaletteMap) {
+			log.Printf("Warning: Pset() called with invalid original color index %d. Draw palette map has %d entries. Ignoring.", originalColor, len(drawPaletteMap))
 			return
 		}
 	} else {
 		// Ensure cursorColor is also a valid index for DrawPaletteMap, if DrawPaletteMap is initialized
-		if len(DrawPaletteMap) > 0 && (cursorColor < 0 || cursorColor >= len(DrawPaletteMap)) {
-			log.Printf("Warning: Pset() using cursorColor %d which is out of bounds for DrawPaletteMap (size %d). Ignoring.", cursorColor, len(DrawPaletteMap))
+		if len(drawPaletteMap) > 0 && (cursorColor < 0 || cursorColor >= len(drawPaletteMap)) {
+			log.Printf("Warning: Pset() using cursorColor %d which is out of bounds for DrawPaletteMap (size %d). Ignoring.", cursorColor, len(drawPaletteMap))
 			return
-		} else if len(DrawPaletteMap) == 0 {
+		} else if len(drawPaletteMap) == 0 {
 			// This case should ideally not happen if init and SetPalette are working correctly.
 			log.Println("Warning: Pset() called when drawPaletteMap is uninitialized. Ignoring.")
 			return
@@ -240,15 +240,15 @@ func Pset(x, y int, colorIndex ...int) {
 
 	// Get the mapped color from the draw palette
 	// Ensure DrawPaletteMap is initialized and originalColor is a valid index
-	if len(DrawPaletteMap) == 0 || originalColor < 0 || originalColor >= len(DrawPaletteMap) {
-		log.Printf("Warning: Pset() DrawPaletteMap not ready or originalColor %d invalid for map size %d. Ignoring.", originalColor, len(DrawPaletteMap))
+	if len(drawPaletteMap) == 0 || originalColor < 0 || originalColor >= len(drawPaletteMap) {
+		log.Printf("Warning: Pset() DrawPaletteMap not ready or originalColor %d invalid for map size %d. Ignoring.", originalColor, len(drawPaletteMap))
 		return
 	}
-	mappedColor := DrawPaletteMap[originalColor]
+	mappedColor := drawPaletteMap[originalColor]
 
 	// Validate mappedColor against the actual Pico8Palette size
-	if mappedColor < 0 || mappedColor >= len(Pico8Palette) {
-		log.Printf("Warning: Pset() mapped color index %d is out of bounds for Pico8Palette (size %d). Original color was %d. Ignoring.", mappedColor, len(Pico8Palette), originalColor)
+	if mappedColor < 0 || mappedColor >= len(pico8Palette) {
+		log.Printf("Warning: Pset() mapped color index %d is out of bounds for Pico8Palette (size %d). Original color was %d. Ignoring.", mappedColor, len(pico8Palette), originalColor)
 		return
 	}
 
@@ -263,17 +263,17 @@ func Pset(x, y int, colorIndex ...int) {
 
 	// Check if the mapped color is transparent
 	// Ensure PaletteTransparency is initialized and mappedColor is a valid index
-	if len(PaletteTransparency) == 0 || mappedColor < 0 || mappedColor >= len(PaletteTransparency) {
-		log.Printf("Warning: Pset() PaletteTransparency not ready or mappedColor %d invalid for transparency map size %d. Ignoring.", mappedColor, len(PaletteTransparency))
+	if len(paletteTransparency) == 0 || mappedColor < 0 || mappedColor >= len(paletteTransparency) {
+		log.Printf("Warning: Pset() PaletteTransparency not ready or mappedColor %d invalid for transparency map size %d. Ignoring.", mappedColor, len(paletteTransparency))
 		return
 	}
-	if PaletteTransparency[mappedColor] {
+	if paletteTransparency[mappedColor] {
 		// Don't draw transparent pixels
 		return
 	}
 
 	// Get the actual color.Color struct for the mapped color
-	pixelColor := Pico8Palette[mappedColor]
+	pixelColor := pico8Palette[mappedColor]
 
 	// Draw the pixel
 	currentScreen.Set(x, y, pixelColor)
@@ -312,7 +312,7 @@ func Cursor(args ...int) {
 		cursorY = args[1]
 		// Validate and set color
 		col := args[2]
-		if col < 0 || col >= len(Pico8Palette) {
+		if col < 0 || col >= len(pico8Palette) {
 			log.Printf("Warning: Cursor() called with invalid color index %d. Color not changed.", col)
 		} else {
 			// Update both color variables to keep them in sync
@@ -369,7 +369,7 @@ func Print(s any, args ...int) (int, int) {
 		// Approximate measurement for return value
 		advance := float64(len([]rune(str))) * CharWidthApproximation
 		endX := int(math.Ceil(float64(posX) + advance))
-		endY := posY + int(DefaultFontSize)
+		endY := posY + int(defaultFontSize)
 
 		return endX, endY
 	}
@@ -386,14 +386,14 @@ func Print(s any, args ...int) (int, int) {
 	if len(args) == 1 || len(args) == 3 {
 		col = args[len(args)-1]
 		// Update both color variables to keep them in sync
-		if col >= 0 && col < len(Pico8Palette) {
+		if col >= 0 && col < len(pico8Palette) {
 			cursorColor = col
 			currentDrawColor = col
 		}
 	}
 
 	// Validate the color index.
-	if col < 0 || col >= len(Pico8Palette) {
+	if col < 0 || col >= len(pico8Palette) {
 		log.Printf("Warning: Print() called with invalid color index %d. Defaulting to cursorColor (%d).", col, cursorColor)
 		col = cursorColor // Default to current cursorColor if invalid index given
 	}
@@ -405,16 +405,16 @@ func Print(s any, args ...int) (int, int) {
 	// --- Prepare for Drawing ---
 	face := &text.GoTextFace{
 		Source: pico8FaceSource,
-		Size:   DefaultFontSize,
+		Size:   defaultFontSize,
 	}
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(drawX), float64(drawY))
-	op.ColorScale.ScaleWithColor(Pico8Palette[col])
+	op.ColorScale.ScaleWithColor(pico8Palette[col])
 
 	// --- Approximate Measurement for Return Value ---
 	advance := float64(len([]rune(str))) * CharWidthApproximation
 	endX := int(math.Ceil(float64(posX) + advance))
-	endY := posY + int(DefaultFontSize)
+	endY := posY + int(defaultFontSize)
 
 	// --- Draw ---
 	text.Draw(currentScreen, str, face, op)
@@ -433,19 +433,19 @@ func Print(s any, args ...int) (int, int) {
 
 // resetDrawPaletteMapInternal resets the draw palette map so each color maps to itself.
 func resetDrawPaletteMapInternal() {
-	if len(DrawPaletteMap) == 0 {
+	if len(drawPaletteMap) == 0 {
 		// This case should ideally be prevented by proper initialization in init() and SetPalette()
 		// However, as a safeguard, if Pico8Palette is available, try to initialize based on it.
-		if len(Pico8Palette) > 0 {
-			DrawPaletteMap = make([]int, len(Pico8Palette))
+		if len(pico8Palette) > 0 {
+			drawPaletteMap = make([]int, len(pico8Palette))
 		} else {
 			// Fallback to a default size if Pico8Palette is also not ready (e.g., 16)
-			DrawPaletteMap = make([]int, 16)
+			drawPaletteMap = make([]int, 16)
 			log.Println("Warning: resetDrawPaletteMapInternal called when DrawPaletteMap and Pico8Palette were uninitialized. Defaulting to 16 colors.")
 		}
 	}
-	for i := 0; i < len(DrawPaletteMap); i++ {
-		DrawPaletteMap[i] = i
+	for i := 0; i < len(drawPaletteMap); i++ {
+		drawPaletteMap[i] = i
 	}
 }
 
@@ -459,10 +459,10 @@ func resetDrawPaletteMapInternal() {
 //   - If p=1: Screen palette (post-processing effect on the current screen display) is not implemented.
 //     A warning will be logged, and the operation might default to p=0 or do nothing for p=1.
 func Pal(args ...interface{}) {
-	if len(DrawPaletteMap) == 0 {
+	if len(drawPaletteMap) == 0 {
 		log.Println("Warning: Pal() called before DrawPaletteMap was initialized. Attempting to initialize.")
 		resetDrawPaletteMapInternal() // Attempt to initialize it
-		if len(DrawPaletteMap) == 0 { // Still zero after attempt
+		if len(drawPaletteMap) == 0 { // Still zero after attempt
 			log.Println("Error: Pal() could not initialize DrawPaletteMap. Aborting Pal operation.")
 			return
 		}
@@ -518,7 +518,7 @@ func Pal(args ...interface{}) {
 	}
 
 	// Validate palette indices
-	paletteSize := len(DrawPaletteMap)
+	paletteSize := len(drawPaletteMap)
 	if c0 < 0 || c0 >= paletteSize {
 		log.Printf("Warning: Pal() c0 index %d out of bounds [0, %d). Aborting.", c0, paletteSize)
 		return
@@ -530,7 +530,7 @@ func Pal(args ...interface{}) {
 
 	switch p {
 	case 0: // Draw palette
-		DrawPaletteMap[c0] = c1
+		drawPaletteMap[c0] = c1
 	case 1: // Screen palette
 		log.Printf("Warning: Pal() with p=1 (screen palette) is not yet implemented.")
 		// For now, screen palette calls do not modify the drawPaletteMap or screen.
@@ -557,8 +557,8 @@ func Palt(args ...interface{}) {
 	// If called with no arguments, reset to default transparency settings
 	if len(args) == 0 {
 		// Default: only black (color 0) is transparent
-		for i := range PaletteTransparency {
-			PaletteTransparency[i] = (i == 0)
+		for i := range paletteTransparency {
+			paletteTransparency[i] = (i == 0)
 		}
 		return
 	}
@@ -576,7 +576,7 @@ func Palt(args ...interface{}) {
 	}
 
 	// Validate color index
-	if colorIndex < 0 || colorIndex >= len(PaletteTransparency) {
+	if colorIndex < 0 || colorIndex >= len(paletteTransparency) {
 		log.Printf("Warning: Palt() called with out-of-range color index: %d", colorIndex)
 		return
 	}
@@ -594,7 +594,7 @@ func Palt(args ...interface{}) {
 	}
 
 	// Set the transparency for the specified color
-	PaletteTransparency[colorIndex] = transparent
+	paletteTransparency[colorIndex] = transparent
 }
 
 // --- Palette Management Functions ---
@@ -622,23 +622,23 @@ func SetPalette(newPalette []color.Color) {
 	}
 
 	// Replace the palette
-	Pico8Palette = newPalette
+	pico8Palette = newPalette
 
 	// Resize transparency array to match
-	oldTransparency := PaletteTransparency
-	PaletteTransparency = make([]bool, len(newPalette))
+	oldTransparency := paletteTransparency
+	paletteTransparency = make([]bool, len(newPalette))
 
 	// Copy over existing transparency settings for indices that still exist
-	for i := 0; i < len(PaletteTransparency) && i < len(oldTransparency); i++ {
-		PaletteTransparency[i] = oldTransparency[i]
+	for i := 0; i < len(paletteTransparency) && i < len(oldTransparency); i++ {
+		paletteTransparency[i] = oldTransparency[i]
 	}
 
 	// Ensure at least the first color is transparent if we have any colors
-	if len(PaletteTransparency) > 0 {
-		PaletteTransparency[0] = true
+	if len(paletteTransparency) > 0 {
+		paletteTransparency[0] = true
 
 		// Resize and reset draw palette map as well
-		DrawPaletteMap = make([]int, len(newPalette))
+		drawPaletteMap = make([]int, len(newPalette))
 		resetDrawPaletteMapInternal()
 	}
 }
@@ -653,7 +653,7 @@ func SetPalette(newPalette []color.Color) {
 //	size := GetPaletteSize()
 //	Print(fmt.Sprintf("Palette has %d colors", size), 10, 10, 7)
 func GetPaletteSize() int {
-	return len(Pico8Palette)
+	return len(pico8Palette)
 }
 
 // GetPaletteColor returns the color.Color at the specified index in the palette.
@@ -666,8 +666,8 @@ func GetPaletteSize() int {
 //	// Get the color at index 3
 //	color3 := GetPaletteColor(3)
 func GetPaletteColor(colorIndex int) color.Color {
-	if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
-		return Pico8Palette[colorIndex]
+	if colorIndex >= 0 && colorIndex < len(pico8Palette) {
+		return pico8Palette[colorIndex]
 	}
 	return nil
 }
@@ -683,11 +683,11 @@ func GetPaletteColor(colorIndex int) color.Color {
 //	// Change color 7 (white) to a light blue
 //	SetPaletteColor(7, color.RGBA{200, 220, 255, 255})
 func SetPaletteColor(colorIndex int, newColor color.Color) {
-	if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
-		Pico8Palette[colorIndex] = newColor
+	if colorIndex >= 0 && colorIndex < len(pico8Palette) {
+		pico8Palette[colorIndex] = newColor
 	} else {
 		log.Printf("Warning: Attempted to set color at out-of-range index %d. Palette has %d colors.",
-			colorIndex, len(Pico8Palette))
+			colorIndex, len(pico8Palette))
 	}
 }
 
@@ -699,12 +699,12 @@ func SetPaletteColor(colorIndex int, newColor color.Color) {
 // IsDefaultPico8PaletteActive checks if the current p8.Pico8Palette is the standard PICO-8 palette.
 // It compares the current palette's length and RGBA values against the original PICO-8 colors.
 func IsDefaultPico8PaletteActive() bool {
-	if len(Pico8Palette) != len(originalPico8Palette) {
+	if len(pico8Palette) != len(originalPico8Palette) {
 		return false
 	}
-	for i := range Pico8Palette {
+	for i := range pico8Palette {
 		// Compare RGBA values directly. ebiten.Color.RGBA() returns premultiplied alpha values.
-		r1, g1, b1, a1 := Pico8Palette[i].RGBA()
+		r1, g1, b1, a1 := pico8Palette[i].RGBA()
 		r2, g2, b2, a2 := originalPico8Palette[i].RGBA()
 		if r1 != r2 || g1 != g2 || b1 != b2 || a1 != a2 {
 			return false

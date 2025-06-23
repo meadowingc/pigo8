@@ -5,6 +5,8 @@ package main
 
 import (
 	"image"
+	"log"
+	"os"
 
 	p8 "github.com/drpaneas/pigo8"
 )
@@ -17,6 +19,8 @@ type Game struct {
 	spritePos image.Point // sprite sheet coordinates (integer coordinates on spritesheet)
 	flipX     bool        // horizontal flip
 	dir       int         // 0=LEFT, 1=RIGHT, 2=UP, 3=DOWN
+
+	screenX int // current horizontal screen index
 }
 
 // Sprite positions on the spritesheet (x, y) for each direction/animation
@@ -42,6 +46,8 @@ func (g *Game) Update() {
 	isMoving := g.handleMovement()
 	g.updateAnimation(isMoving)
 
+	// Horizontal screen transition logic (160px per screen)
+	g.screenX = int(g.pos.X) / 160
 }
 
 // getInputDirection reads button presses and returns a movement vector
@@ -89,11 +95,9 @@ func (g *Game) getInputDirection() (dx, dy float64, dir int) {
 // handleMovement processes input and updates player position
 // Returns: isMoving (bool)
 func (g *Game) handleMovement() (isMoving bool) {
-	previousPos := g.pos
 	dx, dy, dir := g.getInputDirection()
 	g.dir = dir
 
-	// Check if there was movement
 	isMoving = dx != 0 || dy != 0
 
 	// Normalize diagonal movement
@@ -102,16 +106,27 @@ func (g *Game) handleMovement() (isMoving bool) {
 		dx, dy = dx/mag, dy/mag
 	}
 
-	// Apply movement
-	if isMoving {
-		// Create a movement vector and add it to position
-		moveVec := p8.NewVector2D(dx, dy).Scale(g.speed)
-		g.pos = g.pos.Add(moveVec)
+	// Move X and check collision
+	if dx != 0 {
+		newPos := g.pos.Add(p8.NewVector2D(dx, 0).Scale(g.speed))
+		if !p8.MapCollision(newPos.X, newPos.Y, 0, 16) {
+			g.pos.X = newPos.X
+		}
 	}
 
-	// Check for collision with walls (flag 0) using a 16x16 sprite size
-	if p8.MapCollision(g.pos.X, g.pos.Y, 0, 16) {
-		g.pos = previousPos // Restore position if collision detected
+	// Move Y and check collision
+	if dy != 0 {
+		newPos := g.pos.Add(p8.NewVector2D(0, dy).Scale(g.speed))
+		if !p8.MapCollision(newPos.X, newPos.Y, 0, 16) {
+			g.pos.Y = newPos.Y
+		}
+	}
+
+	// DEBUG logging if DEBUG=1
+	if os.Getenv("DEBUG") == "1" {
+		log.Printf("Player pos: (%.2f, %.2f), screenX: %d", g.pos.X, g.pos.Y, g.screenX)
+		collides := p8.MapCollision(g.pos.X, g.pos.Y, 0, 16)
+		log.Printf("Collision at (%.2f, %.2f): %v", g.pos.X, g.pos.Y, collides)
 	}
 
 	return isMoving
@@ -147,9 +162,18 @@ func (g *Game) updateAnimation(isMoving bool) {
 
 // Draw renders the game state to the screen
 func (g *Game) Draw() {
+	p8.Camera(g.screenX*160, 0)
 	p8.Cls(2) // Clear screen with color 2
 	p8.Map()  // Draw the map
 	p8.Sspr(g.spritePos.X, g.spritePos.Y, 16, 16, g.pos.X, g.pos.Y, 16, 16, g.flipX, false)
+	p8.Camera() // Reset camera if you want to draw UI fixed to the screen (optional)
+
+	// DEBUG: Show info on screen
+	p8.Print("position: ", 2, 2, 1)
+	p8.Print(int(g.pos.X), 40, 2, 1)
+	p8.Print(int(g.pos.Y), 80, 2, 1)
+	p8.Print("map screen: ", 2, 12, 1)
+	p8.Print(g.screenX, 70, 12, 1)
 }
 
 func main() {

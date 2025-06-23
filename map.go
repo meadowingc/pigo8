@@ -72,7 +72,7 @@ var (
 	worldMapMutex              sync.RWMutex // Protects worldMapStream
 	activeBufferMutex          sync.RWMutex // Protects activeTileBufferInstance
 
-	spriteInfoMap map[int]*SpriteInfo // Preserved
+	spriteInfoMap map[int]*spriteInfo // Preserved
 
 	// Map Caching (Preserved)
 	mapCacheImage                *ebiten.Image
@@ -335,7 +335,7 @@ func ensureStreamingSystemInitialized() {
 			log.Println("EnsureStreamingSystemInitialized: Spritesheet loaded.")
 
 			if len(spriteInfoMap) == 0 {
-				spriteInfoMap = make(map[int]*SpriteInfo, len(currentSprites))
+				spriteInfoMap = make(map[int]*spriteInfo, len(currentSprites))
 				for i := range currentSprites {
 					info := &currentSprites[i]
 					spriteInfoMap[info.ID] = info
@@ -481,7 +481,7 @@ func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
 					}
 				}
 
-				tileImg := GetSpriteImage(spriteID) // GetSpriteImage handles nil if sprite not found
+				tileImg := getSpriteImage(spriteID) // GetSpriteImage handles nil if sprite not found
 				if tileImg != nil {
 					opts := &ebiten.DrawImageOptions{}
 					opts.Filter = ebiten.FilterNearest

@@ -12,7 +12,7 @@ func TestNetworkFunctions(t *testing.T) {
 
 	t.Run("Network status functions", func(_ *testing.T) {
 		// Just testing that these don't panic
-		isNetworkInitialized()
+		IsNetworkInitialized()
 		IsServer()
 		IsClient()
 		IsWaitingForPlayers()

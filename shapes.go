@@ -34,7 +34,7 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 		switch v := options[0].(type) {
 		case int:
 			// Handle integer color directly
-			if v >= 0 && v < len(Pico8Palette) {
+			if v >= 0 && v < len(pico8Palette) {
 				drawColorIndex = v
 				// Update both color variables to keep them in sync
 				currentDrawColor = v
@@ -45,7 +45,7 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 		case float64:
 			// Convert float64 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
@@ -56,7 +56,7 @@ func parseRectArgs(x1, y1, x2, y2 float64, options []interface{}) (float32, floa
 		case float32:
 			// Convert float32 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
@@ -101,6 +101,12 @@ func Rect[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 	fx1, fy1 = applyCameraOffset(fx1, fy1)
 	fx2, fy2 = applyCameraOffset(fx2, fy2)
 
+	// Round to nearest integer for pixel-perfect rendering
+	fx1 = math.Round(fx1)
+	fy1 = math.Round(fy1)
+	fx2 = math.Round(fx2)
+	fy2 = math.Round(fy2)
+
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
 		return // Argument parsing logged an issue
@@ -108,10 +114,10 @@ func Rect[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 
 	// Get the actual color from the palette
 	var actualColor color.Color
-	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
-		actualColor = Pico8Palette[drawColorIndex]
+	if drawColorIndex >= 0 && drawColorIndex < len(pico8Palette) {
+		actualColor = pico8Palette[drawColorIndex]
 	} else {
-		actualColor = Pico8Palette[0] // Fallback to black
+		actualColor = pico8Palette[0] // Fallback to black
 		log.Printf("Error: Invalid effective drawing color index %d for Rect(). Defaulting to black.", drawColorIndex)
 	}
 
@@ -164,6 +170,12 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 	fx1, fy1 = applyCameraOffset(fx1, fy1)
 	fx2, fy2 = applyCameraOffset(fx2, fy2)
 
+	// Round to nearest integer for pixel-perfect rendering
+	fx1 = math.Round(fx1)
+	fy1 = math.Round(fy1)
+	fx2 = math.Round(fx2)
+	fy2 = math.Round(fy2)
+
 	rectX, rectY, rectW, rectH, drawColorIndex, ok := parseRectArgs(fx1, fy1, fx2, fy2, options)
 	if !ok {
 		return // Argument parsing logged an issue
@@ -172,25 +184,25 @@ func Rectfill[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y
 	originalColorIndex := drawColorIndex
 
 	// Validate originalColorIndex against DrawPaletteMap bounds
-	if len(DrawPaletteMap) == 0 || originalColorIndex < 0 || originalColorIndex >= len(DrawPaletteMap) {
-		log.Printf("Warning: Rectfill() DrawPaletteMap not ready or originalColorIndex %d invalid for map size %d. Ignoring.", originalColorIndex, len(DrawPaletteMap))
+	if len(drawPaletteMap) == 0 || originalColorIndex < 0 || originalColorIndex >= len(drawPaletteMap) {
+		log.Printf("Warning: Rectfill() DrawPaletteMap not ready or originalColorIndex %d invalid for map size %d. Ignoring.", originalColorIndex, len(drawPaletteMap))
 		return
 	}
-	mappedColorIndex := DrawPaletteMap[originalColorIndex]
+	mappedColorIndex := drawPaletteMap[originalColorIndex]
 
 	// Validate mappedColorIndex against Pico8Palette and PaletteTransparency bounds
-	if mappedColorIndex < 0 || mappedColorIndex >= len(Pico8Palette) || mappedColorIndex >= len(PaletteTransparency) {
-		log.Printf("Warning: Rectfill() mappedColorIndex %d is out of bounds for Pico8Palette (size %d) or PaletteTransparency (size %d). Original: %d. Ignoring.", mappedColorIndex, len(Pico8Palette), len(PaletteTransparency), originalColorIndex)
+	if mappedColorIndex < 0 || mappedColorIndex >= len(pico8Palette) || mappedColorIndex >= len(paletteTransparency) {
+		log.Printf("Warning: Rectfill() mappedColorIndex %d is out of bounds for Pico8Palette (size %d) or PaletteTransparency (size %d). Original: %d. Ignoring.", mappedColorIndex, len(pico8Palette), len(paletteTransparency), originalColorIndex)
 		return
 	}
 
 	// Check if the mapped color is transparent
-	if PaletteTransparency[mappedColorIndex] {
+	if paletteTransparency[mappedColorIndex] {
 		return // Don't draw transparent rectangles
 	}
 
 	// Get the actual color from the palette using the mapped index
-	actualColor := Pico8Palette[mappedColorIndex]
+	actualColor := pico8Palette[mappedColorIndex]
 
 	// Draw filled rectangle using Ebitengine vector graphics
 	vector.DrawFilledRect(
@@ -214,7 +226,7 @@ func parseLineArgs(options []interface{}) (int, bool) {
 		switch v := options[0].(type) {
 		case int:
 			// Handle integer color directly
-			if v >= 0 && v < len(Pico8Palette) {
+			if v >= 0 && v < len(pico8Palette) {
 				drawColorIndex = v
 				// Update the global drawing color to match PICO-8 behavior
 				currentDrawColor = v
@@ -224,7 +236,7 @@ func parseLineArgs(options []interface{}) (int, bool) {
 		case float64:
 			// Convert float64 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update the global drawing color to match PICO-8 behavior
 				currentDrawColor = intVal
@@ -234,7 +246,7 @@ func parseLineArgs(options []interface{}) (int, bool) {
 		case float32:
 			// Convert float32 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update the global drawing color to match PICO-8 behavior
 				currentDrawColor = intVal
@@ -269,6 +281,12 @@ func Line[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 	// Convert to float64 for calculations
 	fx1, fy1, fx2, fy2 := float64(x1), float64(y1), float64(x2), float64(y2)
 
+	// Round to nearest integer for pixel-perfect rendering
+	fx1 = math.Round(fx1)
+	fy1 = math.Round(fy1)
+	fx2 = math.Round(fx2)
+	fy2 = math.Round(fy2)
+
 	// Parse optional color argument
 	drawColorIndex, ok := parseLineArgs(options)
 	if !ok {
@@ -277,10 +295,10 @@ func Line[X1 Number, Y1 Number, X2 Number, Y2 Number](x1 X1, y1 Y1, x2 X2, y2 Y2
 
 	// Get the actual color from the palette
 	var actualColor color.Color
-	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
-		actualColor = Pico8Palette[drawColorIndex]
+	if drawColorIndex >= 0 && drawColorIndex < len(pico8Palette) {
+		actualColor = pico8Palette[drawColorIndex]
 	} else {
-		actualColor = Pico8Palette[0] // Fallback to black
+		actualColor = pico8Palette[0] // Fallback to black
 		log.Printf("Error: Invalid effective drawing color index %d for Line(). Defaulting to black.", drawColorIndex)
 	}
 
@@ -308,7 +326,7 @@ func parseCircArgs(x, y, radius float64, options []interface{}) (float32, float3
 		switch v := options[0].(type) {
 		case int:
 			// Handle integer color directly
-			if v >= 0 && v < len(Pico8Palette) {
+			if v >= 0 && v < len(pico8Palette) {
 				drawColorIndex = v
 				// Update both color variables to keep them in sync
 				currentDrawColor = v
@@ -319,7 +337,7 @@ func parseCircArgs(x, y, radius float64, options []interface{}) (float32, float3
 		case float64:
 			// Convert float64 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
@@ -330,7 +348,7 @@ func parseCircArgs(x, y, radius float64, options []interface{}) (float32, float3
 		case float32:
 			// Convert float32 to int for color
 			intVal := int(v)
-			if intVal >= 0 && intVal < len(Pico8Palette) {
+			if intVal >= 0 && intVal < len(pico8Palette) {
 				drawColorIndex = intVal
 				// Update both color variables to keep them in sync
 				currentDrawColor = intVal
@@ -368,6 +386,10 @@ func Circ[X Number, Y Number, R Number](x X, y Y, radius R, options ...interface
 	// Apply camera offset
 	fx, fy = applyCameraOffset(fx, fy)
 
+	// Round to nearest integer for pixel-perfect rendering
+	fx = math.Round(fx)
+	fy = math.Round(fy)
+
 	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
 	if !ok {
 		return // Argument parsing logged an issue
@@ -375,10 +397,10 @@ func Circ[X Number, Y Number, R Number](x X, y Y, radius R, options ...interface
 
 	// Get the actual color from the palette
 	var actualColor color.Color
-	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
-		actualColor = Pico8Palette[drawColorIndex]
+	if drawColorIndex >= 0 && drawColorIndex < len(pico8Palette) {
+		actualColor = pico8Palette[drawColorIndex]
 	} else {
-		actualColor = Pico8Palette[0] // Fallback to black
+		actualColor = pico8Palette[0] // Fallback to black
 		log.Printf("Error: Invalid effective drawing color index %d for Circ(). Defaulting to black.", drawColorIndex)
 	}
 
@@ -413,6 +435,10 @@ func Circfill[X Number, Y Number, R Number](x X, y Y, radius R, options ...inter
 	// Apply camera offset
 	fx, fy = applyCameraOffset(fx, fy)
 
+	// Round to nearest integer for pixel-perfect rendering
+	fx = math.Round(fx)
+	fy = math.Round(fy)
+
 	circX, circY, circR, drawColorIndex, ok := parseCircArgs(fx, fy, fr, options)
 	if !ok {
 		return // Argument parsing logged an issue
@@ -420,10 +446,10 @@ func Circfill[X Number, Y Number, R Number](x X, y Y, radius R, options ...inter
 
 	// Get the actual color from the palette
 	var actualColor color.Color
-	if drawColorIndex >= 0 && drawColorIndex < len(Pico8Palette) {
-		actualColor = Pico8Palette[drawColorIndex]
+	if drawColorIndex >= 0 && drawColorIndex < len(pico8Palette) {
+		actualColor = pico8Palette[drawColorIndex]
 	} else {
-		actualColor = Pico8Palette[0] // Fallback to black
+		actualColor = pico8Palette[0] // Fallback to black
 		log.Printf("Error: Invalid effective drawing color index %d for Circfill(). Defaulting to black.", drawColorIndex)
 	}
 

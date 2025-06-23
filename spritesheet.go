@@ -47,26 +47,26 @@ type spriteSheet struct { // Internal
 
 // Default sprite sheet dimensions (16x16 sprites)
 var (
-	// SpritesheetColumns is the number of sprite columns in the sprite sheet
+	// spritesheetColumns is the number of sprite columns in the sprite sheet
 	// Default is 16 for standard PICO-8, 32 for custom palette
-	SpritesheetColumns = 16
+	spritesheetColumns = 16
 
-	// SpritesheetRows is the number of sprite rows in the sprite sheet
+	// spritesheetRows is the number of sprite rows in the sprite sheet
 	// Default is 16 for standard PICO-8, 24 for custom palette
-	SpritesheetRows = 16
+	spritesheetRows = 16
 
-	// SpritesheetWidth is the pixel width of the sprite sheet (columns * 8)
-	SpritesheetWidth = 128
+	// spritesheetWidth is the pixel width of the sprite sheet (columns * 8)
+	spritesheetWidth = 128
 
-	// SpritesheetHeight is the pixel height of the sprite sheet (rows * 8)
-	SpritesheetHeight = 128
+	// spritesheetHeight is the pixel height of the sprite sheet (rows * 8)
+	spritesheetHeight = 128
 )
 
 // --- Target struct to hold processed sprite info ---
 
-// SpriteInfo holds the processed, ready-to-use sprite data.
+// spriteInfo holds the processed, ready-to-use sprite data.
 // Exported for use in main.go.
-type SpriteInfo struct { // Exported
+type spriteInfo struct { // Exported
 	ID    int
 	Image *ebiten.Image
 	Flags FlagsData
@@ -77,7 +77,7 @@ type SpriteInfo struct { // Exported
 // loadSpritesheetFromData processes sprite data provided as a byte slice.
 // This allows users to load the spritesheet.json using go:embed or other methods
 // in their own code (enabling build-time checks) and pass the data directly.
-func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
+func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 	// Basic check if data is empty
 	if len(data) == 0 {
 		return nil, fmt.Errorf("provided spritesheet data is empty")
@@ -98,27 +98,27 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 			"Warning: No sprites found after unmarshalling spritesheet data. Check JSON format and tags.",
 		)
 		// Return empty slice, not necessarily an error
-		return []SpriteInfo{}, nil
+		return []spriteInfo{}, nil
 	}
 
 	// Check for custom spritesheet dimensions in the JSON file
 	if sheet.SpriteSheetColumns > 0 && sheet.SpriteSheetRows > 0 {
 		// Update the global sprite sheet dimensions
-		SpritesheetColumns = sheet.SpriteSheetColumns
-		SpritesheetRows = sheet.SpriteSheetRows
+		spritesheetColumns = sheet.SpriteSheetColumns
+		spritesheetRows = sheet.SpriteSheetRows
 
 		// If width and height are specified, use them directly
 		if sheet.SpriteSheetWidth > 0 && sheet.SpriteSheetHeight > 0 {
-			SpritesheetWidth = sheet.SpriteSheetWidth
-			SpritesheetHeight = sheet.SpriteSheetHeight
+			spritesheetWidth = sheet.SpriteSheetWidth
+			spritesheetHeight = sheet.SpriteSheetHeight
 		} else {
 			// Otherwise calculate them from columns and rows (assuming 8x8 sprites)
-			SpritesheetWidth = SpritesheetColumns * 8
-			SpritesheetHeight = SpritesheetRows * 8
+			spritesheetWidth = spritesheetColumns * 8
+			spritesheetHeight = spritesheetRows * 8
 		}
 
 		log.Printf("Custom spritesheet dimensions detected: %dx%d sprites (%dx%d pixels)",
-			SpritesheetColumns, SpritesheetRows, SpritesheetWidth, SpritesheetHeight)
+			spritesheetColumns, spritesheetRows, spritesheetWidth, spritesheetHeight)
 	}
 	// Check if pixel data is present for the first sprite (if any)
 	if len(sheet.Sprites) > 0 && len(sheet.Sprites[0].Pixels) == 0 {
@@ -128,7 +128,7 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 	}
 
 	// Process used sprites
-	var loadedSprites []SpriteInfo
+	var loadedSprites []spriteInfo
 	for _, spriteData := range sheet.Sprites {
 		if !spriteData.Used {
 			continue // Skip unused sprites
@@ -151,10 +151,10 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		for y, row := range spriteData.Pixels {
 			for x, colorIndex := range row {
 				// Use Pico8Palette (defined in screen.go, same package)
-				if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
+				if colorIndex >= 0 && colorIndex < len(pico8Palette) {
 					// PICO-8 color 0 is often transparent
 					if colorIndex != 0 {
-						img.Set(x, y, Pico8Palette[colorIndex])
+						img.Set(x, y, pico8Palette[colorIndex])
 					}
 				} else {
 					log.Printf("Warning: Sprite %d has out-of-range color index %d at (%d, %d)", spriteData.ID, colorIndex, x, y)
@@ -163,7 +163,7 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 		}
 
 		// Create the SpriteInfo struct
-		info := SpriteInfo{
+		info := spriteInfo{
 			ID:    spriteData.ID,
 			Image: img,
 			Flags: spriteData.Flags,
@@ -183,7 +183,7 @@ func loadSpritesheetFromData(data []byte) ([]SpriteInfo, error) {
 
 // loadSpritesheet tries to load spritesheet.json from the current directory, then from common locations,
 // then from custom embedded resources, and finally falls back to default embedded resources.
-func loadSpritesheet() ([]SpriteInfo, error) {
+func loadSpritesheet() ([]spriteInfo, error) {
 	const spritesheetFilename = "spritesheet.json"
 
 	// First try to load from the file system

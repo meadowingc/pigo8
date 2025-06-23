@@ -72,7 +72,7 @@ func loadPaletteFromHexFile() bool {
 	SetPalette(newPalette)
 
 	// Ensure color 0 is transparent
-	PaletteTransparency[0] = true
+	paletteTransparency[0] = true
 	// By default, other colors including index 1 (white) will be opaque unless specified otherwise
 
 	// Log when palette is loaded

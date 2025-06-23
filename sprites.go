@@ -82,6 +82,9 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 
 	// Apply camera offset before using coordinates for drawing
 	screenFx, screenFy := applyCameraOffset(fx, fy)
+	// Always round destination coordinates to nearest integer for pixel-perfect rendering
+	screenFx = math.Round(screenFx)
+	screenFy = math.Round(screenFy)
 
 	// Use internal package variables set by engine.Draw
 	if currentScreen == nil {
@@ -128,9 +131,9 @@ func Spr[SN Number, X Number, Y Number](spriteNumber SN, x X, y Y, options ...an
 }
 
 // findSpriteByID finds a sprite by its ID or falls back to using the index if ID not found
-func findSpriteByID(spriteNumInt int) *SpriteInfo {
+func findSpriteByID(spriteNumInt int) *spriteInfo {
 	// --- Find the Sprite by ID ---
-	var spriteInfo *SpriteInfo
+	var spriteInfo *spriteInfo
 	for i := range currentSprites {
 		if currentSprites[i].ID == spriteNumInt { // Use the integer version
 			spriteInfo = &currentSprites[i]
@@ -223,10 +226,10 @@ func createTransparentSpriteImage(tileImage *ebiten.Image) *ebiten.Image {
 			isTransparent := false
 
 			// Find which color index this pixel matches
-			for i, paletteColor := range Pico8Palette {
+			for i, paletteColor := range pico8Palette {
 				if colorEquals(pixelColor, paletteColor) {
 					// Check if this color is set to be transparent
-					if i < len(PaletteTransparency) && PaletteTransparency[i] {
+					if i < len(paletteTransparency) && paletteTransparency[i] {
 						isTransparent = true
 					}
 					break
@@ -275,11 +278,11 @@ func setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH float64, fli
 	return opts
 }
 
-// GetSpriteImage returns the *ebiten.Image for a given sprite ID.
+// getSpriteImage returns the *ebiten.Image for a given sprite ID.
 // It first tries to find a sprite with a matching ID.
 // If not found, it tries to use the spriteID as an index into the spritesheet.
 // Returns nil if the sprite cannot be found.
-func GetSpriteImage(spriteID int) *ebiten.Image {
+func getSpriteImage(spriteID int) *ebiten.Image {
 	allSprites := CurrentSprites() // Get sprites from engine
 	if allSprites == nil {
 		// This can happen if sprites haven't been loaded yet.
@@ -297,7 +300,7 @@ func GetSpriteImage(spriteID int) *ebiten.Image {
 		}
 	}
 
-	var foundSpriteInfo *SpriteInfo
+	var foundSpriteInfo *spriteInfo
 
 	// Try to find by ID first
 	for i := range allSprites {
@@ -369,7 +372,7 @@ func Sget[X Number, Y Number](x X, y Y) int {
 			pixelColor := sprite.Image.At(localX, localY)
 
 			// Find the matching color in the PICO-8 palette
-			for i, color := range Pico8Palette {
+			for i, color := range pico8Palette {
 				if colorEquals(pixelColor, color) {
 					return i // Return the color index (0-15)
 				}
@@ -401,8 +404,8 @@ func Color(colorIndex int) {
 	// Clamp color index to valid range (0-15)
 	if colorIndex < 0 {
 		colorIndex = 0
-	} else if colorIndex >= len(Pico8Palette) {
-		colorIndex = len(Pico8Palette) - 1
+	} else if colorIndex >= len(pico8Palette) {
+		colorIndex = len(pico8Palette) - 1
 	}
 
 	// Update both color variables to keep them in sync
@@ -592,7 +595,7 @@ func Fget(spriteNum int, flag ...int) (bitfield int, isSet bool) {
 	}
 
 	// Find the sprite with the matching ID
-	var spriteInfo *SpriteInfo
+	var spriteInfo *spriteInfo
 	for i := range currentSprites {
 		if currentSprites[i].ID == spriteNum {
 			spriteInfo = &currentSprites[i]
@@ -645,8 +648,8 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 		// Clamp color index to valid range (0-15)
 		if colorToUse < 0 {
 			colorToUse = 0
-		} else if colorToUse >= len(Pico8Palette) {
-			colorToUse = len(Pico8Palette) - 1
+		} else if colorToUse >= len(pico8Palette) {
+			colorToUse = len(pico8Palette) - 1
 		}
 	}
 
@@ -676,7 +679,7 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 		sprite := &currentSprites[i]
 		if sprite.ID == spriteCellID {
 			// Set the pixel color within this sprite
-			sprite.Image.Set(localX, localY, Pico8Palette[colorToUse])
+			sprite.Image.Set(localX, localY, pico8Palette[colorToUse])
 			return
 		}
 	}
@@ -800,14 +803,14 @@ func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *e
 			colorIndex := Sget(sourceX+x, sourceY+y)
 
 			// Skip transparent pixels based on the palette transparency settings
-			if colorIndex >= 0 && colorIndex < len(PaletteTransparency) && PaletteTransparency[colorIndex] {
+			if colorIndex >= 0 && colorIndex < len(paletteTransparency) && paletteTransparency[colorIndex] {
 				// Skip this pixel, leaving it transparent
 				continue
 			}
 
-			if colorIndex >= 0 && colorIndex < len(Pico8Palette) {
+			if colorIndex >= 0 && colorIndex < len(pico8Palette) {
 				// Set the pixel in the temporary image
-				sourceImage.Set(x, y, Pico8Palette[colorIndex])
+				sourceImage.Set(x, y, pico8Palette[colorIndex])
 			}
 		}
 	}
@@ -848,8 +851,11 @@ func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx S
 	sourceY := int(sy)      // Source Y on spritesheet
 	sourceWidth := int(sw)  // Source width on spritesheet
 	sourceHeight := int(sh) // Source height on spritesheet
-	destX := float64(dx)    // Destination X on screen
-	destY := float64(dy)    // Destination Y on screen
+	destX := float64(dx)
+	destY := float64(dy)
+	// Always round destination coordinates to nearest integer for pixel-perfect rendering
+	destX = math.Round(destX)
+	destY = math.Round(destY)
 
 	// Use internal package variables set by engine.Draw
 	if currentScreen == nil {
@@ -873,7 +879,7 @@ func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx S
 	// Validate source rectangle is within spritesheet bounds
 	if !validateSpriteSheetBounds(sourceX, sourceY, sourceWidth, sourceHeight) {
 		log.Printf("Warning: Sspr() source rectangle (%d,%d,%d,%d) is outside spritesheet bounds (0,0,%d,%d)",
-			sourceX, sourceY, sourceWidth, sourceHeight, SpritesheetWidth, SpritesheetHeight)
+			sourceX, sourceY, sourceWidth, sourceHeight, spritesheetWidth, spritesheetHeight)
 		// Continue anyway, Ebiten will handle clipping
 	}
 

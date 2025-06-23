@@ -11,6 +11,7 @@ import (
 	"time"
 
 	p8 "github.com/drpaneas/pigo8"
+	p8net "github.com/drpaneas/pigo8/network"
 )
 
 // Court boundaries
@@ -121,8 +122,8 @@ func (g *Game) Init() {
 	}
 
 	// Set network status
-	g.isServer = p8.IsServer()
-	g.isClient = p8.IsClient()
+	g.isServer = p8net.IsServer()
+	g.isClient = p8net.IsClient()
 	g.gameStarted = false
 	g.waitingForPlayer = true
 	g.lastStateUpdate = time.Now()
@@ -132,13 +133,13 @@ func (g *Game) Init() {
 // Update handles game logic each frame including input, AI, collisions and scoring
 func (g *Game) Update() {
 	// Check for network connection issues
-	if p8.IsConnectionLost() {
+	if p8net.IsConnectionLost() {
 		// Network error is now handled by PIGO8 library
 		return
 	}
 
 	// If we're waiting for a player, check if someone connected
-	if p8.IsWaitingForPlayers() {
+	if p8net.IsWaitingForPlayers() {
 		// Waiting state is now handled by PIGO8 library
 		g.waitingForPlayer = true
 		return
@@ -148,7 +149,7 @@ func (g *Game) Update() {
 		g.gameStarted = true
 
 		// Get the first connected player as remote player
-		players := p8.GetConnectedPlayers()
+		players := p8net.GetConnectedPlayers()
 		if len(players) > 0 {
 			g.remotePlayerID = players[0]
 		}
@@ -239,8 +240,8 @@ func (g *Game) Draw() {
 	p8.Cls(0)
 
 	// Display network status using the standardized PIGO8 function
-	if p8.IsWaitingForPlayers() || p8.GetNetworkError() != "" {
-		p8.DrawNetworkStatus(networkStatusX, networkStatusY, networkTextColor)
+	if p8net.IsWaitingForPlayers() || p8net.GetNetworkError() != "" {
+		p8net.DrawNetworkStatus(networkStatusX, networkStatusY, networkTextColor)
 		return
 	}
 
@@ -307,7 +308,7 @@ func (g *Game) sendGameState() {
 		return
 	}
 
-	p8.SendGameState(data, "all")
+	p8net.SendGameState(data, "all")
 }
 
 // sendPlayerInput sends the player's input to the server
@@ -332,7 +333,7 @@ func (g *Game) sendPlayerInput() {
 	}
 
 	// Send input to server
-	p8.SendPlayerInput(data)
+	p8net.SendPlayerInput(data)
 	g.lastInputSent = time.Now()
 }
 
@@ -473,10 +474,10 @@ func main() {
 
 	// IMPORTANT: Register network callbacks BEFORE initializing the network
 	log.Printf("Registering network callbacks...")
-	p8.SetOnGameStateCallback(handleGameState)
-	p8.SetOnPlayerInputCallback(handlePlayerInput)
-	p8.SetOnConnectCallback(handlePlayerConnect)
-	p8.SetOnDisconnectCallback(handlePlayerDisconnect)
+	p8net.SetOnGameStateCallback(handleGameState)
+	p8net.SetOnPlayerInputCallback(handlePlayerInput)
+	p8net.SetOnConnectCallback(handlePlayerConnect)
+	p8net.SetOnDisconnectCallback(handlePlayerDisconnect)
 
 	// Configure the game settings
 	settings := p8.NewSettings()
@@ -486,15 +487,15 @@ func main() {
 	settings.Multiplayer = true
 
 	// Initialize network manually first to ensure callbacks are registered
-	config := p8.ParseNetworkArgs()
+	config := p8net.ParseNetworkArgs()
 	config.GameName = "PIGO8 Multiplayer Pong"
-	if err := p8.InitNetwork(config); err != nil {
+	if err := p8net.InitNetwork(config); err != nil {
 		log.Printf("Error initializing network: %v", err)
 	}
 
 	// Force register callbacks directly on the network manager as a fallback
 	log.Printf("Force registering callbacks to ensure they're set...")
-	p8.ForceRegisterCallbacks(
+	p8net.ForceRegisterCallbacks(
 		handleGameState,
 		handlePlayerInput,
 		handlePlayerConnect,
@@ -502,7 +503,7 @@ func main() {
 	)
 
 	// Verify callbacks are registered
-	if !p8.AreCallbacksRegistered() {
+	if !p8net.AreCallbacksRegistered() {
 		log.Printf("WARNING: Callbacks are still not registered after force registration!")
 	} else {
 		log.Printf("SUCCESS: All callbacks are now registered")

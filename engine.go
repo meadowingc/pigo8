@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/drpaneas/pigo8/network"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -70,7 +71,7 @@ var (
 // They are set by the engine's Draw method each frame.
 var (
 	currentScreen    *ebiten.Image // Internal: Current screen image
-	currentSprites   []SpriteInfo  // Internal: Loaded sprites
+	currentSprites   []spriteInfo  // Internal: Loaded sprites
 	currentDrawColor int           // Internal: Current draw color (0-15)
 	elapsedTime      float64       // Internal: Time elapsed since game start (in seconds)
 	timeIncrement    float64       // Internal: Amount to increment time each update
@@ -281,7 +282,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 
 // CurrentSprites returns the currently loaded sprite data slice.
 // Useful if user code needs to check len(sprites) or access flags.
-func CurrentSprites() []SpriteInfo {
+func CurrentSprites() []spriteInfo {
 	return currentSprites
 }
 
@@ -327,11 +328,11 @@ func PlayGameWith(settings *Settings) {
 	// Only initialize networking if multiplayer is enabled
 	if cfg.Multiplayer {
 		// Check if network is already initialized
-		if isNetworkInitialized() {
+		if network.IsNetworkInitialized() {
 			log.Println("Network already initialized, skipping initialization")
 		} else {
 			// Check for network configuration from command line arguments
-			networkConfig := ParseNetworkArgs()
+			networkConfig := network.ParseNetworkArgs()
 
 			// Set game name from window title if not specified
 			if networkConfig.GameName == "PIGO8 Game" {
@@ -339,12 +340,12 @@ func PlayGameWith(settings *Settings) {
 			}
 
 			// Initialize networking
-			if err := InitNetwork(networkConfig); err != nil {
+			if err := network.InitNetwork(networkConfig); err != nil {
 				log.Printf("Warning: Failed to initialize network: %v", err)
 			}
 			log.Println("Multiplayer networking enabled")
 		}
-		defer shutdownNetwork()
+		defer network.ShutdownNetwork()
 	} else {
 		log.Println("Multiplayer networking disabled")
 	}
