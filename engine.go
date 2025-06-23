@@ -280,9 +280,9 @@ func (g *game) Draw(screen *ebiten.Image) {
 
 // --- Helper for User Code ---
 
-// CurrentSprites returns the currently loaded sprite data slice.
+// getCurrentSprites returns the currently loaded sprite data slice.
 // Useful if user code needs to check len(sprites) or access flags.
-func CurrentSprites() []spriteInfo {
+func getCurrentSprites() []spriteInfo {
 	return currentSprites
 }
 

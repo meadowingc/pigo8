@@ -1,3 +1,4 @@
+// Package network helps with multiplayer support
 package network
 
 import (
@@ -47,8 +48,8 @@ const (
 	RoleClient
 )
 
-// networkConfig holds configuration for network functionality
-type networkConfig struct {
+// Config holds configuration for network functionality
+type Config struct {
 	Role       networkRole // Whether this instance is a server or client
 	Address    string      // Address to connect to (for client) or listen on (for server)
 	Port       int         // Port to use for connection
@@ -58,8 +59,8 @@ type networkConfig struct {
 }
 
 // defaultNetworkConfig returns a default network configuration
-func defaultNetworkConfig() *networkConfig {
-	return &networkConfig{
+func defaultNetworkConfig() *Config {
+	return &Config{
 		Role:       RoleServer,
 		Address:    "localhost",
 		Port:       8080,
@@ -71,9 +72,9 @@ func defaultNetworkConfig() *networkConfig {
 
 // --- Network Manager ---
 
-// NetworkManager handles all networking functionality
-type NetworkManager struct {
-	config *networkConfig
+// Manager handles all networking functionality
+type Manager struct {
+	config *Config
 	// UDP specific fields
 	udpConn    *net.UDPConn            // UDP connection for both server and client
 	serverAddr *net.UDPAddr            // Server address (used by clients)
@@ -100,14 +101,14 @@ type NetworkManager struct {
 
 var (
 	// Global network manager instance
-	networkManager *NetworkManager
+	networkManager *Manager
 	networkMutex   sync.Mutex
 )
 
 // --- Network Initialization ---
 
 // InitNetwork initializes the networking system with the given configuration
-func InitNetwork(config *networkConfig) error {
+func InitNetwork(config *Config) error {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -145,7 +146,7 @@ func InitNetwork(config *networkConfig) error {
 	}
 
 	// Create a new network manager
-	networkManager = &NetworkManager{
+	networkManager = &Manager{
 		config:            config,
 		incomingMsgs:      make(chan networkMessage, config.BufferSize),
 		outgoingMsgs:      make(chan networkMessage, config.BufferSize),
@@ -214,7 +215,7 @@ func ShutdownNetwork() {
 // --- Server Functions ---
 
 // startServer initializes a UDP server that listens for client messages
-func (nm *NetworkManager) startServer() error {
+func (nm *Manager) startServer() error {
 	// Parse the UDP address to listen on
 	addr := net.JoinHostPort(nm.config.Address, fmt.Sprintf("%d", nm.config.Port))
 	log.Printf("Starting UDP server on %s...", addr)
@@ -261,7 +262,7 @@ func (nm *NetworkManager) startServer() error {
 }
 
 // sendHeartbeats sends heartbeat messages to all connected clients
-func (nm *NetworkManager) sendHeartbeats() {
+func (nm *Manager) sendHeartbeats() {
 	nm.mutex.Lock()
 	defer nm.mutex.Unlock()
 
@@ -294,7 +295,7 @@ func (nm *NetworkManager) sendHeartbeats() {
 }
 
 // receiveMessages handles incoming UDP messages
-func (nm *NetworkManager) receiveMessages() {
+func (nm *Manager) receiveMessages() {
 	log.Printf("Starting to receive UDP messages...")
 
 	// Buffer for incoming messages
@@ -318,7 +319,7 @@ func (nm *NetworkManager) receiveMessages() {
 }
 
 // handleUDPMessage processes a UDP message from a client
-func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
+func (nm *Manager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 	// Check if we have valid data
 	if len(data) == 0 {
 		log.Printf("Received empty UDP message, ignoring")
@@ -434,7 +435,7 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 }
 
 // handleClientDisconnect handles a client disconnection
-func (nm *NetworkManager) handleClientDisconnect(playerID string) {
+func (nm *Manager) handleClientDisconnect(playerID string) {
 	nm.mutex.Lock()
 	delete(nm.clients, playerID)
 	delete(nm.lastHeard, playerID)
@@ -452,7 +453,7 @@ func (nm *NetworkManager) handleClientDisconnect(playerID string) {
 }
 
 // sendPong sends a pong response to a ping
-func (nm *NetworkManager) sendPong(playerID string, addr *net.UDPAddr) {
+func (nm *Manager) sendPong(playerID string, addr *net.UDPAddr) {
 	// Create pong message
 	pongMsg := networkMessage{
 		Type:     msgPong,
@@ -484,7 +485,7 @@ func (nm *NetworkManager) sendPong(playerID string, addr *net.UDPAddr) {
 // --- Client Functions ---
 
 // connectToServer connects to a game server using UDP
-func (nm *NetworkManager) connectToServer() error {
+func (nm *Manager) connectToServer() error {
 	// Resolve the server address
 	serverAddr := net.JoinHostPort(nm.config.Address, fmt.Sprintf("%d", nm.config.Port))
 	log.Printf("Attempting to connect to UDP server at %s...", serverAddr)
@@ -566,7 +567,7 @@ func (nm *NetworkManager) connectToServer() error {
 // --- Message Processing ---
 
 // processMessages handles all incoming and outgoing messages
-func (nm *NetworkManager) processMessages() {
+func (nm *Manager) processMessages() {
 	for nm.isRunning {
 		select {
 		case msg := <-nm.incomingMsgs:
@@ -578,7 +579,7 @@ func (nm *NetworkManager) processMessages() {
 }
 
 // handleIncomingMessage processes an incoming network message
-func (nm *NetworkManager) handleIncomingMessage(msg networkMessage) {
+func (nm *Manager) handleIncomingMessage(msg networkMessage) {
 	switch msg.Type {
 	case msgGameState:
 		if nm.onGameState != nil {
@@ -599,7 +600,7 @@ func (nm *NetworkManager) handleIncomingMessage(msg networkMessage) {
 }
 
 // sendMessage sends a message to the appropriate destination using UDP
-func (nm *NetworkManager) sendMessage(msg networkMessage) {
+func (nm *Manager) sendMessage(msg networkMessage) {
 	// Log the message being sent
 	log.Printf("Sending message: type=%v, playerID=%s, dataSize=%d", msg.Type, msg.PlayerID, len(msg.Data))
 
@@ -890,7 +891,7 @@ func SendPlayerInput(data []byte) {
 
 // ParseNetworkArgs parses command line arguments for network configuration
 // This is a helper function to standardize network command line arguments
-func ParseNetworkArgs() *networkConfig {
+func ParseNetworkArgs() *Config {
 	config := defaultNetworkConfig()
 
 	// Define command line flags
@@ -968,7 +969,7 @@ func getLocalIP() string {
 
 // DrawNetworkStatus draws the current network status on the screen
 // This is a helper function to standardize network status display
-func DrawNetworkStatus(x, y, color int) {
+func DrawNetworkStatus() {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -981,7 +982,6 @@ func DrawNetworkStatus(x, y, color int) {
 
 	// Display network error if any
 	if networkManager.networkError != "" {
-		// Print(networkManager.networkError, x, y, color)
 		log.Println("Network Error: ", networkManager.networkError)
 		return
 	}
@@ -989,11 +989,8 @@ func DrawNetworkStatus(x, y, color int) {
 	// Display waiting message if waiting for players
 	if networkManager.waitingForPlayers {
 		if networkManager.config.Role == RoleServer {
-			// Print("waiting for player to join...", x, y, color)
-			// Print("your ip: "+getLocalIP(), x, y+10, color)
 			log.Printf("Network: Waiting for player to join ... your IP is: %v\n", getLocalIP())
 		} else {
-			// Print("connecting to server...", x, y, color)
 			log.Printf("Network: Connecting to server...\n")
 		}
 		return
@@ -1001,10 +998,8 @@ func DrawNetworkStatus(x, y, color int) {
 
 	// Display role information
 	if networkManager.config.Role == RoleServer {
-		// Print("server mode", x, y, color)
 		log.Println("Network: Server mode")
 	} else {
-		// Print("client mode", x, y, color)
 		log.Println("Network: Client Mode")
 	}
 }

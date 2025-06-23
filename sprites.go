@@ -283,7 +283,7 @@ func setupDrawOptions(fx, fy, destWidth, destHeight, scaleW, scaleH float64, fli
 // If not found, it tries to use the spriteID as an index into the spritesheet.
 // Returns nil if the sprite cannot be found.
 func getSpriteImage(spriteID int) *ebiten.Image {
-	allSprites := CurrentSprites() // Get sprites from engine
+	allSprites := getCurrentSprites() // Get sprites from engine
 	if allSprites == nil {
 		// This can happen if sprites haven't been loaded yet.
 		// Attempt to load them, similar to Spr/Sspr.

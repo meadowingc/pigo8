@@ -24,15 +24,8 @@ const (
 	lineLen     = 4
 )
 
-// Game constants
-const (
-	networkStatusX   = 10 // X position for network status messages
-	networkStatusY   = 60 // Y position for network status messages
-	networkTextColor = 7  // Color for network status messages
-
-	// Player sides
-	RightSide = "Right" // Right side player/paddle
-)
+// RightSide side player/paddle
+const RightSide = "Right"
 
 // Paddle represents a player or remote paddle
 type Paddle struct {
@@ -241,7 +234,7 @@ func (g *Game) Draw() {
 
 	// Display network status using the standardized PIGO8 function
 	if p8net.IsWaitingForPlayers() || p8net.GetNetworkError() != "" {
-		p8net.DrawNetworkStatus(networkStatusX, networkStatusY, networkTextColor)
+		p8net.DrawNetworkStatus()
 		return
 	}
 
