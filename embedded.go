@@ -4,16 +4,13 @@ import (
 	"embed"
 )
 
-// DefaultResources contains the default embedded resources for PIGO8
+// defaultResources contains the default embedded resources for PIGO8
 //
 //go:embed resources/default_spritesheet.json resources/default_map.json
-var DefaultResources embed.FS
+var defaultResources embed.FS
 
-// DefaultSpritesheetPath is the path to the default spritesheet in the embedded resources
-const DefaultSpritesheetPath = "resources/default_spritesheet.json"
+// defaultSpritesheetPath is the path to the default spritesheet in the embedded resources
+const defaultSpritesheetPath = "resources/default_spritesheet.json"
 
-// DefaultMapPath is the path to the default map in the embedded resources
-const DefaultMapPath = "resources/default_map.json"
-
-// DefaultAudioPathPrefix is the prefix for default audio files in the embedded resources
-const DefaultAudioPathPrefix = "resources/default_audio"
+// defaultMapPath is the path to the default map in the embedded resources
+const defaultMapPath = "resources/default_map.json"

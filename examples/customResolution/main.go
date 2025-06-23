@@ -34,8 +34,8 @@ func (g *Game) Init() {
 	g.stars = make([]star, 50)
 	for i := range g.stars {
 		g.stars[i] = star{
-			x:     rand.Intn(p8.ScreenWidth),
-			y:     rand.Intn(p8.ScreenHeight),
+			x:     rand.Intn(p8.GetScreenWidth()),
+			y:     rand.Intn(p8.GetScreenHeight()),
 			color: 6 + rand.Intn(2), // Light gray or white
 			speed: 1 + rand.Intn(2),
 		}
@@ -49,9 +49,9 @@ func (g *Game) Update() {
 	// Update star positions
 	for i := range g.stars {
 		g.stars[i].y += g.stars[i].speed
-		if g.stars[i].y > p8.ScreenHeight {
+		if g.stars[i].y > p8.GetScreenHeight() {
 			g.stars[i].y = 0
-			g.stars[i].x = rand.Intn(p8.ScreenWidth)
+			g.stars[i].x = rand.Intn(p8.GetScreenWidth())
 		}
 	}
 
@@ -64,8 +64,8 @@ func (g *Game) Update() {
 	}
 	if p8.Btn(1) { // Right
 		g.playerX++
-		if g.playerX > p8.ScreenWidth-4 {
-			g.playerX = p8.ScreenWidth - 4
+		if g.playerX > p8.GetScreenWidth()-4 {
+			g.playerX = p8.GetScreenWidth() - 4
 		}
 	}
 	if p8.Btn(2) { // Up
@@ -76,8 +76,8 @@ func (g *Game) Update() {
 	}
 	if p8.Btn(3) { // Down
 		g.playerY++
-		if g.playerY > p8.ScreenHeight-4 {
-			g.playerY = p8.ScreenHeight - 4
+		if g.playerY > p8.GetScreenHeight()-4 {
+			g.playerY = p8.GetScreenHeight() - 4
 		}
 	}
 }
@@ -109,15 +109,15 @@ func (g *Game) Draw() {
 // drawBorder draws a simple border around the screen
 func drawBorder() {
 	// Top and bottom borders
-	for x := range p8.ScreenWidth {
+	for x := range p8.GetScreenWidth() {
 		p8.Pset(x, 0, 7)
-		p8.Pset(x, p8.ScreenHeight-1, 7)
+		p8.Pset(x, p8.GetScreenHeight()-1, 7)
 	}
 
 	// Left and right borders
-	for y := range p8.ScreenHeight {
+	for y := range p8.GetScreenHeight() {
 		p8.Pset(0, y, 7)
-		p8.Pset(p8.ScreenWidth-1, y, 7)
+		p8.Pset(p8.GetScreenWidth()-1, y, 7)
 	}
 }
 

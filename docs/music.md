@@ -87,17 +87,17 @@ func (g *Game) Init() {
 
 func (g *Game) Update() {
     // Play different music when a key is pressed
-    if p8.Btn(p8.UP) {
+    if p8.Btn(p8.ButtonUp) {
         p8.Music(1)
     }
     
     // Play exclusive music (stops other tracks) when DOWN is pressed
-    if p8.Btn(p8.DOWN) {
+    if p8.Btn(p8.ButtonDown) {
         p8.Music(2, true)
     }
     
     // Stop all music when LEFT+RIGHT are pressed together
-    if p8.Btn(p8.LEFT) && p8.Btn(p8.RIGHT) {
+    if p8.Btn(p8.ButtonLeft) && p8.Btn(p8.ButtonRight) {
         p8.Music(-1)
     }
 }

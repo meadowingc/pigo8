@@ -257,7 +257,7 @@ func Pset(x, y int, colorIndex ...int) {
 	x, y = int(fx), int(fy)
 
 	// Check bounds
-	if x < 0 || x >= ScreenWidth || y < 0 || y >= ScreenHeight {
+	if x < 0 || x >= GetScreenWidth() || y < 0 || y >= GetScreenHeight() {
 		return // Silently ignore out-of-bounds pixels
 	}
 

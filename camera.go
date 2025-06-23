@@ -98,13 +98,3 @@ func convertToFloat64(value any) (float64, bool) {
 func applyCameraOffset(x, y float64) (float64, float64) {
 	return x - cameraX, y - cameraY
 }
-
-// GetCameraX returns the current camera X offset.
-func GetCameraX() float64 {
-	return cameraX
-}
-
-// GetCameraY returns the current camera Y offset.
-func GetCameraY() float64 {
-	return cameraY
-}

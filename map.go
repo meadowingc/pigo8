@@ -13,17 +13,17 @@ import (
 )
 
 const (
-	// DefaultPico8MapWidth defines the default width of the PIGO-8 map in tiles if not specified in map.json.
-	DefaultPico8MapWidth = 128
-	// DefaultPico8MapHeight defines the default height of the PIGO-8 map in tiles if not specified in map.json.
-	DefaultPico8MapHeight = 128
+	// defaultPico8MapWidth defines the default width of the PIGO-8 map in tiles if not specified in map.json.
+	defaultPico8MapWidth = 128
+	// defaultPico8MapHeight defines the default height of the PIGO-8 map in tiles if not specified in map.json.
+	defaultPico8MapHeight = 128
 
-	// ActiveTileBufferWidthInTiles defines the width of the streaming buffer in tiles.
+	// activeTileBufferWidthInTiles defines the width of the streaming buffer in tiles.
 	// Should be larger than screen width in tiles. E.g., Screen=32tiles -> Buffer=64tiles.
-	ActiveTileBufferWidthInTiles = 64
-	// ActiveTileBufferHeightInTiles defines the height of the streaming buffer in tiles.
+	activeTileBufferWidthInTiles = 64
+	// activeTileBufferHeightInTiles defines the height of the streaming buffer in tiles.
 	// Should be larger than screen height in tiles. E.g., Screen=30tiles -> Buffer=60tiles.
-	ActiveTileBufferHeightInTiles = 60
+	activeTileBufferHeightInTiles = 60
 )
 
 // --- Structs for map.json parsing (sparse format) ---
@@ -44,17 +44,17 @@ type mapDataJSON struct {
 
 // --- Structs for Streaming Map System ---
 
-// TilemapStream holds the entire world's map data.
+// tilemapStream holds the entire world's map data.
 // Data is stored as a 1D slice, indexed by [y * WorldWidthInTiles + x].
-type TilemapStream struct {
+type tilemapStream struct {
 	Data               []int // Dense representation of the entire world map
 	WorldWidthInTiles  int
 	WorldHeightInTiles int
 }
 
-// ActiveTileBuffer holds the currently active (buffered) portion of the map.
+// activeTileBuffer holds the currently active (buffered) portion of the map.
 // Data is stored as a 1D slice, indexed by [y * WidthInTiles + x] (local buffer coordinates).
-type ActiveTileBuffer struct {
+type activeTileBuffer struct {
 	Data           []int // Dense representation of the buffered region
 	BufferWorldX   int   // Top-left tile X-coordinate of this buffer in the world
 	BufferWorldY   int   // Top-left tile Y-coordinate of this buffer in the world
@@ -65,8 +65,8 @@ type ActiveTileBuffer struct {
 
 var (
 	// Streaming Map System
-	worldMapStream             *TilemapStream
-	activeTileBufferInstance   *ActiveTileBuffer
+	worldMapStream             *tilemapStream
+	activeTileBufferInstance   *activeTileBuffer
 	streamingSystemInitialized bool
 	streamingInitMutex         sync.Mutex
 	worldMapMutex              sync.RWMutex // Protects worldMapStream
@@ -159,12 +159,12 @@ func loadAndParseMapJSON(filename string) (*mapDataJSON, error) {
 
 	// Validate and default map dimensions if necessary
 	if jsonData.Width <= 0 {
-		log.Printf("Warning: map JSON from %s has invalid width %d. Using default %d.", filename, jsonData.Width, DefaultPico8MapWidth)
-		jsonData.Width = DefaultPico8MapWidth
+		log.Printf("Warning: map JSON from %s has invalid width %d. Using default %d.", filename, jsonData.Width, defaultPico8MapWidth)
+		jsonData.Width = defaultPico8MapWidth
 	}
 	if jsonData.Height <= 0 {
-		log.Printf("Warning: map JSON from %s has invalid height %d. Using default %d.", filename, jsonData.Height, DefaultPico8MapHeight)
-		jsonData.Height = DefaultPico8MapHeight
+		log.Printf("Warning: map JSON from %s has invalid height %d. Using default %d.", filename, jsonData.Height, defaultPico8MapHeight)
+		jsonData.Height = defaultPico8MapHeight
 	}
 	log.Printf("Parsed map JSON from %s: Version=%s, Desc=%s, Name=%s, Size=%dx%d, Cells=%d",
 		filename, jsonData.Version, jsonData.Description, jsonData.Name, jsonData.Width, jsonData.Height, len(jsonData.Cells))
@@ -227,7 +227,7 @@ func Map(args ...any) {
 //	mapG(mx, my, sx, sy, w, h) // Draw map with custom dimensions
 //	mapG(mx, my, sx, sy, w, h, layers) // Draw map with layer filtering
 func mapG[MX Number, MY Number](mx MX, my MY, args ...any) {
-	EnsureStreamingSystemInitialized()
+	ensureStreamingSystemInitialized()
 
 	// Convert generic mx, my to required types
 	mapX := int(mx)
@@ -251,8 +251,8 @@ func initializeStreamingMapSystem() error {
 	const mapFilename = "map.json"
 	jsonData, err := loadAndParseMapJSON(mapFilename)
 
-	worldWidth := DefaultPico8MapWidth
-	worldHeight := DefaultPico8MapHeight
+	worldWidth := defaultPico8MapWidth
+	worldHeight := defaultPico8MapHeight
 
 	if err == nil && jsonData != nil {
 		if jsonData.Width > 0 {
@@ -267,7 +267,7 @@ func initializeStreamingMapSystem() error {
 	}
 
 	worldMapMutex.Lock()
-	worldMapStream = &TilemapStream{
+	worldMapStream = &tilemapStream{
 		Data:               make([]int, worldWidth*worldHeight),
 		WorldWidthInTiles:  worldWidth,
 		WorldHeightInTiles: worldHeight,
@@ -293,12 +293,12 @@ func initializeStreamingMapSystem() error {
 	worldMapMutex.Unlock()
 
 	activeBufferMutex.Lock()
-	activeTileBufferInstance = &ActiveTileBuffer{
+	activeTileBufferInstance = &activeTileBuffer{
 		Data:           nil,
 		BufferWorldX:   -1,
 		BufferWorldY:   -1,
-		WidthInTiles:   ActiveTileBufferWidthInTiles,
-		HeightInTiles:  ActiveTileBufferHeightInTiles,
+		WidthInTiles:   activeTileBufferWidthInTiles,
+		HeightInTiles:  activeTileBufferHeightInTiles,
 		IsRegionLoaded: false,
 	}
 	activeBufferMutex.Unlock()
@@ -308,11 +308,11 @@ func initializeStreamingMapSystem() error {
 	return nil
 }
 
-// EnsureStreamingSystemInitialized guarantees that the streaming map system is set up.
+// ensureStreamingSystemInitialized guarantees that the streaming map system is set up.
 // This function is responsible for calling initializeStreamingMapSystem once,
 // loading spritesheets, and setting up map cache parameters.
 // It should be called by map-accessing functions like Mget, Mset, Map.
-func EnsureStreamingSystemInitialized() {
+func ensureStreamingSystemInitialized() {
 	if streamingSystemInitialized {
 		return
 	}
@@ -351,13 +351,13 @@ func EnsureStreamingSystemInitialized() {
 	}
 
 	mapCacheIsValid = false
-	if ScreenWidth > 0 && ScreenHeight > 0 {
-		mapCacheWidthInTiles = ScreenWidth / 8
-		mapCacheHeightInTiles = ScreenHeight / 8
+	if GetScreenWidth() > 0 && GetScreenHeight() > 0 {
+		mapCacheWidthInTiles = GetScreenWidth() / 8
+		mapCacheHeightInTiles = GetScreenHeight() / 8
 	} else {
 		log.Printf("EnsureStreamingSystemInitialized: ScreenWidth/ScreenHeight not available or zero. Using default map cache dimensions.")
-		mapCacheWidthInTiles = DefaultPico8MapWidth / 2
-		mapCacheHeightInTiles = DefaultPico8MapHeight / 2
+		mapCacheWidthInTiles = defaultPico8MapWidth / 2
+		mapCacheHeightInTiles = defaultPico8MapHeight / 2
 	}
 	if mapCacheWidthInTiles <= 0 {
 		mapCacheWidthInTiles = 16
@@ -377,8 +377,8 @@ func EnsureStreamingSystemInitialized() {
 func parseMapArgs(args []any) (sx, sy, wTiles, hTiles, layers int) {
 	// Default parameters
 	sx, sy = 0, 0
-	wTiles = DefaultPico8MapWidth
-	hTiles = DefaultPico8MapHeight
+	wTiles = defaultPico8MapWidth
+	hTiles = defaultPico8MapHeight
 	layers = 0
 
 	// Process optional arguments
@@ -439,8 +439,8 @@ func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
 		mapCacheWidthInTiles == wTiles &&
 		mapCacheHeightInTiles == hTiles &&
 		mapCacheRenderedLayers == layers &&
-		mapCacheRenderedScreenWidth == ScreenWidth &&
-		mapCacheRenderedScreenHeight == ScreenHeight
+		mapCacheRenderedScreenWidth == GetScreenWidth() &&
+		mapCacheRenderedScreenHeight == GetScreenHeight()
 
 	if !cacheIsCurrentlyValid {
 		// Invalidate and rebuild cache
@@ -497,8 +497,8 @@ func drawMapRegion(mapX, mapY, sx, sy, wTiles, hTiles, layers int) {
 		mapCacheWidthInTiles = wTiles
 		mapCacheHeightInTiles = hTiles
 		mapCacheRenderedLayers = layers
-		mapCacheRenderedScreenWidth = ScreenWidth
-		mapCacheRenderedScreenHeight = ScreenHeight
+		mapCacheRenderedScreenWidth = GetScreenWidth()
+		mapCacheRenderedScreenHeight = GetScreenHeight()
 		mapCacheIsValid = true
 		// log.Printf("Map cache rebuilt for world (%d,%d) screen (%d,%d) tiles %dx%d layers %d screen_dims %dx%d", mapX, mapY, sx, sy, wTiles, hTiles, layers, ScreenWidth, ScreenHeight)
 	}
@@ -590,7 +590,7 @@ func loadRegionIntoActiveBuffer(targetWorldX, targetWorldY int) error {
 // Mget returns the sprite number at the specified map coordinates.
 // This mimics PICO-8's mget(column, row) function.
 func Mget[C Number, R Number](column C, row R) int {
-	EnsureStreamingSystemInitialized()
+	ensureStreamingSystemInitialized()
 
 	col := int(column)
 	r := int(row)
@@ -658,7 +658,7 @@ func Mget[C Number, R Number](column C, row R) int {
 // Mset sets the sprite number at the specified map coordinates.
 // This mimics PICO-8's mset(column, row, sprite) function.
 func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
-	EnsureStreamingSystemInitialized()
+	ensureStreamingSystemInitialized()
 
 	col := int(column)
 	r := int(row)
@@ -705,9 +705,9 @@ func Mset[C Number, R Number, S Number](column C, row R, sprite S) {
 // The data slice should contain DefaultPico8MapHeight * DefaultPico8MapWidth bytes,
 // representing sprite IDs in row-major order.
 func SetMap(data []byte) {
-	EnsureStreamingSystemInitialized()
+	ensureStreamingSystemInitialized()
 
-	expectedLen := DefaultPico8MapWidth * DefaultPico8MapHeight
+	expectedLen := defaultPico8MapWidth * defaultPico8MapHeight
 	if len(data) != expectedLen {
 		log.Printf("Warning: SetMap received data of incorrect length. Expected %d, got %d", expectedLen, len(data))
 		return
@@ -715,16 +715,16 @@ func SetMap(data []byte) {
 
 	worldMapMutex.Lock()
 	// Ensure worldMapStream is initialized with default dimensions if it's nil or has different dimensions
-	if worldMapStream == nil || worldMapStream.WorldWidthInTiles != DefaultPico8MapWidth || worldMapStream.WorldHeightInTiles != DefaultPico8MapHeight {
-		log.Printf("SetMap: Initializing/resetting worldMapStream to default dimensions (%dx%d).", DefaultPico8MapWidth, DefaultPico8MapHeight)
-		worldMapStream = &TilemapStream{
-			Data:               make([]int, DefaultPico8MapWidth*DefaultPico8MapHeight),
-			WorldWidthInTiles:  DefaultPico8MapWidth,
-			WorldHeightInTiles: DefaultPico8MapHeight,
+	if worldMapStream == nil || worldMapStream.WorldWidthInTiles != defaultPico8MapWidth || worldMapStream.WorldHeightInTiles != defaultPico8MapHeight {
+		log.Printf("SetMap: Initializing/resetting worldMapStream to default dimensions (%dx%d).", defaultPico8MapWidth, defaultPico8MapHeight)
+		worldMapStream = &tilemapStream{
+			Data:               make([]int, defaultPico8MapWidth*defaultPico8MapHeight),
+			WorldWidthInTiles:  defaultPico8MapWidth,
+			WorldHeightInTiles: defaultPico8MapHeight,
 		}
 	} else {
 		// If it exists and has correct dimensions, clear existing data by re-making the slice
-		worldMapStream.Data = make([]int, DefaultPico8MapWidth*DefaultPico8MapHeight)
+		worldMapStream.Data = make([]int, defaultPico8MapWidth*defaultPico8MapHeight)
 	}
 
 	for i := 0; i < expectedLen; i++ {

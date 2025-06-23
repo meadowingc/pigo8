@@ -42,7 +42,7 @@ func (g *Game) Draw() {
 	p8.Rectfill(20, 65, 27, 73, 0) // left
 	p8.Rect(20, 65, 27, 73, 7)     // outer left perimeter
 	p8.Print("0", 22, 66, 12)      // print inside it the number 0
-	if p8.Btn(0) {                 // p8.LEFT
+	if p8.Btn(0) {                 // p8.ButtonLeft
 		p8.Print("0", 22, 66, 4)
 	}
 
@@ -52,7 +52,7 @@ func (g *Game) Draw() {
 	p8.Rectfill(34, 65, 41, 73, 0)
 	p8.Rect(34, 65, 41, 73, 7)
 	p8.Print("1", 36, 66, 12)
-	if p8.Btn(1) { // p8.RIGHT
+	if p8.Btn(1) { // p8.ButtonRight
 		p8.Print("1", 36, 66, 4)
 	}
 
@@ -60,7 +60,7 @@ func (g *Game) Draw() {
 	p8.Rectfill(27, 65-8, 34, 73-8, 0)
 	p8.Rect(27, 65-8, 34, 73-8, 7)
 	p8.Print("2", 29, 66-8, 12)
-	if p8.Btn(2) { // p8.UP
+	if p8.Btn(2) { // p8.ButtonUp
 		p8.Print("2", 29, 66-8, 4)
 	}
 
@@ -68,7 +68,7 @@ func (g *Game) Draw() {
 	p8.Rectfill(27, 73, 34, 81, 0)
 	p8.Rect(27, 73, 34, 81, 7)
 	p8.Print("3", 29, 74, 12)
-	if p8.Btn(3) { // p8.DOWN
+	if p8.Btn(3) { // p8.ButtonDown
 		p8.Print("3", 29, 74, 4)
 	}
 

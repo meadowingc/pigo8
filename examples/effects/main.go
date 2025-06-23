@@ -48,21 +48,21 @@ func (g *Game) Update() {
 	g.tick++
 
 	// Handle player movement
-	if pigo8.Btn(pigo8.LEFT) && g.playerX > 10 {
+	if pigo8.Btn(pigo8.ButtonLeft) && g.playerX > 10 {
 		g.playerX--
 	}
-	if pigo8.Btn(pigo8.RIGHT) && g.playerX < pigo8.ScreenWidth-10 {
+	if pigo8.Btn(pigo8.ButtonRight) && g.playerX < pigo8.GetScreenWidth()-10 {
 		g.playerX++
 	}
-	if pigo8.Btn(pigo8.UP) && g.playerY > 10 {
+	if pigo8.Btn(pigo8.ButtonUp) && g.playerY > 10 {
 		g.playerY--
 	}
-	if pigo8.Btn(pigo8.DOWN) && g.playerY < pigo8.ScreenHeight-10 {
+	if pigo8.Btn(pigo8.ButtonDown) && g.playerY < pigo8.GetScreenHeight()-10 {
 		g.playerY++
 	}
 
 	// Toggle controls display with X key
-	if pigo8.Btnp(pigo8.X) {
+	if pigo8.Btnp(pigo8.ButtonX) {
 		g.showControls = !g.showControls
 	}
 
@@ -86,8 +86,8 @@ func (g *Game) Update() {
 	if g.ghostX < 10 {
 		g.ghostX = 10
 	}
-	if g.ghostX > float64(pigo8.ScreenWidth-20) {
-		g.ghostX = float64(pigo8.ScreenWidth - 20)
+	if g.ghostX > float64(pigo8.GetScreenWidth()-20) {
+		g.ghostX = float64(pigo8.GetScreenWidth() - 20)
 	}
 
 	// Update water animation
@@ -107,7 +107,7 @@ func (g *Game) Draw() {
 
 	// ---- 1. Draw the background scene ----
 	// Draw ground
-	pigo8.Rectfill(0, 90, pigo8.ScreenWidth, pigo8.ScreenHeight, 4) // Brown
+	pigo8.Rectfill(0, 90, pigo8.GetScreenWidth(), pigo8.GetScreenHeight(), 4) // Brown
 
 	// Draw some trees
 	drawTree(20, 85)
@@ -166,14 +166,14 @@ func (g *Game) Draw() {
 
 	// ---- 5. Draw water overlay (transparency effect #3) ----
 	// Only in the bottom part of the screen
-	waterImg := ebiten.NewImage(pigo8.ScreenWidth, 30)
+	waterImg := ebiten.NewImage(pigo8.GetScreenWidth(), 30)
 
 	// Fill with semi-transparent blue
 	waterImg.Fill(color.RGBA{41, 173, 255, 120}) // Light blue with transparency
 
 	// Add some wave patterns
 	for y := 0; y < 30; y++ {
-		for x := 0; x < pigo8.ScreenWidth; x++ {
+		for x := 0; x < pigo8.GetScreenWidth(); x++ {
 			if (x+int(g.waterOffset)+y)%8 == 0 {
 				waterImg.Set(x, y, color.RGBA{41, 173, 255, 180}) // Slightly darker wave lines
 			}
@@ -191,7 +191,7 @@ func (g *Game) Draw() {
 	pigo8.Print("Transparency Effects Demo", 14, 5, 7)
 
 	// Then overlay a fading rectangle
-	fadeImg := ebiten.NewImage(pigo8.ScreenWidth, 15)
+	fadeImg := ebiten.NewImage(pigo8.GetScreenWidth(), 15)
 	fadeImg.Fill(color.RGBA{29, 43, 83, g.fadeValue}) // Background color with changing alpha
 
 	fadeOp := &ebiten.DrawImageOptions{}
@@ -202,7 +202,7 @@ func (g *Game) Draw() {
 	// ---- 7. Draw controls if enabled ----
 	if g.showControls {
 		// Draw semi-transparent help box
-		helpImg := ebiten.NewImage(pigo8.ScreenWidth-20, 25)
+		helpImg := ebiten.NewImage(pigo8.GetScreenWidth()-20, 25)
 		helpImg.Fill(color.RGBA{0, 0, 0, 200})
 
 		helpOp := &ebiten.DrawImageOptions{}

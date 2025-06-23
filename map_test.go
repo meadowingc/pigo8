@@ -9,17 +9,17 @@ import (
 )
 
 func TestMgetAndMset(t *testing.T) {
-	EnsureStreamingSystemInitialized() // Ensure system is ready
+	ensureStreamingSystemInitialized() // Ensure system is ready
 
 	// Create a byte slice for the entire default map dimensions
-	testMapData := make([]byte, DefaultPico8MapWidth*DefaultPico8MapHeight)
+	testMapData := make([]byte, defaultPico8MapWidth*defaultPico8MapHeight)
 
 	// Populate specific sprite data for testing
 	// Simulating the old testMap structure within the dense map
-	testMapData[0*DefaultPico8MapWidth+0] = 1  // {X: 0, Y: 0, Sprite: 1}
-	testMapData[1*DefaultPico8MapWidth+1] = 2  // {X: 1, Y: 1, Sprite: 2}
-	testMapData[2*DefaultPico8MapWidth+2] = 3  // {X: 2, Y: 2, Sprite: 3}
-	testMapData[7*DefaultPico8MapWidth+5] = 42 // {X: 5, Y: 7, Sprite: 42} (Y is row, X is col)
+	testMapData[0*defaultPico8MapWidth+0] = 1  // {X: 0, Y: 0, Sprite: 1}
+	testMapData[1*defaultPico8MapWidth+1] = 2  // {X: 1, Y: 1, Sprite: 2}
+	testMapData[2*defaultPico8MapWidth+2] = 3  // {X: 2, Y: 2, Sprite: 3}
+	testMapData[7*defaultPico8MapWidth+5] = 42 // {X: 5, Y: 7, Sprite: 42} (Y is row, X is col)
 
 	// Set this data as the current map
 	SetMap(testMapData)

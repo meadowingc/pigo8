@@ -28,60 +28,18 @@ func updateMouseState() {
 	mouseWheel.y = wheelY
 }
 
-// Mouse returns the current mouse X and Y coordinates.
+// GetMouseXY returns the current mouse X and Y coordinates.
 // This mimics PICO-8's mouse() function.
 //
 // Usage:
 //
-//	x, y := Mouse()
+//	x, y := GetMouseXY()
 //
 // Example:
 //
 //	// Get mouse position and draw a circle at that position
-//	mouseX, mouseY := Mouse()
+//	mouseX, mouseY := GetMouseXY()
 //	Circ(mouseX, mouseY, 4, 8) // Draw a circle at mouse position with radius 4 and color 8
-func Mouse() (int, int) {
+func GetMouseXY() (int, int) {
 	return mouseX, mouseY
 }
-
-// MouseBtn checks if a specific mouse button is currently held down.
-// This is a convenience wrapper around Btn for mouse-specific buttons.
-//
-// buttonIndex: The mouse button index (MouseLeft, MouseRight).
-//
-// Usage:
-//
-//	MouseBtn(buttonIndex)
-//
-// Example:
-//
-//	// Check if the left mouse button is held
-//	if MouseBtn(MouseLeft) {
-//		// Do something when left mouse button is held
-//	}
-func MouseBtn(buttonIndex int) bool {
-	// Simply use the Btn function with the mouse button index
-	return Btn(buttonIndex)
-}
-
-// MouseBtnJustPressed checks if a specific mouse button was just pressed.
-// This is a convenience wrapper around Btnp for mouse-specific buttons.
-//
-// buttonIndex: The mouse button index (MouseLeft, MouseRight).
-//
-// Usage:
-//
-//	MouseBtnJustPressed(buttonIndex)
-//
-// Example:
-//
-//	// Check if the right mouse button was just pressed
-//	if MouseBtnJustPressed(MouseRight) {
-//		// Do something when right mouse button is just pressed
-//	}
-func MouseBtnJustPressed(buttonIndex int) bool {
-	// Simply use the Btnp function with the mouse button index
-	return Btnp(buttonIndex)
-}
-
-// This function is no longer needed as we're using Btnp directly

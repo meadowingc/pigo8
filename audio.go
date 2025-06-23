@@ -14,14 +14,12 @@ import (
 )
 
 const (
-	// SampleRate is the audio sample rate used for all audio playback
-	SampleRate = 44100
-	// AudioChannels is the number of audio channels (stereo)
-	AudioChannels = 2
+	// sampleRate is the audio sample rate used for all audio playback
+	sampleRate = 44100
 )
 
-// AudioPlayer manages the playback of audio files
-type AudioPlayer struct {
+// audioPlayer manages the playback of audio files
+type audioPlayer struct {
 	audioContext *audio.Context
 	musicPlayers map[int]*audio.Player
 	musicData    map[int][]byte
@@ -29,14 +27,14 @@ type AudioPlayer struct {
 }
 
 // Global audio player instance
-var audioPlayerInstance *AudioPlayer
+var audioPlayerInstance *audioPlayer
 var audioPlayerOnce sync.Once
 
 // getAudioPlayer returns the singleton AudioPlayer instance
-func getAudioPlayer() *AudioPlayer {
+func getAudioPlayer() *audioPlayer {
 	audioPlayerOnce.Do(func() {
-		audioContext := audio.NewContext(SampleRate)
-		audioPlayerInstance = &AudioPlayer{
+		audioContext := audio.NewContext(sampleRate)
+		audioPlayerInstance = &audioPlayer{
 			audioContext: audioContext,
 			musicPlayers: make(map[int]*audio.Player),
 			musicData:    make(map[int][]byte),
@@ -49,15 +47,15 @@ func getAudioPlayer() *AudioPlayer {
 }
 
 // loadAudioFiles loads all audio*.wav files from the embedded resources
-func (ap *AudioPlayer) loadAudioFiles() {
+func (ap *audioPlayer) loadAudioFiles() {
 	// Skip if no custom resources are registered
-	if CustomResources == nil {
+	if customResources == nil {
 		log.Println("No custom resources registered, skipping audio file loading")
 		return
 	}
 
 	// Walk through the embedded filesystem to find audio files
-	walkErr := fs.WalkDir(CustomResources.FS, ".", func(path string, d fs.DirEntry, err error) error {
+	walkErr := fs.WalkDir(customResources.FS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -80,7 +78,7 @@ func (ap *AudioPlayer) loadAudioFiles() {
 			}
 
 			// Read the audio file
-			data, err := fs.ReadFile(CustomResources.FS, path)
+			data, err := fs.ReadFile(customResources.FS, path)
 			if err != nil {
 				log.Printf("Warning: Could not read audio file %s: %v", path, err)
 				return nil
@@ -154,7 +152,7 @@ func Music(n int, exclusive ...bool) {
 
 	// Create a new player for this audio
 	reader := bytes.NewReader(audioData)
-	wavReader, err := wav.DecodeWithSampleRate(SampleRate, reader)
+	wavReader, err := wav.DecodeWithSampleRate(sampleRate, reader)
 	if err != nil {
 		log.Printf("Error decoding WAV file (ID: %d): %v", n, err)
 		return

@@ -26,15 +26,15 @@ type Star struct {
 // Init initializes the game
 func (g *Game) Init() {
 	// Initialize player position in the center of the screen
-	g.playerX = p8.ScreenWidth / 2
-	g.playerY = p8.ScreenHeight / 2
+	g.playerX = p8.GetScreenWidth() / 2
+	g.playerY = p8.GetScreenHeight() / 2
 
 	// Initialize stars
 	g.stars = make([]Star, 50)
 	for i := range g.stars {
 		g.stars[i] = Star{
-			x:      rand.Intn(p8.ScreenWidth),
-			y:      rand.Intn(p8.ScreenHeight),
+			x:      rand.Intn(p8.GetScreenWidth()),
+			y:      rand.Intn(p8.GetScreenHeight()),
 			color:  5 + rand.Intn(3), // Colors 5, 6, 7 (light blue, light gray, white)
 			speed:  1 + rand.Intn(2),
 			blink:  rand.Intn(30),
@@ -51,9 +51,9 @@ func (g *Game) Update() {
 		g.stars[i].y += g.stars[i].speed
 
 		// Wrap stars around when they go off screen
-		if g.stars[i].y > p8.ScreenHeight {
+		if g.stars[i].y > p8.GetScreenHeight() {
 			g.stars[i].y = 0
-			g.stars[i].x = rand.Intn(p8.ScreenWidth)
+			g.stars[i].x = rand.Intn(p8.GetScreenWidth())
 		}
 
 		// Make stars blink
@@ -65,16 +65,16 @@ func (g *Game) Update() {
 	}
 
 	// Handle player movement with arrow keys
-	if p8.Btn(p8.LEFT) && g.playerX > 0 {
+	if p8.Btn(p8.ButtonLeft) && g.playerX > 0 {
 		g.playerX--
 	}
-	if p8.Btn(p8.RIGHT) && g.playerX < p8.ScreenWidth-8 {
+	if p8.Btn(p8.ButtonRight) && g.playerX < p8.GetScreenWidth()-8 {
 		g.playerX++
 	}
-	if p8.Btn(p8.UP) && g.playerY > 0 {
+	if p8.Btn(p8.ButtonUp) && g.playerY > 0 {
 		g.playerY--
 	}
-	if p8.Btn(p8.DOWN) && g.playerY < p8.ScreenHeight-8 {
+	if p8.Btn(p8.ButtonDown) && g.playerY < p8.GetScreenHeight()-8 {
 		g.playerY++
 	}
 

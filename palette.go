@@ -89,10 +89,10 @@ func tryLoadEmbeddedPalette() ([]byte, error) {
 	}
 
 	// Try custom resources if registered
-	if CustomResources != nil && CustomResources.PalettePath != "" {
-		data, err := fs.ReadFile(CustomResources.FS, CustomResources.PalettePath)
+	if customResources != nil && customResources.PalettePath != "" {
+		data, err := fs.ReadFile(customResources.FS, customResources.PalettePath)
 		if err == nil {
-			log.Printf("Using embedded palette file: %s", CustomResources.PalettePath)
+			log.Printf("Using embedded palette file: %s", customResources.PalettePath)
 			return data, nil
 		}
 	}

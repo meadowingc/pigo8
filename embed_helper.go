@@ -12,8 +12,8 @@ import (
 
 const none = "none"
 
-// EmbeddedResources represents a set of embedded resources for a PIGO8 game
-type EmbeddedResources struct {
+// embeddedResources represents a set of embedded resources for a PIGO8 game
+type embeddedResources struct {
 	FS              fs.FS
 	SpritesheetPath string
 	MapPath         string
@@ -21,8 +21,8 @@ type EmbeddedResources struct {
 	AudioPaths      []string // Paths to audio files
 }
 
-// CustomResources holds application-specific embedded resources
-var CustomResources *EmbeddedResources
+// customResources holds application-specific embedded resources
+var customResources *embeddedResources
 
 // autoDetectResourcesAttempted tracks whether we've already tried to auto-detect resources
 var autoDetectResourcesAttempted bool
@@ -42,7 +42,7 @@ func RegisterEmbeddedResources(resources fs.FS, spritesheetPath, mapPath string,
 		}
 	}
 
-	CustomResources = &EmbeddedResources{
+	customResources = &embeddedResources{
 		FS:              resources,
 		SpritesheetPath: spritesheetPath,
 		MapPath:         mapPath,
@@ -85,15 +85,15 @@ func tryLoadEmbeddedFile(defaultPath string, isMap bool) ([]byte, bool) {
 	}
 
 	// First try custom resources if registered
-	if CustomResources != nil {
+	if customResources != nil {
 		var path string
 		if isMap {
-			path = CustomResources.MapPath
+			path = customResources.MapPath
 		} else {
-			path = CustomResources.SpritesheetPath
+			path = customResources.SpritesheetPath
 		}
 
-		data, err := fs.ReadFile(CustomResources.FS, path)
+		data, err := fs.ReadFile(customResources.FS, path)
 		if err == nil {
 			fileType := "spritesheet"
 			if isMap {
@@ -105,7 +105,7 @@ func tryLoadEmbeddedFile(defaultPath string, isMap bool) ([]byte, bool) {
 	}
 
 	// Fall back to default resources
-	data, err := DefaultResources.ReadFile(defaultPath)
+	data, err := defaultResources.ReadFile(defaultPath)
 	if err != nil {
 		return nil, false
 	}
@@ -125,7 +125,7 @@ func autoDetectResources() {
 	autoDetectResourcesAttempted = true
 
 	// Don't override if already registered
-	if CustomResources != nil {
+	if customResources != nil {
 		return
 	}
 
@@ -234,7 +234,7 @@ func initAudioPlayer() {
 
 // tryLoadEmbeddedMap attempts to load a map from embedded resources
 func tryLoadEmbeddedMap() ([]byte, error) {
-	data, ok := tryLoadEmbeddedFile(DefaultMapPath, true)
+	data, ok := tryLoadEmbeddedFile(defaultMapPath, true)
 	if !ok {
 		return nil, fmt.Errorf("failed to load embedded map file")
 	}
@@ -243,7 +243,7 @@ func tryLoadEmbeddedMap() ([]byte, error) {
 
 // tryLoadEmbeddedSpritesheet attempts to load a spritesheet from embedded resources
 func tryLoadEmbeddedSpritesheet() ([]byte, error) {
-	data, ok := tryLoadEmbeddedFile(DefaultSpritesheetPath, false)
+	data, ok := tryLoadEmbeddedFile(defaultSpritesheetPath, false)
 	if !ok {
 		return nil, fmt.Errorf("failed to load embedded spritesheet file")
 	}

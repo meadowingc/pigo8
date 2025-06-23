@@ -45,8 +45,8 @@ func (g *Game) Draw() {
 	pigo8.Print("custom palette demo", 25, 10, 0) // Use dark green for text
 
 	// Center of the screen
-	centerX := pigo8.ScreenWidth / 2
-	centerY := pigo8.ScreenHeight / 2
+	centerX := pigo8.GetScreenWidth() / 2
+	centerY := pigo8.GetScreenHeight() / 2
 
 	// Draw three concentric circles with the green colors
 	pigo8.Circfill(centerX, centerY, 40, 0) // Dark green circle

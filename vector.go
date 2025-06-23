@@ -107,13 +107,13 @@ func ZeroVector() Vector2D {
 // DirectionVector returns a unit vector in the specified cardinal direction
 func DirectionVector(direction int) Vector2D {
 	switch direction {
-	case UP:
+	case ButtonUp:
 		return Vector2D{0, -1}
-	case DOWN:
+	case ButtonDown:
 		return Vector2D{0, 1}
-	case LEFT:
+	case ButtonLeft:
 		return Vector2D{-1, 0}
-	case RIGHT:
+	case ButtonRight:
 		return Vector2D{1, 0}
 	default:
 		return Vector2D{0, 0}

@@ -34,7 +34,7 @@ func (g *Game) Init() {
 	g.pos = p8.NewVector2D(60, 60)
 	g.speed = 1
 	g.spritePos = spritePositions["leftIdle"]
-	g.dir = p8.LEFT
+	g.dir = p8.ButtonLeft
 }
 
 // Update handles game logic each frame including input, collision detection, and animation
@@ -50,15 +50,15 @@ func (g *Game) getInputDirection() (dx, dy float64, dir int) {
 	dir = g.dir
 
 	// Get movement input for both axes
-	if p8.Btn(p8.LEFT) {
+	if p8.Btn(p8.ButtonLeft) {
 		dx = -1
-	} else if p8.Btn(p8.RIGHT) {
+	} else if p8.Btn(p8.ButtonRight) {
 		dx = 1
 	}
 
-	if p8.Btn(p8.UP) {
+	if p8.Btn(p8.ButtonUp) {
 		dy = -1
-	} else if p8.Btn(p8.DOWN) {
+	} else if p8.Btn(p8.ButtonDown) {
 		dy = 1
 	}
 
@@ -69,16 +69,16 @@ func (g *Game) getInputDirection() (dx, dy float64, dir int) {
 		if dx != 0 {
 			// Horizontal movement takes priority for animation reasons
 			if dx < 0 {
-				dir = p8.LEFT
+				dir = p8.ButtonLeft
 			} else {
-				dir = p8.RIGHT
+				dir = p8.ButtonRight
 			}
 		} else if dy != 0 {
 			// Only use vertical animation when not moving horizontally
 			if dy < 0 {
-				dir = p8.UP
+				dir = p8.ButtonUp
 			} else {
-				dir = p8.DOWN
+				dir = p8.ButtonDown
 			}
 		}
 	}
@@ -124,19 +124,19 @@ func (g *Game) updateAnimation(isMoving bool) {
 
 	// Set default sprite based on direction
 	switch g.dir {
-	case p8.UP:
+	case p8.ButtonUp:
 		g.spritePos = spritePositions["up"]
 		g.flipX = isMoving && anim
-	case p8.DOWN:
+	case p8.ButtonDown:
 		g.spritePos = spritePositions["down"]
 		g.flipX = isMoving && anim
-	case p8.LEFT:
+	case p8.ButtonLeft:
 		g.spritePos = spritePositions["leftIdle"]
 		g.flipX = false
 		if isMoving && anim {
 			g.spritePos = spritePositions["walkFrame"]
 		}
-	case p8.RIGHT:
+	case p8.ButtonRight:
 		g.spritePos = spritePositions["rightIdle"]
 		g.flipX = true
 		if isMoving && anim {

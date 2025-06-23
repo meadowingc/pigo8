@@ -162,10 +162,10 @@ func (g *Game) Update() {
 	// Handle local player input (left paddle for server, right paddle for client)
 	if g.isServer {
 		// Server controls left paddle
-		if p8.Btn(p8.UP) && g.leftPaddle.y > courtTop+1 {
+		if p8.Btn(p8.ButtonUp) && g.leftPaddle.y > courtTop+1 {
 			g.leftPaddle.y -= g.leftPaddle.speed
 		}
-		if p8.Btn(p8.DOWN) && g.leftPaddle.y+g.leftPaddle.height < courtBottom-1 {
+		if p8.Btn(p8.ButtonDown) && g.leftPaddle.y+g.leftPaddle.height < courtBottom-1 {
 			g.leftPaddle.y += g.leftPaddle.speed
 		}
 	} else if g.isClient {
@@ -179,10 +179,10 @@ func (g *Game) Update() {
 		predictedY := g.rightPaddle.y
 
 		// Calculate predicted position based on input
-		if p8.Btn(p8.UP) && predictedY > courtTop+1 {
+		if p8.Btn(p8.ButtonUp) && predictedY > courtTop+1 {
 			predictedY -= g.rightPaddle.speed
 		}
-		if p8.Btn(p8.DOWN) && predictedY+g.rightPaddle.height < courtBottom-1 {
+		if p8.Btn(p8.ButtonDown) && predictedY+g.rightPaddle.height < courtBottom-1 {
 			predictedY += g.rightPaddle.speed
 		}
 
@@ -318,8 +318,8 @@ func (g *Game) sendPlayerInput() {
 
 	// Create input message with current button states
 	input := PlayerInput{
-		Up:   p8.Btn(p8.UP),
-		Down: p8.Btn(p8.DOWN),
+		Up:   p8.Btn(p8.ButtonUp),
+		Down: p8.Btn(p8.ButtonDown),
 	}
 
 	// Log the input being sent for debugging

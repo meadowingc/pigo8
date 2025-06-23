@@ -31,25 +31,25 @@ func (g *Game) Update() {
 	beforeX := g.player.x
 	beforeY := g.player.y
 
-	if p8.Btn(p8.LEFT) {
+	if p8.Btn(p8.ButtonLeft) {
 		g.player.x -= g.player.speed
 		if p8.ColorCollision(g.player.x, g.player.y, g.player.collisionColor) {
 			g.player.x = beforeX
 		}
 	}
-	if p8.Btn(p8.RIGHT) {
+	if p8.Btn(p8.ButtonRight) {
 		g.player.x += g.player.speed
 		if p8.ColorCollision(g.player.x, g.player.y, g.player.collisionColor) {
 			g.player.x = beforeX
 		}
 	}
-	if p8.Btn(p8.UP) {
+	if p8.Btn(p8.ButtonUp) {
 		g.player.y -= g.player.speed
 		if p8.ColorCollision(g.player.x, g.player.y, g.player.collisionColor) {
 			g.player.y = beforeY
 		}
 	}
-	if p8.Btn(p8.DOWN) {
+	if p8.Btn(p8.ButtonDown) {
 		g.player.y += g.player.speed
 		if p8.ColorCollision(g.player.x, g.player.y, g.player.collisionColor) {
 			g.player.y = beforeY

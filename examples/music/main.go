@@ -20,27 +20,27 @@ func (g *Game) Init() {
 // Update is called every frame for game logic
 func (g *Game) Update() {
 
-	if p8.Btn(p8.UP) {
+	if p8.Btn(p8.ButtonUp) {
 		log.Println("Playing music 3")
 		p8.Music(3)
 	}
 
-	if p8.Btn(p8.DOWN) {
+	if p8.Btn(p8.ButtonDown) {
 		log.Println("Playing music 4")
 		p8.Music(4)
 	}
 
-	if p8.Btn(p8.LEFT) {
+	if p8.Btn(p8.ButtonLeft) {
 		log.Println("Playing music 5")
 		p8.Music(5)
 	}
 
-	if p8.Btn(p8.RIGHT) {
+	if p8.Btn(p8.ButtonRight) {
 		log.Println("Playing music 6 exclusively")
 		p8.Music(6, true)
 	}
 
-	if p8.Btn(p8.UP) && p8.Btn(p8.DOWN) {
+	if p8.Btn(p8.ButtonUp) && p8.Btn(p8.ButtonDown) {
 		log.Println("Stopping all music")
 		p8.Music(-1)
 	}

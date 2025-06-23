@@ -39,29 +39,29 @@ func NewSettings() *Settings {
 		ScaleFactor:  4,
 		WindowTitle:  "PIGO-8 Game",
 		TargetFPS:    30,
-		ScreenWidth:  128,   // Default PICO-8 width
-		ScreenHeight: 128,   // Default PICO-8 height
-		Multiplayer:  false, // Networking disabled by default
-		Fullscreen:   false, // Windowed mode by default
+		ScreenWidth:  defaultViewportWidth,  // Default PICO-8 width
+		ScreenHeight: defaultViewportHeight, // Default PICO-8 height
+		Multiplayer:  false,                 // Networking disabled by default
+		Fullscreen:   false,                 // Windowed mode by default
 	}
 }
 
 // --- Configuration (Internal Constants) ---
 
 const (
-	// DefaultWidth is the default PICO-8 screen width.
-	DefaultWidth = 128
-	// DefaultHeight is the default PICO-8 screen height.
-	DefaultHeight = 128
+	// defaultViewportWidth is the default PICO-8 screen width.
+	defaultViewportWidth = 128
+	// defaultViewportHeight is the default PICO-8 screen height.
+	defaultViewportHeight = 128
 )
 
 // These variables hold the current logical screen dimensions.
 // They can be modified through Settings when calling PlayGameWith.
 var (
-	// ScreenWidth is the current screen width.
-	ScreenWidth = DefaultWidth
-	// ScreenHeight is the current screen height.
-	ScreenHeight = DefaultHeight
+	// screenWidth is the current screen width (unexported).
+	screenWidth = defaultViewportWidth
+	// screenHeight is the current screen height (unexported).
+	screenHeight = defaultViewportHeight
 )
 
 // --- Internal State for Drawing ---
@@ -125,8 +125,16 @@ type game struct {
 }
 
 // Layout implements ebiten.Game.
-func (g *game) Layout(_, _ int) (screenWidth, screenHeight int) {
-	return ScreenWidth, ScreenHeight
+func (g *game) Layout(_, _ int) (int, int) {
+	w := screenWidth
+	h := screenHeight
+	if w <= 0 {
+		w = defaultViewportWidth // fallback to 128
+	}
+	if h <= 0 {
+		h = defaultViewportHeight // fallback to 128
+	}
+	return w, h
 }
 
 // Restart is a flag that indicates if the game should be restarted
@@ -162,7 +170,7 @@ func (g *game) Update() error {
 		updateMouseState()
 
 		// Check for START button press to toggle pause menu
-		if Btnp(START) {
+		if Btnp(ButtonStart) {
 			// Toggle pause state
 			g.paused = !g.paused
 			if g.paused {
@@ -178,7 +186,7 @@ func (g *game) Update() error {
 		if g.paused {
 			// Handle pause menu navigation
 			// Navigate up (keyboard or gamepad)
-			if Btnp(UP) || Btnp(joyUp) {
+			if Btnp(ButtonUp) || Btnp(ButtonJoypadUp) {
 				g.pauseSelected--
 				if g.pauseSelected < 0 {
 					g.pauseSelected = EngPauseOptionCount - 1
@@ -186,7 +194,7 @@ func (g *game) Update() error {
 			}
 
 			// Navigate down (keyboard or gamepad)
-			if Btnp(DOWN) || Btnp(joyDown) {
+			if Btnp(ButtonDown) || Btnp(ButtonJoypadDown) {
 				g.pauseSelected++
 				if g.pauseSelected >= EngPauseOptionCount {
 					g.pauseSelected = 0
@@ -194,7 +202,7 @@ func (g *game) Update() error {
 			}
 
 			// Process selection with X button (keyboard) or A button (gamepad)
-			if Btnp(X) || Btnp(joyA) || Btnp(O) { // O is often the confirm button on some controllers
+			if Btnp(ButtonX) || Btnp(ButtonJoyA) || Btnp(ButtonO) { // O is often the confirm button on some controllers
 				switch g.pauseSelected {
 				case EngPauseOptionContinue:
 					// Continue the game (unpause)
@@ -236,8 +244,8 @@ func (g *game) Draw(screen *ebiten.Image) {
 		// Calculate menu dimensions
 		menuWidth := 80
 		menuHeight := 40
-		menuX := (ScreenWidth - menuWidth) / 2
-		menuY := (ScreenHeight - menuHeight) / 2
+		menuX := (screenWidth - menuWidth) / 2
+		menuY := (screenHeight - menuHeight) / 2
 
 		// Determine background color - use the darkest color in the palette
 		darkColor := findDarkestColorIndex()
@@ -319,7 +327,7 @@ func PlayGameWith(settings *Settings) {
 	// Only initialize networking if multiplayer is enabled
 	if cfg.Multiplayer {
 		// Check if network is already initialized
-		if IsNetworkInitialized() {
+		if isNetworkInitialized() {
 			log.Println("Network already initialized, skipping initialization")
 		} else {
 			// Check for network configuration from command line arguments
@@ -336,7 +344,7 @@ func PlayGameWith(settings *Settings) {
 			}
 			log.Println("Multiplayer networking enabled")
 		}
-		defer ShutdownNetwork()
+		defer shutdownNetwork()
 	} else {
 		log.Println("Multiplayer networking disabled")
 	}
@@ -346,17 +354,17 @@ func PlayGameWith(settings *Settings) {
 
 	// Update logical screen dimensions if custom values are provided
 	if cfg.ScreenWidth > 0 {
-		ScreenWidth = cfg.ScreenWidth
+		screenWidth = cfg.ScreenWidth
 	} else {
-		ScreenWidth = DefaultWidth
-		cfg.ScreenWidth = DefaultWidth
+		screenWidth = defaultViewportWidth
+		cfg.ScreenWidth = defaultViewportWidth
 	}
 
 	if cfg.ScreenHeight > 0 {
-		ScreenHeight = cfg.ScreenHeight
+		screenHeight = cfg.ScreenHeight
 	} else {
-		ScreenHeight = DefaultHeight
-		cfg.ScreenHeight = DefaultHeight
+		screenHeight = defaultViewportHeight
+		cfg.ScreenHeight = defaultViewportHeight
 	}
 
 	// Try to load custom palette from palette.hex if it exists
@@ -364,11 +372,11 @@ func PlayGameWith(settings *Settings) {
 
 	// Configure Ebitengine window using Settings object
 	ebiten.SetWindowTitle(cfg.WindowTitle)
-	winWidth := ScreenWidth * cfg.ScaleFactor
-	winHeight := ScreenHeight * cfg.ScaleFactor
+	winWidth := screenWidth * cfg.ScaleFactor
+	winHeight := screenHeight * cfg.ScaleFactor
 	if winWidth <= 0 || winHeight <= 0 {
-		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default %dx%d.", winWidth, winHeight, cfg.ScaleFactor, DefaultWidth, DefaultHeight)
-		winWidth, winHeight = DefaultWidth, DefaultHeight
+		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default %dx%d.", winWidth, winHeight, cfg.ScaleFactor, defaultViewportWidth, defaultViewportHeight)
+		winWidth, winHeight = defaultViewportWidth, defaultViewportHeight
 	}
 	ebiten.SetWindowSize(winWidth, winHeight)
 	ebiten.SetTPS(cfg.TargetFPS)
@@ -398,4 +406,14 @@ func PlayGameWith(settings *Settings) {
 // Play is a convenience function that creates a game with default settings and plays it.
 func Play() {
 	PlayGameWith(NewSettings())
+}
+
+// GetScreenWidth returns the current logical screen width.
+func GetScreenWidth() int {
+	return screenWidth
+}
+
+// GetScreenHeight returns the current logical screen height.
+func GetScreenHeight() int {
+	return screenHeight
 }

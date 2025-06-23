@@ -17,7 +17,7 @@ func TestCallbackRegistration(t *testing.T) {
 	if err := InitNetwork(config); err != nil {
 		t.Fatalf("Failed to initialize network: %v", err)
 	}
-	defer ShutdownNetwork()
+	defer shutdownNetwork()
 
 	// Register callbacks
 	log.Println("Registering test callbacks...")

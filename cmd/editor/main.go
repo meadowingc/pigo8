@@ -41,6 +41,9 @@ const (
 	paletteColumns = 8 // Number of columns in the palette display
 	numFlags       = 8 // Number of sprite flags
 
+	// Screen dimensions (default from PICO8)
+	defaultViewportWidth  = 128
+	defaultViewportHeight = 128
 )
 
 type myGame struct {
@@ -68,9 +71,9 @@ type myGame struct {
 	keyCooldown  int64 // Minimum time between undo/redo actions in milliseconds
 
 	// Map editor state
-	mapCameraX int                                                    // Camera X position in the map (in sprites)
-	mapCameraY int                                                    // Camera Y position in the map (in sprites)
-	mapData    [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Represents the full 128x128 map area editable by the streaming system
+	mapCameraX int                                              // Camera X position in the map (in sprites)
+	mapCameraY int                                              // Camera Y position in the map (in sprites)
+	mapData    [defaultViewportHeight][defaultViewportWidth]int // Represents the full 128x128 map area editable by the streaming system
 }
 
 type mapData struct {
@@ -353,7 +356,7 @@ func (g *myGame) drawMapMode() {
 	g.drawMapTiles(viewX, viewY)
 
 	// 2) hover highlight on map
-	mx, my := p8.Mouse()
+	mx, my := p8.GetMouseXY()
 	g.drawMapHover(viewX, viewY, mx, my)
 
 	// 3) border and UI text
@@ -924,7 +927,7 @@ func (g *myGame) Update() {
 
 // toggleMapMode flips mapMode and saves data on entry/exit
 func (g *myGame) toggleMapMode() {
-	if p8.Btnp(p8.X) {
+	if p8.Btnp(p8.ButtonX) {
 		// Save current state before switching modes to ensure all changes are captured
 		if err := g.saveState(); err != nil {
 			log.Printf("Error saving state before mode switch: %v", err)
@@ -961,33 +964,33 @@ func (g *myGame) handleMapMode() {
 func (g *myGame) moveCamera() {
 	stepX := mapViewWidth / unit
 	stepY := mapViewHeight / unit
-	if p8.Btnp(p8.LEFT) && g.mapCameraX > 0 {
+	if p8.Btnp(p8.ButtonLeft) && g.mapCameraX > 0 {
 		g.mapCameraX -= stepX
 	}
-	if p8.Btnp(p8.RIGHT) && g.mapCameraX < mapWidth-stepX {
+	if p8.Btnp(p8.ButtonRight) && g.mapCameraX < mapWidth-stepX {
 		g.mapCameraX += stepX
 	}
-	if p8.Btnp(p8.UP) && g.mapCameraY > 0 {
+	if p8.Btnp(p8.ButtonUp) && g.mapCameraY > 0 {
 		g.mapCameraY -= stepY
 	}
-	if p8.Btnp(p8.DOWN) && g.mapCameraY < mapHeight-stepY {
+	if p8.Btnp(p8.ButtonDown) && g.mapCameraY < mapHeight-stepY {
 		g.mapCameraY += stepY
 	}
 }
 
 func (g *myGame) placeOrEraseSprites() {
-	mx, my := p8.Mouse()
+	mx, my := p8.GetMouseXY()
 	if !g.mouseInMap(mx, my) {
 		return
 	}
 	x := g.mapCameraX + (mx-10)/8
 	y := g.mapCameraY + (my-10)/8
 
-	if p8.Btn(p8.MouseRight) {
+	if p8.Btn(p8.ButtonMouseRight) {
 		g.eraseAt(x, y)
 		return
 	}
-	if p8.Btn(p8.MouseLeft) {
+	if p8.Btn(p8.ButtonMouseLeft) {
 		g.placeGridSprites(x, y)
 	}
 }
@@ -1082,7 +1085,7 @@ func (g *myGame) saveState() error {
 	state := struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Use PICO-8 map dimensions
+		MapData       [defaultViewportHeight][defaultViewportWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}{
@@ -1128,11 +1131,11 @@ func (g *myGame) syncMapDataToPigo8() {
 	// g.mapData is now [p8.Pico8MapHeight][p8.Pico8MapWidth]int
 	// p8.SetMap expects a flat []byte slice.
 
-	mapBytes := make([]byte, p8.DefaultPico8MapHeight*p8.DefaultPico8MapWidth)
+	mapBytes := make([]byte, defaultViewportHeight*defaultViewportWidth)
 	nonZeroTiles := 0
 
-	for y := 0; y < p8.DefaultPico8MapHeight; y++ {
-		for x := 0; x < p8.DefaultPico8MapWidth; x++ {
+	for y := 0; y < defaultViewportHeight; y++ {
+		for x := 0; x < defaultViewportWidth; x++ {
 			spriteID := g.mapData[y][x]
 			// Ensure spriteID is within byte range (0-255)
 			// PICO-8 sprite IDs are typically in this range.
@@ -1143,7 +1146,7 @@ func (g *myGame) syncMapDataToPigo8() {
 				log.Printf("Warning: Sprite ID %d at map[%d][%d] is out of byte range. Clamping to 255.", spriteID, y, x)
 				spriteID = 255
 			}
-			mapBytes[y*p8.DefaultPico8MapWidth+x] = byte(spriteID)
+			mapBytes[y*defaultViewportWidth+x] = byte(spriteID)
 			if spriteID != 0 {
 				nonZeroTiles++
 			}
@@ -1170,7 +1173,7 @@ func (g *myGame) loadState(filename string) error {
 	var state struct {
 		Spritesheet   [24][32][8][8]int
 		SpriteFlags   [24][32][8]bool
-		MapData       [p8.DefaultPico8MapHeight][p8.DefaultPico8MapWidth]int // Use PICO-8 map dimensions
+		MapData       [defaultViewportHeight][defaultViewportWidth]int // Use PICO-8 map dimensions
 		CurrentSprite int
 		CurrentColor  int
 	}
@@ -1294,7 +1297,7 @@ func (g *myGame) handleUndoRedo() {
 
 // -------------------- Editor Mode --------------------
 func (g *myGame) handleEditorMode() {
-	mx, my := p8.Mouse()
+	mx, my := p8.GetMouseXY()
 	g.toggleSpriteFlags(mx, my)
 	g.handleDrawingGrid(mx, my)
 	g.handleSpriteSelection(mx, my)
@@ -1319,7 +1322,7 @@ func (g *myGame) toggleSpriteFlags(mx, my int) {
 	for i := 0; i < 8; i++ {
 		checkboxX := baseX + i*checkboxSize*3/2
 		checkboxY := baseY
-		if mx >= checkboxX && mx < checkboxX+checkboxSize && my >= checkboxY && my < checkboxY+checkboxSize && p8.Btnp(p8.MouseLeft) {
+		if mx >= checkboxX && mx < checkboxX+checkboxSize && my >= checkboxY && my < checkboxY+checkboxSize && p8.Btnp(p8.ButtonMouseLeft) {
 			g.toggleFlagAtIndex(i)
 		}
 	}
@@ -1363,9 +1366,9 @@ func (g *myGame) handleDrawingGrid(mx, my int) {
 		return
 	}
 	g.updateHover(row, col)
-	if p8.Btn(p8.MouseLeft) {
+	if p8.Btn(p8.ButtonMouseLeft) {
 		g.drawAt(row, col, g.currentColor)
-	} else if p8.Btn(p8.MouseRight) {
+	} else if p8.Btn(p8.ButtonMouseRight) {
 		g.drawAt(row, col, 0)
 	}
 }
@@ -1398,7 +1401,7 @@ func (g *myGame) drawAt(row, col, colorIndex int) {
 func (g *myGame) handleSpriteSelection(mx, my int) {
 	row := (my - 10) / spriteCellSize
 	col := (mx - spritesheetStartX) / spriteCellSize
-	if row >= 0 && row < spriteSheetRows && col >= 0 && col < spriteSheetCols && p8.Btnp(p8.MouseLeft) {
+	if row >= 0 && row < spriteSheetRows && col >= 0 && col < spriteSheetCols && p8.Btnp(p8.ButtonMouseLeft) {
 		idx := row*spriteSheetCols + col
 		if idx > 0 {
 			g.currentSprite = idx
@@ -1412,7 +1415,7 @@ func (g *myGame) handlePaletteSelection(mx, my int) {
 	row := (my - gy) / 12
 	col := (mx - gx) / 12
 	colors := p8.GetPaletteSize()
-	if row >= 0 && col >= 0 && row*8+col < colors && p8.Btnp(p8.MouseLeft) {
+	if row >= 0 && col >= 0 && row*8+col < colors && p8.Btnp(p8.ButtonMouseLeft) {
 		g.currentColor = row*8 + col
 	}
 }
@@ -1422,11 +1425,11 @@ func (g *myGame) handleWheel() {
 	if now-g.lastWheelTime <= 150 { // 150ms debounce for wheel and keyboard
 		return
 	}
-	if p8.Btnp(p8.MouseWheelUp) && g.gridSize < 4 {
+	if p8.Btnp(p8.ButtonMouseWheelUp) && g.gridSize < 4 {
 		g.gridSize = min(g.gridSize*2, 8)
 		g.lastWheelTime = now
 		g.updateDrawingCanvas()
-	} else if p8.Btnp(p8.MouseWheelDown) && g.gridSize > 1 {
+	} else if p8.Btnp(p8.ButtonMouseWheelDown) && g.gridSize > 1 {
 		g.gridSize = max(1, g.gridSize/2)
 		g.lastWheelTime = now
 		g.updateDrawingCanvas()
@@ -1481,16 +1484,16 @@ func (g *myGame) handleKeyboardNavigation() {
 	moved := false
 
 	switch {
-	case p8.Btnp(p8.LEFT) && currentCol > 0:
+	case p8.Btnp(p8.ButtonLeft) && currentCol > 0:
 		g.currentSprite--
 		moved = true
-	case p8.Btnp(p8.RIGHT) && currentCol < spriteSheetCols-1:
+	case p8.Btnp(p8.ButtonRight) && currentCol < spriteSheetCols-1:
 		g.currentSprite++
 		moved = true
-	case p8.Btnp(p8.UP) && currentRow > 0:
+	case p8.Btnp(p8.ButtonUp) && currentRow > 0:
 		g.currentSprite -= spriteSheetCols
 		moved = true
-	case p8.Btnp(p8.DOWN) && currentRow < spriteSheetRows-1:
+	case p8.Btnp(p8.ButtonDown) && currentRow < spriteSheetRows-1:
 		g.currentSprite += spriteSheetCols
 		moved = true
 	}

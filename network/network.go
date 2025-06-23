@@ -1,4 +1,4 @@
-package pigo8
+package network
 
 import (
 	"encoding/json"
@@ -12,44 +12,44 @@ import (
 
 // --- Network Types ---
 
-// MessageType defines the type of network message being sent
-type MessageType int
+// messageType defines the type of network message being sent
+type messageType int
 
 const (
-	// MsgConnect is sent when a player connects to a game
-	MsgConnect MessageType = iota
-	// MsgDisconnect is sent when a player disconnects from a game
-	MsgDisconnect
-	// MsgGameState is sent to sync game state between players
-	MsgGameState
-	// MsgPlayerInput is sent when a player performs an input action
-	MsgPlayerInput
-	// MsgPing is sent to check connection status
-	MsgPing
-	// MsgPong is sent in response to a ping
-	MsgPong
+	// msgConnect is sent when a player connects to a game
+	msgConnect messageType = iota
+	// msgDisconnect is sent when a player disconnects from a game
+	msgDisconnect
+	// msgGameState is sent to sync game state between players
+	msgGameState
+	// msgPlayerInput is sent when a player performs an input action
+	msgPlayerInput
+	// msgPing is sent to check connection status
+	msgPing
+	// msgPong is sent in response to a ping
+	msgPong
 )
 
-// NetworkMessage represents a message sent over the network
-type NetworkMessage struct {
-	Type     MessageType `json:"type"`
+// networkMessage represents a message sent over the network
+type networkMessage struct {
+	Type     messageType `json:"type"`
 	PlayerID string      `json:"player_id"`
 	Data     []byte      `json:"data"`
 }
 
-// NetworkRole defines whether this instance is a server or client
-type NetworkRole int
+// networkRole defines whether this instance is a server or client
+type networkRole int
 
 const (
 	// RoleServer indicates this instance is hosting the game
-	RoleServer NetworkRole = iota
+	RoleServer networkRole = iota
 	// RoleClient indicates this instance is connecting to a host
 	RoleClient
 )
 
-// NetworkConfig holds configuration for network functionality
-type NetworkConfig struct {
-	Role       NetworkRole // Whether this instance is a server or client
+// networkConfig holds configuration for network functionality
+type networkConfig struct {
+	Role       networkRole // Whether this instance is a server or client
 	Address    string      // Address to connect to (for client) or listen on (for server)
 	Port       int         // Port to use for connection
 	PlayerID   string      // Unique identifier for this player
@@ -57,9 +57,9 @@ type NetworkConfig struct {
 	GameName   string      // Name of the game (for display purposes)
 }
 
-// DefaultNetworkConfig returns a default network configuration
-func DefaultNetworkConfig() *NetworkConfig {
-	return &NetworkConfig{
+// defaultNetworkConfig returns a default network configuration
+func defaultNetworkConfig() *networkConfig {
+	return &networkConfig{
 		Role:       RoleServer,
 		Address:    "localhost",
 		Port:       8080,
@@ -73,15 +73,15 @@ func DefaultNetworkConfig() *NetworkConfig {
 
 // NetworkManager handles all networking functionality
 type NetworkManager struct {
-	config *NetworkConfig
+	config *networkConfig
 	// UDP specific fields
 	udpConn    *net.UDPConn            // UDP connection for both server and client
 	serverAddr *net.UDPAddr            // Server address (used by clients)
 	clients    map[string]*net.UDPAddr // Map of connected clients by player ID
 	lastHeard  map[string]time.Time    // Last time we heard from each client
 	// Message handling
-	incomingMsgs chan NetworkMessage
-	outgoingMsgs chan NetworkMessage
+	incomingMsgs chan networkMessage
+	outgoingMsgs chan networkMessage
 	// Callbacks
 	onConnect     func(playerID string)
 	onDisconnect  func(playerID string)
@@ -107,7 +107,7 @@ var (
 // --- Network Initialization ---
 
 // InitNetwork initializes the networking system with the given configuration
-func InitNetwork(config *NetworkConfig) error {
+func InitNetwork(config *networkConfig) error {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -129,7 +129,7 @@ func InitNetwork(config *NetworkConfig) error {
 			onConnect != nil, onDisconnect != nil, onGameState != nil, onPlayerInput != nil)
 
 		// Clean up the existing network manager
-		ShutdownNetwork() // Use the global shutdown function
+		shutdownNetwork() // Use the global shutdown function
 	}
 
 	// Define localhost addresses as constants
@@ -147,8 +147,8 @@ func InitNetwork(config *NetworkConfig) error {
 	// Create a new network manager
 	networkManager = &NetworkManager{
 		config:            config,
-		incomingMsgs:      make(chan NetworkMessage, config.BufferSize),
-		outgoingMsgs:      make(chan NetworkMessage, config.BufferSize),
+		incomingMsgs:      make(chan networkMessage, config.BufferSize),
+		outgoingMsgs:      make(chan networkMessage, config.BufferSize),
 		clients:           make(map[string]*net.UDPAddr),
 		lastHeard:         make(map[string]time.Time),
 		isRunning:         true,
@@ -175,8 +175,8 @@ func InitNetwork(config *NetworkConfig) error {
 	return err
 }
 
-// ShutdownNetwork closes all network connections and stops processing
-func ShutdownNetwork() {
+// shutdownNetwork closes all network connections and stops processing
+func shutdownNetwork() {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -242,7 +242,7 @@ func (nm *NetworkManager) startServer() error {
 	}
 
 	nm.udpConn = udpConn
-	log.Printf("UDP Server successfully started on %s (local IP: %s)", addr, GetLocalIP())
+	log.Printf("UDP Server successfully started on %s (local IP: %s)", addr, getLocalIP())
 
 	// Start the heartbeat ticker
 	nm.heartbeatTicker = time.NewTicker(nm.heartbeatInterval)
@@ -271,8 +271,8 @@ func (nm *NetworkManager) sendHeartbeats() {
 	}
 
 	// Create heartbeat message
-	heartbeatMsg := NetworkMessage{
-		Type:     MsgPing,
+	heartbeatMsg := networkMessage{
+		Type:     msgPing,
 		PlayerID: nm.config.PlayerID,
 		Data:     []byte{},
 	}
@@ -330,14 +330,14 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 	copy(dataCopy, data)
 
 	// Decode the message
-	var msg NetworkMessage
+	var msg networkMessage
 	if err := json.Unmarshal(dataCopy, &msg); err != nil {
 		log.Printf("Error decoding UDP message: %v", err)
 		return
 	}
 
 	// Validate the message
-	if msg.Type < MsgConnect || msg.Type > MsgPong {
+	if msg.Type < msgConnect || msg.Type > msgPong {
 		log.Printf("Received UDP message with invalid type: %v, ignoring", msg.Type)
 		return
 	}
@@ -348,7 +348,7 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 		nm.lastHeard[msg.PlayerID] = time.Now()
 
 		// If this is a new client, add them to our clients map
-		if _, exists := nm.clients[msg.PlayerID]; !exists && msg.Type == MsgConnect {
+		if _, exists := nm.clients[msg.PlayerID]; !exists && msg.Type == msgConnect {
 			nm.clients[msg.PlayerID] = addr
 			nm.waitingForPlayers = false
 			log.Printf("New client connected: %s from %s", msg.PlayerID, addr.String())
@@ -383,17 +383,17 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 		onGameState != nil, onPlayerInput != nil, onConnect != nil, onDisconnect != nil)
 
 	switch msg.Type {
-	case MsgConnect:
+	case msgConnect:
 		log.Printf("Received connect message from %s", msg.PlayerID)
 		// Already handled connection above, but also call the callback
 		if onConnect != nil {
 			onConnect(msg.PlayerID)
 		}
-	case MsgDisconnect:
+	case msgDisconnect:
 		log.Printf("Received disconnect message from %s", msg.PlayerID)
 		// Handle client disconnect
 		nm.handleClientDisconnect(msg.PlayerID)
-	case MsgGameState:
+	case msgGameState:
 		log.Printf("Received game state message from %s, data size: %d bytes", msg.PlayerID, len(msg.Data))
 		// Forward game state to the appropriate handler
 		if onGameState != nil {
@@ -402,7 +402,7 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 		} else {
 			log.Printf("Warning: No game state handler registered")
 		}
-	case MsgPlayerInput:
+	case msgPlayerInput:
 		log.Printf("Received player input message from %s, data size: %d bytes", msg.PlayerID, len(msg.Data))
 		// Forward player input to the appropriate handler
 		if onPlayerInput != nil {
@@ -411,11 +411,11 @@ func (nm *NetworkManager) handleUDPMessage(data []byte, addr *net.UDPAddr) {
 		} else {
 			log.Printf("Warning: No player input handler registered")
 		}
-	case MsgPing:
+	case msgPing:
 		// Respond with a pong
 		log.Printf("Received ping from %s, sending pong", msg.PlayerID)
 		nm.sendPong(msg.PlayerID, addr)
-	case MsgPong:
+	case msgPong:
 		log.Printf("Received pong from %s", msg.PlayerID)
 		// Just update the last heard time (already done above)
 	default:
@@ -454,8 +454,8 @@ func (nm *NetworkManager) handleClientDisconnect(playerID string) {
 // sendPong sends a pong response to a ping
 func (nm *NetworkManager) sendPong(playerID string, addr *net.UDPAddr) {
 	// Create pong message
-	pongMsg := NetworkMessage{
-		Type:     MsgPong,
+	pongMsg := networkMessage{
+		Type:     msgPong,
 		PlayerID: nm.config.PlayerID,
 		Data:     []byte{},
 	}
@@ -530,8 +530,8 @@ func (nm *NetworkManager) connectToServer() error {
 	log.Printf("Successfully connected to UDP server at %s", serverAddr)
 
 	// Send connect message
-	connectMsg := NetworkMessage{
-		Type:     MsgConnect,
+	connectMsg := networkMessage{
+		Type:     msgConnect,
 		PlayerID: nm.config.PlayerID,
 		Data:     []byte{},
 	}
@@ -578,20 +578,20 @@ func (nm *NetworkManager) processMessages() {
 }
 
 // handleIncomingMessage processes an incoming network message
-func (nm *NetworkManager) handleIncomingMessage(msg NetworkMessage) {
+func (nm *NetworkManager) handleIncomingMessage(msg networkMessage) {
 	switch msg.Type {
-	case MsgGameState:
+	case msgGameState:
 		if nm.onGameState != nil {
 			nm.onGameState(msg.PlayerID, msg.Data)
 		}
-	case MsgPlayerInput:
+	case msgPlayerInput:
 		if nm.onPlayerInput != nil {
 			nm.onPlayerInput(msg.PlayerID, msg.Data)
 		}
-	case MsgPing:
+	case msgPing:
 		// Respond with pong
-		nm.outgoingMsgs <- NetworkMessage{
-			Type:     MsgPong,
+		nm.outgoingMsgs <- networkMessage{
+			Type:     msgPong,
 			PlayerID: nm.config.PlayerID,
 			Data:     msg.Data, // Echo the timestamp
 		}
@@ -599,7 +599,7 @@ func (nm *NetworkManager) handleIncomingMessage(msg NetworkMessage) {
 }
 
 // sendMessage sends a message to the appropriate destination using UDP
-func (nm *NetworkManager) sendMessage(msg NetworkMessage) {
+func (nm *NetworkManager) sendMessage(msg networkMessage) {
 	// Log the message being sent
 	log.Printf("Sending message: type=%v, playerID=%s, dataSize=%d", msg.Type, msg.PlayerID, len(msg.Data))
 
@@ -662,10 +662,8 @@ func (nm *NetworkManager) sendMessage(msg NetworkMessage) {
 	}
 }
 
-// --- Public API ---
-
-// IsNetworkInitialized returns whether the network system has been initialized
-func IsNetworkInitialized() bool {
+// isNetworkInitialized returns whether the network system has been initialized
+func isNetworkInitialized() bool {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 	return networkManager != nil
@@ -724,8 +722,8 @@ func IsWaitingForPlayers() bool {
 	return networkManager.waitingForPlayers
 }
 
-// GetGameName returns the name of the multiplayer game
-func GetGameName() string {
+// getGameName returns the name of the multiplayer game
+func getGameName() string {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 	if networkManager == nil {
@@ -735,8 +733,8 @@ func GetGameName() string {
 	return networkManager.config.GameName
 }
 
-// GetPlayerID returns the ID of the local player
-func GetPlayerID() string {
+// getPlayerID returns the ID of the local player
+func getPlayerID() string {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 	if networkManager == nil {
@@ -867,8 +865,8 @@ func SendGameState(data []byte, targetPlayerID string) {
 		return
 	}
 
-	networkManager.outgoingMsgs <- NetworkMessage{
-		Type:     MsgGameState,
+	networkManager.outgoingMsgs <- networkMessage{
+		Type:     msgGameState,
 		PlayerID: targetPlayerID, // "all" for broadcast
 		Data:     data,
 	}
@@ -883,15 +881,15 @@ func SendPlayerInput(data []byte) {
 		return
 	}
 
-	networkManager.outgoingMsgs <- NetworkMessage{
-		Type:     MsgPlayerInput,
+	networkManager.outgoingMsgs <- networkMessage{
+		Type:     msgPlayerInput,
 		PlayerID: networkManager.config.PlayerID,
 		Data:     data,
 	}
 }
 
-// PingServer sends a ping to the server to check connection status
-func PingServer() {
+// pingServer sends a ping to the server to check connection status
+func pingServer() {
 	networkMutex.Lock()
 	defer networkMutex.Unlock()
 
@@ -902,8 +900,8 @@ func PingServer() {
 	// Send current timestamp as data
 	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
 
-	networkManager.outgoingMsgs <- NetworkMessage{
-		Type:     MsgPing,
+	networkManager.outgoingMsgs <- networkMessage{
+		Type:     msgPing,
 		PlayerID: "server",
 		Data:     []byte(timestamp),
 	}
@@ -911,8 +909,8 @@ func PingServer() {
 
 // ParseNetworkArgs parses command line arguments for network configuration
 // This is a helper function to standardize network command line arguments
-func ParseNetworkArgs() *NetworkConfig {
-	config := DefaultNetworkConfig()
+func ParseNetworkArgs() *networkConfig {
+	config := defaultNetworkConfig()
 
 	// Define command line flags
 	var role string
@@ -934,79 +932,9 @@ func ParseNetworkArgs() *NetworkConfig {
 	return config
 }
 
-// DrawNetworkStatus draws the current network status on the screen
-// This is a helper function to standardize network status display
-func DrawNetworkStatus(x, y, color int) {
-	networkMutex.Lock()
-	defer networkMutex.Unlock()
-
-	if networkManager == nil {
-		return
-	}
-
-	networkManager.mutex.Lock()
-	defer networkManager.mutex.Unlock()
-
-	// Display network error if any
-	if networkManager.networkError != "" {
-		Print(networkManager.networkError, x, y, color)
-		return
-	}
-
-	// Display waiting message if waiting for players
-	if networkManager.waitingForPlayers {
-		if networkManager.config.Role == RoleServer {
-			Print("waiting for player to join...", x, y, color)
-			Print("your ip: "+GetLocalIP(), x, y+10, color)
-		} else {
-			Print("connecting to server...", x, y, color)
-		}
-		return
-	}
-
-	// Display role information
-	if networkManager.config.Role == RoleServer {
-		Print("server mode", x, y, color)
-	} else {
-		Print("client mode", x, y, color)
-	}
-}
-
-// InitNetworkFromMultiplayerSettings initializes the network using the deprecated MultiplayerSettings
-// This is a bridge function to help transition from the old API to the new one
-// Deprecated: Use InitNetwork with NetworkConfig directly instead
-func InitNetworkFromMultiplayerSettings(settings *MultiplayerSettings) error {
-	if settings == nil {
-		return fmt.Errorf("multiplayer settings cannot be nil")
-	}
-
-	// Skip if multiplayer is not enabled
-	if !settings.Enabled {
-		return nil
-	}
-
-	config := &NetworkConfig{
-		Role:     RoleServer,
-		Port:     settings.Port,
-		GameName: settings.GameName,
-	}
-
-	// Set address based on server/client role
-	if settings.IsServer {
-		// Server listens on all interfaces
-		config.Address = ""
-	} else {
-		// Client connects to the specified server IP
-		config.Role = RoleClient
-		config.Address = settings.ServerIP
-	}
-
-	return InitNetwork(config)
-}
-
-// GetLocalIP returns the local IP address that can be used for network connections
+// getLocalIP returns the local IP address that can be used for network connections
 // It finds the first non-loopback IPv4 address on an active network interface
-func GetLocalIP() string {
+func getLocalIP() string {
 	// Get all network interfaces
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -1055,4 +983,47 @@ func GetLocalIP() string {
 	}
 
 	return "IP not found"
+}
+
+// DrawNetworkStatus draws the current network status on the screen
+// This is a helper function to standardize network status display
+func DrawNetworkStatus(x, y, color int) {
+	networkMutex.Lock()
+	defer networkMutex.Unlock()
+
+	if networkManager == nil {
+		return
+	}
+
+	networkManager.mutex.Lock()
+	defer networkManager.mutex.Unlock()
+
+	// Display network error if any
+	if networkManager.networkError != "" {
+		// Print(networkManager.networkError, x, y, color)
+		log.Println("Network Error: ", networkManager.networkError)
+		return
+	}
+
+	// Display waiting message if waiting for players
+	if networkManager.waitingForPlayers {
+		if networkManager.config.Role == RoleServer {
+			// Print("waiting for player to join...", x, y, color)
+			// Print("your ip: "+getLocalIP(), x, y+10, color)
+			log.Printf("Network: Waiting for player to join ... your IP is: %v\n", getLocalIP())
+		} else {
+			// Print("connecting to server...", x, y, color)
+			log.Printf("Network: Connecting to server...\n")
+		}
+		return
+	}
+
+	// Display role information
+	if networkManager.config.Role == RoleServer {
+		// Print("server mode", x, y, color)
+		log.Println("Network: Server mode")
+	} else {
+		// Print("client mode", x, y, color)
+		log.Println("Network: Client Mode")
+	}
 }
