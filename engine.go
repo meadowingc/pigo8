@@ -235,7 +235,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 	currentScreen = screen
 
 	// Clear the screen
-	screen.Clear()
+	// screen.Clear()
 
 	// Call the user's Draw function
 	loadedCartridge.Draw()
