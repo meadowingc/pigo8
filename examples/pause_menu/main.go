@@ -65,16 +65,16 @@ func (g *Game) Update() {
 	}
 
 	// Handle player movement with arrow keys
-	if p8.Btn(p8.ButtonLeft) && g.playerX > 0 {
+	if p8.Btn(p8.LEFT) && g.playerX > 0 {
 		g.playerX--
 	}
-	if p8.Btn(p8.ButtonRight) && g.playerX < p8.GetScreenWidth()-8 {
+	if p8.Btn(p8.RIGHT) && g.playerX < p8.GetScreenWidth()-8 {
 		g.playerX++
 	}
-	if p8.Btn(p8.ButtonUp) && g.playerY > 0 {
+	if p8.Btn(p8.UP) && g.playerY > 0 {
 		g.playerY--
 	}
-	if p8.Btn(p8.ButtonDown) && g.playerY < p8.GetScreenHeight()-8 {
+	if p8.Btn(p8.DOWN) && g.playerY < p8.GetScreenHeight()-8 {
 		g.playerY++
 	}
 

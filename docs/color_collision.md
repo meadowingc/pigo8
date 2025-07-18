@@ -45,7 +45,7 @@ func (g *Game) Update() {
     origX, origY := g.playerX, g.playerY
     
     // Move player based on input
-    if p8.Btn(p8.ButtonRight) {
+    if p8.Btn(p8.RIGHT) {
         g.playerX++
     }
     

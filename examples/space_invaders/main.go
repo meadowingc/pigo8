@@ -120,23 +120,23 @@ func (g *Game) processInputs() bool {
 }
 
 func (g *Game) handleGameOverInput() bool {
-	if pigo8.Btnp(pigo8.ButtonO) {
+	if pigo8.Btnp(pigo8.O) {
 		g.resetGame()
 	}
 	return false
 }
 
 func (g *Game) handlePlayerMovement() {
-	if pigo8.Btn(pigo8.ButtonLeft) && g.playerX > 8 {
+	if pigo8.Btn(pigo8.LEFT) && g.playerX > 8 {
 		g.playerX -= playerSpeed
 	}
-	if pigo8.Btn(pigo8.ButtonRight) && g.playerX < screenW-8 {
+	if pigo8.Btn(pigo8.RIGHT) && g.playerX < screenW-8 {
 		g.playerX += playerSpeed
 	}
 }
 
 func (g *Game) handlePlayerShooting() {
-	if pigo8.Btnp(pigo8.ButtonO) {
+	if pigo8.Btnp(pigo8.O) {
 		g.bullets = append(g.bullets, bullet{
 			x:     g.playerX,
 			y:     g.playerY - 8,

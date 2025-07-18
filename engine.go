@@ -169,6 +169,7 @@ func (g *game) Update() error {
 	if g.firstFrameDrawn {
 		updateConnectedGamepads()
 		updateMouseState()
+		updateInputCache() // Update input cache for this frame
 
 		// Check for START button press to toggle pause menu
 		if Btnp(ButtonStart) {
@@ -187,7 +188,7 @@ func (g *game) Update() error {
 		if g.paused {
 			// Handle pause menu navigation
 			// Navigate up (keyboard or gamepad)
-			if Btnp(ButtonUp) || Btnp(ButtonJoypadUp) {
+			if Btnp(UP) || Btnp(ButtonJoypadUp) {
 				g.pauseSelected--
 				if g.pauseSelected < 0 {
 					g.pauseSelected = EngPauseOptionCount - 1
@@ -195,7 +196,7 @@ func (g *game) Update() error {
 			}
 
 			// Navigate down (keyboard or gamepad)
-			if Btnp(ButtonDown) || Btnp(ButtonJoypadDown) {
+			if Btnp(DOWN) || Btnp(ButtonJoypadDown) {
 				g.pauseSelected++
 				if g.pauseSelected >= EngPauseOptionCount {
 					g.pauseSelected = 0
@@ -203,7 +204,7 @@ func (g *game) Update() error {
 			}
 
 			// Process selection with X button (keyboard) or A button (gamepad)
-			if Btnp(ButtonX) || Btnp(ButtonJoyA) || Btnp(ButtonO) { // O is often the confirm button on some controllers
+			if Btnp(X) || Btnp(ButtonJoyA) || Btnp(O) { // O is often the confirm button on some controllers
 				switch g.pauseSelected {
 				case EngPauseOptionContinue:
 					// Continue the game (unpause)
@@ -234,11 +235,25 @@ func (g *game) Draw(screen *ebiten.Image) {
 	// Set the current screen for drawing
 	currentScreen = screen
 
+	// Initialize pixel buffer if needed
+	if pixelBuffer == nil {
+		initPixelBuffer(GetScreenWidth(), GetScreenHeight())
+	}
+
+	// Initialize screen pixel cache if needed
+	if screenPixelCache == nil {
+		initScreenPixelCache(GetScreenWidth(), GetScreenHeight())
+	}
+
 	// Clear the screen
 	// screen.Clear()
 
 	// Call the user's Draw function
 	loadedCartridge.Draw()
+
+	// Flush all pending pixel operations at the end of the frame
+	flushPixelBuffer()
+	flushSpriteModifications()
 
 	// Draw pause menu on top if active
 	if g.paused {
@@ -270,6 +285,10 @@ func (g *game) Draw(screen *ebiten.Image) {
 			Print(option, menuX+20, optionY, lightColor)
 			optionY += 8
 		}
+
+		// Flush again after menu drawing
+		flushPixelBuffer()
+		flushSpriteModifications()
 	}
 
 	// Mark that the first frame has been drawn
@@ -354,19 +373,23 @@ func PlayGameWith(settings *Settings) {
 	elapsedTime = 0.0
 
 	// Update logical screen dimensions if custom values are provided
+	width := defaultViewportWidth
+	height := defaultViewportHeight
+
 	if cfg.ScreenWidth > 0 {
-		screenWidth = cfg.ScreenWidth
+		width = cfg.ScreenWidth
 	} else {
-		screenWidth = defaultViewportWidth
 		cfg.ScreenWidth = defaultViewportWidth
 	}
 
 	if cfg.ScreenHeight > 0 {
-		screenHeight = cfg.ScreenHeight
+		height = cfg.ScreenHeight
 	} else {
-		screenHeight = defaultViewportHeight
 		cfg.ScreenHeight = defaultViewportHeight
 	}
+
+	// Set screen size and initialize pixel buffer
+	setScreenSize(width, height)
 
 	// Try to load custom palette from palette.hex if it exists
 	loadPaletteFromHexFile()

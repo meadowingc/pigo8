@@ -326,10 +326,10 @@ func (g *Game) sendPlayerInput() {
     
     // Create input object based on current button states
     input := PlayerInput{
-        Up:     p8.Btn(p8.ButtonUp),
-        Down:   p8.Btn(p8.ButtonDown),
-        Left:   p8.Btn(p8.ButtonLeft),
-        Right:  p8.Btn(p8.ButtonRight),
+        Up:     p8.Btn(p8.UP),
+        Down:   p8.Btn(p8.DOWN),
+        Left:   p8.Btn(p8.LEFT),
+        Right:  p8.Btn(p8.RIGHT),
         A:      p8.Btn(p8.A),
         B:      p8.Btn(p8.B),
         Start:  p8.Btn(p8.START),
@@ -364,16 +364,16 @@ if g.isClient {
     originalY := g.localPlayer.y
     
     // Apply input locally for immediate feedback
-    if p8.Btn(p8.ButtonLeft) {
+    if p8.Btn(p8.LEFT) {
         g.localPlayer.x -= g.playerSpeed
     }
-    if p8.Btn(p8.ButtonRight) {
+    if p8.Btn(p8.RIGHT) {
         g.localPlayer.x += g.playerSpeed
     }
-    if p8.Btn(p8.ButtonUp) {
+    if p8.Btn(p8.UP) {
         g.localPlayer.y -= g.playerSpeed
     }
-    if p8.Btn(p8.ButtonDown) {
+    if p8.Btn(p8.DOWN) {
         g.localPlayer.y += g.playerSpeed
     }
     
@@ -643,16 +643,16 @@ func (g *Game) Update() {
         originalX := g.localPlayer.x
         originalY := g.localPlayer.y
         
-        if p8.Btn(p8.ButtonLeft) {
+        if p8.Btn(p8.LEFT) {
             g.localPlayer.x -= g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonRight) {
+        if p8.Btn(p8.RIGHT) {
             g.localPlayer.x += g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonUp) {
+        if p8.Btn(p8.UP) {
             g.localPlayer.y -= g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonDown) {
+        if p8.Btn(p8.DOWN) {
             g.localPlayer.y += g.localPlayer.speed
         }
         
@@ -672,16 +672,16 @@ func (g *Game) Update() {
         originalX := g.localPlayer.x
         originalY := g.localPlayer.y
         
-        if p8.Btn(p8.ButtonLeft) {
+        if p8.Btn(p8.LEFT) {
             g.localPlayer.x -= g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonRight) {
+        if p8.Btn(p8.RIGHT) {
             g.localPlayer.x += g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonUp) {
+        if p8.Btn(p8.UP) {
             g.localPlayer.y -= g.localPlayer.speed
         }
-        if p8.Btn(p8.ButtonDown) {
+        if p8.Btn(p8.DOWN) {
             g.localPlayer.y += g.localPlayer.speed
         }
         
@@ -736,10 +736,10 @@ func (g *Game) sendPlayerInput() {
     
     // Create input object based on current button states
     input := PlayerInput{
-        Left:   p8.Btn(p8.ButtonLeft),
-        Right:  p8.Btn(p8.ButtonRight),
-        Up:     p8.Btn(p8.ButtonUp),
-        Down:   p8.Btn(p8.ButtonDown),
+        Left:   p8.Btn(p8.LEFT),
+        Right:  p8.Btn(p8.RIGHT),
+        Up:     p8.Btn(p8.UP),
+        Down:   p8.Btn(p8.DOWN),
         A:      p8.Btn(p8.A),
         B:      p8.Btn(p8.B),
     }

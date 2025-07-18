@@ -101,10 +101,10 @@ func (g *Game) Update() {
     // Server-specific logic
     if g.isServer && g.gameStarted {
         // Handle left paddle input
-        if p8.Btn(p8.ButtonUp) && g.leftPaddle.y > courtTop+1 {
+        if p8.Btn(p8.UP) && g.leftPaddle.y > courtTop+1 {
             g.leftPaddle.y -= g.leftPaddle.speed
         }
-        if p8.Btn(p8.ButtonDown) && g.leftPaddle.y+g.leftPaddle.height < courtBottom-1 {
+        if p8.Btn(p8.DOWN) && g.leftPaddle.y+g.leftPaddle.height < courtBottom-1 {
             g.leftPaddle.y += g.leftPaddle.speed
         }
 
@@ -128,7 +128,7 @@ The client sends input and applies received game state:
 // Client controls right paddle and sends input to server
 if g.isClient {
     // Send input when buttons are pressed
-    if p8.Btn(p8.ButtonUp) || p8.Btn(p8.ButtonDown) {
+    if p8.Btn(p8.UP) || p8.Btn(p8.DOWN) {
         g.sendPlayerInput()
     }
 }
@@ -140,8 +140,8 @@ func (g *Game) sendPlayerInput() {
     }
 
     input := PlayerInput{
-        Up:   p8.Btn(p8.ButtonUp),
-        Down: p8.Btn(p8.ButtonDown),
+        Up:   p8.Btn(p8.UP),
+        Down: p8.Btn(p8.DOWN),
     }
 
     data, err := json.Marshal(input)

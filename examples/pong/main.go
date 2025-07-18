@@ -73,10 +73,10 @@ func (g *Game) Init() {
 func (g *Game) Update() {
 
 	// Player input
-	if p8.Btn(p8.ButtonUp) && g.player.y > courtTop+1 {
+	if p8.Btn(p8.UP) && g.player.y > courtTop+1 {
 		g.player.y -= g.player.speed
 	}
-	if p8.Btn(p8.ButtonDown) && g.player.y+g.player.height < courtBottom-1 {
+	if p8.Btn(p8.DOWN) && g.player.y+g.player.height < courtBottom-1 {
 		g.player.y += g.player.speed
 	}
 
@@ -107,7 +107,7 @@ func (g *Game) Update() {
 	}
 	if collide(g.ball, g.player) {
 		// adjust dy if player changes paddle angle
-		if p8.Btn(p8.ButtonUp) || p8.Btn(p8.ButtonDown) {
+		if p8.Btn(p8.UP) || p8.Btn(p8.DOWN) {
 			g.ball.dy += p8.Sign(g.ball.dy) * g.ball.boost * 2
 		}
 		g.ball.dx = -(g.ball.dx - g.ball.boost)

@@ -55,7 +55,7 @@ Use the arrow keys to move the player (blue dot) through the maze. The player wi
 The example uses the `ColorCollision` function to check if the player is touching a colored line. If a collision is detected, the player's movement is prevented in that direction.
 
 ```go
-if p8.Btn(p8.ButtonLeft) {
+if p8.Btn(p8.LEFT) {
     g.player.x -= g.player.speed
     if p8.ColorCollision(g.player.x, g.player.y, g.player.collisionColor) {
         g.player.x = beforeX

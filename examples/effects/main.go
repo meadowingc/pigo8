@@ -48,21 +48,21 @@ func (g *Game) Update() {
 	g.tick++
 
 	// Handle player movement
-	if pigo8.Btn(pigo8.ButtonLeft) && g.playerX > 10 {
+	if pigo8.Btn(pigo8.LEFT) && g.playerX > 10 {
 		g.playerX--
 	}
-	if pigo8.Btn(pigo8.ButtonRight) && g.playerX < pigo8.GetScreenWidth()-10 {
+	if pigo8.Btn(pigo8.RIGHT) && g.playerX < pigo8.GetScreenWidth()-10 {
 		g.playerX++
 	}
-	if pigo8.Btn(pigo8.ButtonUp) && g.playerY > 10 {
+	if pigo8.Btn(pigo8.UP) && g.playerY > 10 {
 		g.playerY--
 	}
-	if pigo8.Btn(pigo8.ButtonDown) && g.playerY < pigo8.GetScreenHeight()-10 {
+	if pigo8.Btn(pigo8.DOWN) && g.playerY < pigo8.GetScreenHeight()-10 {
 		g.playerY++
 	}
 
 	// Toggle controls display with X key
-	if pigo8.Btnp(pigo8.ButtonX) {
+	if pigo8.Btnp(pigo8.X) {
 		g.showControls = !g.showControls
 	}
 

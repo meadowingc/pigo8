@@ -14,7 +14,7 @@ func TestBtnPlayerIndexValidation(t *testing.T) {
 	// We don't need to mock actual gamepad state for this validation
 	// The functions should return false early if playerIndex is invalid.
 
-	button := ButtonO // Arbitrary button
+	button := O // Arbitrary button
 
 	t.Run("Valid player indices (0-7)", func(t *testing.T) {
 		for i := 0; i <= 7; i++ {
@@ -40,7 +40,7 @@ func TestBtnPlayerIndexValidation(t *testing.T) {
 
 func TestBtnpPlayerIndexValidation(t *testing.T) {
 	// Similar logic to TestBtnPlayerIndexValidation
-	button := ButtonX // Arbitrary button
+	button := X // Arbitrary button
 
 	t.Run("Valid player indices (0-7)", func(t *testing.T) {
 		for i := 0; i <= 7; i++ {

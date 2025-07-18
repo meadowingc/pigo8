@@ -1,6 +1,9 @@
 package pigo8
 
-import "log"
+import (
+	"log"
+	"sync"
+)
 
 // ColorCollision checks if the pixel at coordinates (x, y) matches the specified color.
 // Returns true if the pixel color matches the given color, false otherwise.
@@ -49,6 +52,44 @@ func ColorCollision[X Number, Y Number](x X, y Y, color int) bool {
 
 	// Return true if the pixel color matches the specified color
 	return pixelColor == color
+}
+
+// Add flag caching for collision detection
+var (
+	flagCache      = make(map[int]map[int]bool) // spriteID -> flag -> isSet
+	flagCacheMutex sync.RWMutex
+)
+
+// getCachedFlag returns the cached flag value for a sprite, or computes and caches it
+func getCachedFlag(spriteID, flag int) bool {
+	flagCacheMutex.RLock()
+	if spriteFlags, exists := flagCache[spriteID]; exists {
+		if isSet, flagExists := spriteFlags[flag]; flagExists {
+			flagCacheMutex.RUnlock()
+			return isSet
+		}
+	}
+	flagCacheMutex.RUnlock()
+
+	// Compute flag value
+	_, isSet := Fget(spriteID, flag)
+
+	// Cache the result
+	flagCacheMutex.Lock()
+	if flagCache[spriteID] == nil {
+		flagCache[spriteID] = make(map[int]bool)
+	}
+	flagCache[spriteID][flag] = isSet
+	flagCacheMutex.Unlock()
+
+	return isSet
+}
+
+// ClearFlagCache clears the flag cache (call when sprites change)
+func ClearFlagCache() {
+	flagCacheMutex.Lock()
+	flagCache = make(map[int]map[int]bool)
+	flagCacheMutex.Unlock()
 }
 
 // MapCollision checks if a rectangular area, starting at pixel coordinates (x, y) and with a given width and height,
@@ -124,16 +165,12 @@ func MapCollision[X Number, Y Number](x X, y Y, flag int, size ...int) bool {
 			spriteID := Mget(tx, ty)
 
 			// If spriteID is 0 (empty tile) or less (out of bounds/error), skip
-			// Many engines use 0 for empty, but Mget might return other values for errors.
-			// Adjust if your Mget has specific non-collidable sprite IDs (e.g., -1 for out of bounds).
-			if spriteID <= 0 { // Assuming non-positive sprite IDs are non-collidable or empty
+			if spriteID <= 0 {
 				continue
 			}
 
-			// Get flags of that sprite and check if the specific flag is set
-			_, isSet := Fget(spriteID, flag)
-
-			if isSet {
+			// Use cached flag lookup for better performance
+			if getCachedFlag(spriteID, flag) {
 				return true // Collision detected
 			}
 		}

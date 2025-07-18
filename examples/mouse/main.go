@@ -107,7 +107,7 @@ func (g *Game) Update() {
 	}
 
 	// Clear canvas with C key
-	if pigo8.Btnp(pigo8.ButtonX) {
+	if pigo8.Btnp(pigo8.X) {
 		for i := range g.canvas {
 			for j := range g.canvas[i] {
 				g.canvas[i][j] = 0

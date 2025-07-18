@@ -19,7 +19,7 @@ func (g *Game) Init() {}
 
 // Update is called every frame and is responsible for updating the game state
 func (g *Game) Update() {
-	if pigo8.Btn(pigo8.ButtonO) {
+	if pigo8.Btn(pigo8.O) {
 		g.currentColor = (g.currentColor + 1) % pigo8.GetPaletteSize()
 	}
 }

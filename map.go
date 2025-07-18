@@ -63,6 +63,16 @@ type activeTileBuffer struct {
 	IsRegionLoaded bool  // True if this buffer currently holds valid map data
 }
 
+// newActiveTileBuffer creates a new active tile buffer using the memory pool
+func newActiveTileBuffer(width, height int) *activeTileBuffer {
+	bufferSize := width * height
+	return &activeTileBuffer{
+		Data:          getMapBuffer(bufferSize),
+		WidthInTiles:  width,
+		HeightInTiles: height,
+	}
+}
+
 var (
 	// Streaming Map System
 	worldMapStream             *tilemapStream
@@ -88,7 +98,37 @@ var (
 	// Memory monitoring (Preserved)
 	lastMemoryUsage uint64
 	memoryMutex     sync.Mutex
+
+	// Add memory pool for map buffers
+	mapBufferPool = sync.Pool{
+		New: func() interface{} {
+			// Create a new buffer with default size
+			buf := make([]int, activeTileBufferWidthInTiles*activeTileBufferHeightInTiles)
+			return &buf
+		},
+	}
 )
+
+// getMapBuffer gets a buffer from the pool or creates a new one
+func getMapBuffer(size int) []int {
+	bufferPtr := mapBufferPool.Get().(*[]int)
+	buffer := *bufferPtr
+	if cap(buffer) < size {
+		// If the pooled buffer is too small, create a new one
+		return make([]int, size)
+	}
+	// Resize the buffer to the requested size
+	return buffer[:size]
+}
+
+// returnMapBuffer returns a buffer to the pool
+func returnMapBuffer(buffer []int) {
+	// Clear the buffer before returning to pool
+	for i := range buffer {
+		buffer[i] = 0
+	}
+	mapBufferPool.Put(&buffer)
+}
 
 // logMemory logs the current memory usage with a label
 func logMemory(label string, forceLog bool) {
@@ -293,14 +333,10 @@ func initializeStreamingMapSystem() error {
 	worldMapMutex.Unlock()
 
 	activeBufferMutex.Lock()
-	activeTileBufferInstance = &activeTileBuffer{
-		Data:           nil,
-		BufferWorldX:   -1,
-		BufferWorldY:   -1,
-		WidthInTiles:   activeTileBufferWidthInTiles,
-		HeightInTiles:  activeTileBufferHeightInTiles,
-		IsRegionLoaded: false,
-	}
+	activeTileBufferInstance = newActiveTileBuffer(activeTileBufferWidthInTiles, activeTileBufferHeightInTiles)
+	activeTileBufferInstance.BufferWorldX = -1
+	activeTileBufferInstance.BufferWorldY = -1
+	activeTileBufferInstance.IsRegionLoaded = false
 	activeBufferMutex.Unlock()
 
 	log.Println("Streaming map system initialized.")
@@ -559,7 +595,12 @@ func loadRegionIntoActiveBuffer(targetWorldX, targetWorldY int) error {
 
 	requiredBufferSize := activeTileBufferInstance.WidthInTiles * activeTileBufferInstance.HeightInTiles
 	if activeTileBufferInstance.Data == nil || len(activeTileBufferInstance.Data) != requiredBufferSize {
-		activeTileBufferInstance.Data = make([]int, requiredBufferSize)
+		// Return old buffer to pool if it exists
+		if activeTileBufferInstance.Data != nil {
+			returnMapBuffer(activeTileBufferInstance.Data)
+		}
+		// Get new buffer from pool
+		activeTileBufferInstance.Data = getMapBuffer(requiredBufferSize)
 	}
 
 	for y := 0; y < activeTileBufferInstance.HeightInTiles; y++ {

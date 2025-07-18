@@ -927,7 +927,7 @@ func (g *myGame) Update() {
 
 // toggleMapMode flips mapMode and saves data on entry/exit
 func (g *myGame) toggleMapMode() {
-	if p8.Btnp(p8.ButtonX) {
+	if p8.Btnp(p8.X) {
 		// Save current state before switching modes to ensure all changes are captured
 		if err := g.saveState(); err != nil {
 			log.Printf("Error saving state before mode switch: %v", err)
@@ -964,16 +964,16 @@ func (g *myGame) handleMapMode() {
 func (g *myGame) moveCamera() {
 	stepX := mapViewWidth / unit
 	stepY := mapViewHeight / unit
-	if p8.Btnp(p8.ButtonLeft) && g.mapCameraX > 0 {
+	if p8.Btnp(p8.LEFT) && g.mapCameraX > 0 {
 		g.mapCameraX -= stepX
 	}
-	if p8.Btnp(p8.ButtonRight) && g.mapCameraX < mapWidth-stepX {
+	if p8.Btnp(p8.RIGHT) && g.mapCameraX < mapWidth-stepX {
 		g.mapCameraX += stepX
 	}
-	if p8.Btnp(p8.ButtonUp) && g.mapCameraY > 0 {
+	if p8.Btnp(p8.UP) && g.mapCameraY > 0 {
 		g.mapCameraY -= stepY
 	}
-	if p8.Btnp(p8.ButtonDown) && g.mapCameraY < mapHeight-stepY {
+	if p8.Btnp(p8.DOWN) && g.mapCameraY < mapHeight-stepY {
 		g.mapCameraY += stepY
 	}
 }
@@ -1484,16 +1484,16 @@ func (g *myGame) handleKeyboardNavigation() {
 	moved := false
 
 	switch {
-	case p8.Btnp(p8.ButtonLeft) && currentCol > 0:
+	case p8.Btnp(p8.LEFT) && currentCol > 0:
 		g.currentSprite--
 		moved = true
-	case p8.Btnp(p8.ButtonRight) && currentCol < spriteSheetCols-1:
+	case p8.Btnp(p8.RIGHT) && currentCol < spriteSheetCols-1:
 		g.currentSprite++
 		moved = true
-	case p8.Btnp(p8.ButtonUp) && currentRow > 0:
+	case p8.Btnp(p8.UP) && currentRow > 0:
 		g.currentSprite -= spriteSheetCols
 		moved = true
-	case p8.Btnp(p8.ButtonDown) && currentRow < spriteSheetRows-1:
+	case p8.Btnp(p8.DOWN) && currentRow < spriteSheetRows-1:
 		g.currentSprite += spriteSheetCols
 		moved = true
 	}

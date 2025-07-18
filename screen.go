@@ -11,7 +11,9 @@ import (
 	_ "image/png" // Keep in case other PNGs are loaded
 	"log"
 	"math"
+	"sync"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2" // Re-add text/v2
 )
 
@@ -21,6 +23,9 @@ var pico8FontTTF []byte
 var (
 	// drawPaletteMap stores mappings for the draw palette: drawPaletteMap[originalColor] = mappedColor
 	drawPaletteMap []int
+
+	// colorToIndexMap provides O(1) lookup from color to palette index
+	colorToIndexMap map[color.Color]int
 
 	// originalPico8Palette holds the an immutable copy of the standard 16 PICO-8 colors.
 	// This is used as a reference to check if the current palette is the default.
@@ -79,18 +84,53 @@ var (
 	cursorX     int
 	cursorY     int
 	cursorColor = 7 // Default to white (PICO-8 color 7)
+
+	// Pixel buffer system for batch operations
+	pixelBuffer       []byte
+	pixelBufferWidth  int
+	pixelBufferHeight int
+	bufferDirty       bool
+	pixelBufferMutex  sync.Mutex
+
+	// Sprite modification batching
+	spriteModifications = make(map[*ebiten.Image][]pixelMod)
+	spriteModMutex      sync.Mutex
+
+	// Screen pixel cache for batch reading operations
+	screenPixelCache       []byte
+	screenPixelCacheWidth  int
+	screenPixelCacheHeight int
+	screenCacheValid       bool
+	screenCacheMutex       sync.RWMutex
 )
+
+// pixelMod represents a pending pixel modification
+type pixelMod struct {
+	x, y  int
+	color color.Color
+}
 
 func init() {
 	// Initialize the font face source from embedded TTF.
 	drawPaletteMap = make([]int, len(pico8Palette)) // Initialize before use
 	resetDrawPaletteMapInternal()
 
+	// Initialize color lookup map
+	buildColorToIndexMap()
+
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(pico8FontTTF))
 	if err != nil {
 		log.Fatalf("Failed to create font face source from pico-8.ttf: %v", err)
 	}
 	pico8FaceSource = s
+}
+
+// buildColorToIndexMap creates a map for O(1) color to index lookups
+func buildColorToIndexMap() {
+	colorToIndexMap = make(map[color.Color]int, len(pico8Palette))
+	for i, paletteColor := range pico8Palette {
+		colorToIndexMap[paletteColor] = i
+	}
 }
 
 // Cls clears the current drawing screen with a specified PICO-8 color index.
@@ -111,6 +151,9 @@ func Cls(colorIndex ...int) {
 		idx = 0
 	}
 	currentScreen.Fill(pico8Palette[idx])
+
+	// Clear the pixel buffer since we're clearing the screen
+	clearPixelBuffer()
 
 	// Reset the global print cursor position
 	cursorX = 0
@@ -134,6 +177,9 @@ func ClsRGBA(clr color.RGBA) {
 
 	// Fill the screen with the provided RGBA color
 	currentScreen.Fill(clr)
+
+	// Clear the pixel buffer since we're clearing the screen
+	clearPixelBuffer()
 
 	// Reset the global print cursor position
 	cursorX = 0
@@ -172,23 +218,37 @@ func Pget(x, y int) int {
 		return 0 // PICO-8 pget returns 0 for out-of-bounds
 	}
 
-	// Get the color at the specified pixel
-	pixelColor := currentScreen.At(x, y)
-	// Retrieve RGBA values as uint32 (premultiplied alpha, 0-65535 range)
-	r1, g1, b1, a1 := pixelColor.RGBA()
+	// Try to get pixel from cache first (batch reading optimization)
+	screenCacheMutex.RLock()
+	if screenCacheValid && screenPixelCache != nil &&
+		x < screenPixelCacheWidth && y < screenPixelCacheHeight {
+		offset := (y*screenPixelCacheWidth + x) * 4
+		if offset+3 < len(screenPixelCache) {
+			r := screenPixelCache[offset]
+			g := screenPixelCache[offset+1]
+			b := screenPixelCache[offset+2]
+			a := screenPixelCache[offset+3]
+			screenCacheMutex.RUnlock()
 
-	// Iterate through the palette to find a match
-	for i, paletteColor := range pico8Palette {
-		// Retrieve RGBA values for the palette color in the same format
-		r2, g2, b2, a2 := paletteColor.RGBA()
-		// Compare the raw uint32 values
-		if r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2 {
-			return i // Return the matching palette index
+			// Create color from RGBA values
+			pixelColor := color.RGBA{r, g, b, a}
+
+			// Use the colorToIndexMap for O(1) lookup
+			if index, ok := colorToIndexMap[pixelColor]; ok {
+				return index
+			}
+			return 0
 		}
 	}
+	screenCacheMutex.RUnlock()
 
-	// Optional: Log if a non-palette color is encountered, though ideally only palette colors are used.
-	// log.Printf("Warning: Pget(%d, %d) found color %v not in Pico8Palette.", x, y, pixelColor)
+	// Fallback to individual pixel read if cache is not available
+	pixelColor := currentScreen.At(x, y)
+
+	// Use the colorToIndexMap for O(1) lookup
+	if index, ok := colorToIndexMap[pixelColor]; ok {
+		return index
+	}
 
 	// If no exact match is found in the palette, return 0
 	return 0
@@ -215,6 +275,11 @@ func Pset(x, y int, colorIndex ...int) {
 	if currentScreen == nil {
 		log.Println("Warning: Pset() called before screen was ready.")
 		return
+	}
+
+	// Initialize pixel buffer if needed
+	if pixelBuffer == nil {
+		initPixelBuffer(GetScreenWidth(), GetScreenHeight())
 	}
 
 	// Determine original color to use
@@ -275,8 +340,8 @@ func Pset(x, y int, colorIndex ...int) {
 	// Get the actual color.Color struct for the mapped color
 	pixelColor := pico8Palette[mappedColor]
 
-	// Draw the pixel
-	currentScreen.Set(x, y, pixelColor)
+	// Set pixel in buffer instead of immediate GPU upload
+	setPixelInBuffer(x, y, pixelColor)
 }
 
 const (
@@ -711,4 +776,124 @@ func IsDefaultPico8PaletteActive() bool {
 		}
 	}
 	return true
+}
+
+// initPixelBuffer initializes the pixel buffer for batch operations
+func initPixelBuffer(width, height int) {
+	pixelBufferMutex.Lock()
+	defer pixelBufferMutex.Unlock()
+
+	if pixelBufferWidth != width || pixelBufferHeight != height {
+		pixelBufferWidth = width
+		pixelBufferHeight = height
+		pixelBuffer = make([]byte, width*height*4) // RGBA format
+		bufferDirty = false
+		log.Printf("Initialized pixel buffer: %dx%d (%d bytes)", width, height, len(pixelBuffer))
+	}
+
+	// Also initialize screen pixel cache for reading operations
+	initScreenPixelCache(width, height)
+}
+
+// flushPixelBuffer uploads all pending pixel changes to the GPU
+func flushPixelBuffer() {
+	pixelBufferMutex.Lock()
+	defer pixelBufferMutex.Unlock()
+
+	if bufferDirty && currentScreen != nil && len(pixelBuffer) > 0 {
+		currentScreen.WritePixels(pixelBuffer)
+		bufferDirty = false
+
+		// Update screen pixel cache after flushing
+		updateScreenPixelCache()
+	}
+}
+
+// setPixelInBuffer sets a pixel in the buffer without immediate GPU upload
+func setPixelInBuffer(x, y int, clr color.Color) {
+	if x < 0 || x >= pixelBufferWidth || y < 0 || y >= pixelBufferHeight {
+		return
+	}
+
+	offset := (y*pixelBufferWidth + x) * 4
+	r, g, b, a := clr.RGBA()
+	pixelBuffer[offset] = uint8(r >> 8)   // Red
+	pixelBuffer[offset+1] = uint8(g >> 8) // Green
+	pixelBuffer[offset+2] = uint8(b >> 8) // Blue
+	pixelBuffer[offset+3] = uint8(a >> 8) // Alpha
+	bufferDirty = true
+}
+
+// clearPixelBuffer clears the pixel buffer and marks it as clean
+func clearPixelBuffer() {
+	pixelBufferMutex.Lock()
+	defer pixelBufferMutex.Unlock()
+
+	if len(pixelBuffer) > 0 {
+		for i := range pixelBuffer {
+			pixelBuffer[i] = 0
+		}
+		bufferDirty = false
+	}
+
+	// Also invalidate screen pixel cache
+	invalidateScreenPixelCache()
+}
+
+// initScreenPixelCache initializes the screen pixel cache for batch reading operations
+func initScreenPixelCache(width, height int) {
+	screenCacheMutex.Lock()
+	defer screenCacheMutex.Unlock()
+
+	if screenPixelCacheWidth != width || screenPixelCacheHeight != height {
+		screenPixelCacheWidth = width
+		screenPixelCacheHeight = height
+		screenPixelCache = make([]byte, width*height*4) // RGBA format
+		screenCacheValid = false
+		log.Printf("Initialized screen pixel cache: %dx%d (%d bytes)", width, height, len(screenPixelCache))
+	}
+}
+
+// updateScreenPixelCache reads all pixels from the screen into the cache
+func updateScreenPixelCache() {
+	screenCacheMutex.Lock()
+	defer screenCacheMutex.Unlock()
+
+	if currentScreen == nil || screenPixelCache == nil {
+		screenCacheValid = false
+		return
+	}
+
+	// Read all pixels from GPU in one batch operation
+	currentScreen.ReadPixels(screenPixelCache)
+	screenCacheValid = true
+}
+
+// invalidateScreenPixelCache marks the screen pixel cache as invalid
+func invalidateScreenPixelCache() {
+	screenCacheMutex.Lock()
+	defer screenCacheMutex.Unlock()
+	screenCacheValid = false
+}
+
+// GetScreenPixelCacheStats returns statistics about the screen pixel cache
+func GetScreenPixelCacheStats() (width, height int, valid bool, size int) {
+	screenCacheMutex.RLock()
+	defer screenCacheMutex.RUnlock()
+
+	return screenPixelCacheWidth, screenPixelCacheHeight, screenCacheValid, len(screenPixelCache)
+}
+
+// ForceUpdateScreenPixelCache forces an update of the screen pixel cache
+func ForceUpdateScreenPixelCache() {
+	updateScreenPixelCache()
+}
+
+// setScreenSize updates the screen dimensions and reinitializes the pixel buffer
+func setScreenSize(width, height int) {
+	screenWidth = width
+	screenHeight = height
+
+	// Reinitialize pixel buffer with new dimensions
+	initPixelBuffer(width, height)
 }

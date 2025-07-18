@@ -147,6 +147,9 @@ func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 		// Create a new Ebiten image for the sprite
 		img := ebiten.NewImage(spriteData.Width, spriteData.Height)
 
+		// Create pixel buffer for batch operations
+		pixels := make([]byte, spriteData.Width*spriteData.Height*4)
+
 		// Iterate over pixels and set colors based on the palette
 		for y, row := range spriteData.Pixels {
 			for x, colorIndex := range row {
@@ -154,13 +157,21 @@ func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 				if colorIndex >= 0 && colorIndex < len(pico8Palette) {
 					// PICO-8 color 0 is often transparent
 					if colorIndex != 0 {
-						img.Set(x, y, pico8Palette[colorIndex])
+						offset := (y*spriteData.Width + x) * 4
+						r, g, b, a := pico8Palette[colorIndex].RGBA()
+						pixels[offset] = uint8(r >> 8)   // Red
+						pixels[offset+1] = uint8(g >> 8) // Green
+						pixels[offset+2] = uint8(b >> 8) // Blue
+						pixels[offset+3] = uint8(a >> 8) // Alpha
 					}
 				} else {
 					log.Printf("Warning: Sprite %d has out-of-range color index %d at (%d, %d)", spriteData.ID, colorIndex, x, y)
 				}
 			}
 		}
+
+		// Upload all pixels to GPU in one operation
+		img.WritePixels(pixels)
 
 		// Create the SpriteInfo struct
 		info := spriteInfo{
@@ -169,6 +180,10 @@ func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 			Flags: spriteData.Flags,
 		}
 		loadedSprites = append(loadedSprites, info)
+
+		// Initialize sprite pixel cache for batch reading operations
+		initSpritePixelCache(spriteData.ID, img)
+		updateSpritePixelCache(spriteData.ID, img)
 	}
 
 	if len(loadedSprites) == 0 &&

@@ -28,7 +28,7 @@ Custom functions follow the same naming conventions and design patterns as the s
 // Example using both standard and custom functions
 func (g *Game) Update() {
     // Standard PICO-8 function to move the player
-    if p8.Btn(p8.ButtonRight) {
+    if p8.Btn(p8.RIGHT) {
         g.playerX++
     }
     

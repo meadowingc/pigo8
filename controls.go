@@ -4,6 +4,7 @@ package pigo8
 import (
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -12,14 +13,14 @@ import (
 // PICO-8 Button Index Constants
 const (
 	// Directional buttons (keyboard and gamepad)
-	ButtonLeft = iota
-	ButtonRight
-	ButtonUp
-	ButtonDown
+	LEFT = iota
+	RIGHT
+	UP
+	DOWN
 
 	// Face buttons (keyboard and gamepad)
-	ButtonO // Often mapped to A/Cross on standard controllers
-	ButtonX // Often mapped to B/Circle on standard controllers
+	O // Often mapped to A/Cross on standard controllers
+	X // Often mapped to B/Circle on standard controllers
 
 	ButtonStart
 	ButtonSelect
@@ -84,8 +85,8 @@ func initButtonMappings() {
 	// Initialize with common button mappings
 	pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
 		// Face buttons (Xbox-style: A=bottom, B=right, X=left, Y=top)
-		ButtonO: ebiten.StandardGamepadButtonRightLeft,   // Left button (X on Xbox, Square on PlayStation)
-		ButtonX: ebiten.StandardGamepadButtonRightBottom, // Bottom button (A on Xbox, X on PlayStation)
+		O: ebiten.StandardGamepadButtonRightLeft,   // Left button (X on Xbox, Square on PlayStation)
+		X: ebiten.StandardGamepadButtonRightBottom, // Bottom button (A on Xbox, X on PlayStation)
 
 		// Menu buttons
 		ButtonStart:  ebiten.StandardGamepadButtonCenterRight, // Start button
@@ -107,8 +108,8 @@ func initButtonMappings() {
 		// Steam Deck specific button mappings
 		pico8ButtonToStandard = map[int]ebiten.StandardGamepadButton{
 			// Face buttons (A,B,X,Y) - Steam Deck uses XBox layout
-			ButtonX: ebiten.StandardGamepadButtonRightLeft,   // X button (Left)
-			ButtonO: ebiten.StandardGamepadButtonRightBottom, // A button (Bottom)
+			X: ebiten.StandardGamepadButtonRightLeft,   // X button (Left)
+			O: ebiten.StandardGamepadButtonRightBottom, // A button (Bottom)
 
 			ButtonJoyA:    ebiten.StandardGamepadButtonRightBottom, // A button (bottom)
 			ButtonJoypadB: ebiten.StandardGamepadButtonRightRight,  // B button (right)
@@ -116,10 +117,10 @@ func initButtonMappings() {
 			ButtonJoypadY: ebiten.StandardGamepadButtonRightTop,    // Y button (top)
 
 			// D-pad directions
-			ButtonUp:          ebiten.StandardGamepadButtonLeftTop,
-			ButtonDown:        ebiten.StandardGamepadButtonLeftBottom,
-			ButtonLeft:        ebiten.StandardGamepadButtonLeftLeft,
-			ButtonRight:       ebiten.StandardGamepadButtonLeftRight,
+			UP:                ebiten.StandardGamepadButtonLeftTop,
+			DOWN:              ebiten.StandardGamepadButtonLeftBottom,
+			LEFT:              ebiten.StandardGamepadButtonLeftLeft,
+			RIGHT:             ebiten.StandardGamepadButtonLeftRight,
 			ButtonJoypadUp:    ebiten.StandardGamepadButtonLeftTop,
 			ButtonJoypadDown:  ebiten.StandardGamepadButtonLeftBottom,
 			ButtonJoypadLeft:  ebiten.StandardGamepadButtonLeftLeft,
@@ -168,14 +169,14 @@ func init() {
 // Updated for better Steam Deck keyboard/on-screen keyboard support
 var pico8ButtonToKeyboardP0 = map[int]ebiten.Key{
 	// Arrow keys for direction
-	ButtonLeft:  ebiten.KeyLeft,
-	ButtonRight: ebiten.KeyRight,
-	ButtonUp:    ebiten.KeyUp,
-	ButtonDown:  ebiten.KeyDown,
+	LEFT:  ebiten.KeyLeft,
+	RIGHT: ebiten.KeyRight,
+	UP:    ebiten.KeyUp,
+	DOWN:  ebiten.KeyDown,
 
 	// Face buttons (mapped to common game keys)
-	ButtonO: ebiten.KeyZ, // PICO-8 O button ('Z' key)
-	ButtonX: ebiten.KeyX, // PICO-8 X button ('X' key)
+	O: ebiten.KeyZ, // PICO-8 O button ('Z' key)
+	X: ebiten.KeyX, // PICO-8 X button ('X' key)
 
 	// Menu buttons
 	ButtonStart:  ebiten.KeyEnter, // Start/Confirm
@@ -250,7 +251,7 @@ func handleKeyboardInput(buttonIndex int) bool {
 // isDirectionButton checks if the buttonIndex corresponds to a directional PICO-8 button.
 func isDirectionButton(buttonIndex int) bool {
 	switch buttonIndex {
-	case ButtonLeft, ButtonRight, ButtonUp, ButtonDown, ButtonJoypadLeft, ButtonJoypadRight, ButtonJoypadUp, ButtonJoypadDown:
+	case LEFT, RIGHT, UP, DOWN, ButtonJoypadLeft, ButtonJoypadRight, ButtonJoypadUp, ButtonJoypadDown:
 		return true
 	default:
 		return false
@@ -261,7 +262,7 @@ func isDirectionButton(buttonIndex int) bool {
 func handleGamepadDirectionalInput(buttonIndex int, gamepadID ebiten.GamepadID) bool {
 	axisThreshold := 0.5
 	switch buttonIndex {
-	case ButtonLeft, ButtonJoypadLeft:
+	case LEFT, ButtonJoypadLeft:
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftLeft) ||
 				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) < -axisThreshold {
@@ -270,7 +271,7 @@ func handleGamepadDirectionalInput(buttonIndex int, gamepadID ebiten.GamepadID) 
 		}
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft)) ||
 			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -axisThreshold
-	case ButtonRight, ButtonJoypadRight:
+	case RIGHT, ButtonJoypadRight:
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftRight) ||
 				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickHorizontal) > axisThreshold {
@@ -279,7 +280,7 @@ func handleGamepadDirectionalInput(buttonIndex int, gamepadID ebiten.GamepadID) 
 		}
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight)) ||
 			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > axisThreshold
-	case ButtonUp, ButtonJoypadUp:
+	case UP, ButtonJoypadUp:
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftTop) ||
 				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) < -axisThreshold {
@@ -288,7 +289,7 @@ func handleGamepadDirectionalInput(buttonIndex int, gamepadID ebiten.GamepadID) 
 		}
 		return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop)) ||
 			ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -axisThreshold
-	case ButtonDown, ButtonJoypadDown:
+	case DOWN, ButtonJoypadDown:
 		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
 			if ebiten.IsStandardGamepadButtonPressed(gamepadID, ebiten.StandardGamepadButtonLeftBottom) ||
 				ebiten.StandardGamepadAxisValue(gamepadID, ebiten.StandardGamepadAxisLeftStickVertical) > axisThreshold {
@@ -308,17 +309,17 @@ func handleGamepadStandardButtonInput(buttonIndex int, gamepadID ebiten.GamepadI
 			return ebiten.IsStandardGamepadButtonPressed(gamepadID, standardButton)
 		}
 		switch buttonIndex {
-		case ButtonLeft:
+		case LEFT:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft))
-		case ButtonRight:
+		case RIGHT:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight))
-		case ButtonUp:
+		case UP:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop))
-		case ButtonDown:
+		case DOWN:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom))
-		case ButtonO:
+		case O:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton1)
-		case ButtonX:
+		case X:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton0)
 		case ButtonStart:
 			return ebiten.IsGamepadButtonPressed(gamepadID, ebiten.GamepadButton9)
@@ -339,35 +340,7 @@ func handleGamepadStandardButtonInput(buttonIndex int, gamepadID ebiten.GamepadI
 // buttonIndex: The PICO-8 button index (0-15).
 // playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
 func Btn(buttonIndex int, playerIndex ...int) bool {
-	pIdx := 0 // Default to player 0
-	if len(playerIndex) > 0 {
-		pIdx = playerIndex[0]
-	}
-
-	// Check mouse input first
-	if isMouseButton(buttonIndex) {
-		return handleMouseInput(buttonIndex)
-	}
-
-	// Check keyboard input (player 0 only)
-	if pIdx == 0 && handleKeyboardInput(buttonIndex) {
-		return true
-	}
-
-	// Check gamepad input
-	ids := ebiten.AppendGamepadIDs(nil)
-	if pIdx < 0 || pIdx >= len(ids) {
-		return false // No gamepad connected for this player index
-	}
-	gamepadID := ids[pIdx]
-
-	// Check directional inputs first
-	if isDirectionButton(buttonIndex) {
-		return handleGamepadDirectionalInput(buttonIndex, gamepadID)
-	}
-
-	// Then check standard button mappings
-	return handleGamepadStandardButtonInput(buttonIndex, gamepadID)
+	return getCachedButtonState(buttonIndex)
 }
 
 // Note: For "just pressed" behavior similar to PICO-8's btnp(), you would use
@@ -405,86 +378,82 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 //		// Pause game for player 1
 //	}
 func Btnp(buttonIndex int, playerIndex ...int) bool {
-	pIdx := 0 // Default to player 0
-	if len(playerIndex) > 0 {
-		pIdx = playerIndex[0]
+	// Check if button is pressed this frame but wasn't pressed last frame
+	current := getCachedButtonState(buttonIndex)
+	previous := getCachedButtonStatePrev(buttonIndex)
+	return current && !previous
+}
+
+// Add input state caching
+var (
+	buttonStates     = make(map[int]bool) // buttonIndex -> isPressed
+	buttonStatesPrev = make(map[int]bool) // previous frame button states
+	inputCacheMutex  sync.RWMutex
+	inputCacheValid  bool
+)
+
+// updateInputCache updates the cached button states
+func updateInputCache() {
+	inputCacheMutex.Lock()
+	defer inputCacheMutex.Unlock()
+
+	// Copy current states to previous
+	for k, v := range buttonStates {
+		buttonStatesPrev[k] = v
 	}
 
-	// --- Mouse Check ---
-	switch buttonIndex {
-	case ButtonMouseLeft:
-		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	case ButtonMouseRight:
-		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
-	case ButtonMouseMiddle:
-		return inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
-	case ButtonMouseWheelUp:
-		_, wheelY := ebiten.Wheel()
-		return wheelY < 0
-	case ButtonMouseWheelDown:
-		_, wheelY := ebiten.Wheel()
-		return wheelY > 0
+	// Update current states for all buttons
+	for buttonIndex := 0; buttonIndex <= ButtonJoypadR5; buttonIndex++ {
+		buttonStates[buttonIndex] = checkButtonState(buttonIndex)
 	}
 
-	// --- Keyboard Check (Player 0 Only) ---
-	if pIdx == 0 {
-		if key, ok := pico8ButtonToKeyboardP0[buttonIndex]; ok {
-			if inpututil.IsKeyJustPressed(key) {
+	inputCacheValid = true
+}
+
+// checkButtonState checks the actual button state (uncached)
+func checkButtonState(buttonIndex int) bool {
+	// Handle mouse buttons
+	if isMouseButton(buttonIndex) {
+		return handleMouseInput(buttonIndex)
+	}
+
+	// Handle keyboard input
+	if handleKeyboardInput(buttonIndex) {
+		return true
+	}
+
+	// Handle gamepad input
+	for gamepadID := range connectedGamepadIDs {
+		if isDirectionButton(buttonIndex) {
+			if handleGamepadDirectionalInput(buttonIndex, gamepadID) {
+				return true
+			}
+		} else {
+			if handleGamepadStandardButtonInput(buttonIndex, gamepadID) {
 				return true
 			}
 		}
 	}
 
-	// --- Gamepad Check ---
-	// Get the first connected gamepad for this player (simplified version)
-	ids := ebiten.AppendGamepadIDs(nil)
-	if pIdx < 0 || pIdx >= len(ids) {
-		return false
-	}
-	gamepadID := ids[pIdx]
-
-	// Check if we have a standard mapping for this button
-	if standardButton, ok := pico8ButtonToStandard[buttonIndex]; ok {
-		// First try standard gamepad layout
-		if ebiten.IsStandardGamepadLayoutAvailable(gamepadID) {
-			return inpututil.IsStandardGamepadButtonJustPressed(gamepadID, standardButton)
-		}
-
-		// Fallback to direct button mapping for non-standard gamepads
-		switch buttonIndex {
-		// Directional buttons (D-pad and left stick)
-		case ButtonLeft, ButtonJoypadLeft:
-			// Check D-pad left or left stick left
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftLeft)) ||
-				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) < -0.5
-		case ButtonRight, ButtonJoypadRight:
-			// Check D-pad right or left stick right
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftRight)) ||
-				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickHorizontal)) > 0.5
-		case ButtonUp, ButtonJoypadUp:
-			// Check D-pad up or left stick up
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftTop)) ||
-				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) < -0.5
-		case ButtonDown, ButtonJoypadDown:
-			// Check D-pad down or left stick down
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton(ebiten.StandardGamepadButtonLeftBottom)) ||
-				ebiten.GamepadAxisValue(gamepadID, int(ebiten.StandardGamepadAxisLeftStickVertical)) > 0.5
-		// Face buttons
-		case ButtonO, ButtonJoypadB: // B button (right face button)
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton1)
-		case ButtonX, ButtonJoyA: // A button (bottom face button)
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton0)
-		case ButtonJoypadX: // X button (left face button)
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton2)
-		case ButtonJoypadY: // Y button (top face button)
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton3)
-		// Menu buttons
-		case ButtonStart:
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton9)
-		case ButtonSelect:
-			return inpututil.IsGamepadButtonJustPressed(gamepadID, ebiten.GamepadButton8)
-		}
-	}
-
 	return false
+}
+
+// getCachedButtonState returns the cached button state
+func getCachedButtonState(buttonIndex int) bool {
+	inputCacheMutex.RLock()
+	defer inputCacheMutex.RUnlock()
+
+	if !inputCacheValid {
+		return checkButtonState(buttonIndex)
+	}
+
+	return buttonStates[buttonIndex]
+}
+
+// getCachedButtonStatePrev returns the cached previous button state
+func getCachedButtonStatePrev(buttonIndex int) bool {
+	inputCacheMutex.RLock()
+	defer inputCacheMutex.RUnlock()
+
+	return buttonStatesPrev[buttonIndex]
 }

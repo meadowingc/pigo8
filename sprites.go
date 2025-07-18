@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"golang.org/x/exp/constraints"
@@ -17,6 +18,19 @@ type Number interface {
 }
 
 // Note: currentScreen, currentSprites, and currentDrawColor are defined in engine.go
+
+// Add sprite caching for transparent versions
+var (
+	// Global sprite cache for transparent versions
+	spriteCache      = make(map[*ebiten.Image]*ebiten.Image)
+	spriteCacheMutex sync.RWMutex
+
+	// Sprite pixel cache for batch reading operations
+	spritePixelCache      = make(map[int][]byte) // spriteID -> pixel data
+	spritePixelCacheSize  = make(map[int]int)    // spriteID -> width*height
+	spriteCacheValid      = make(map[int]bool)   // spriteID -> cache validity
+	spritePixelCacheMutex sync.RWMutex
+)
 
 // Spr draws a potentially fractional rectangular region of sprites,
 // using the internal `currentScreen` and `currentSprites` variables.
@@ -211,39 +225,60 @@ func parseSprOptions(options []any) (scaleW float64, scaleH float64, flipX bool,
 	return scaleW, scaleH, flipX, flipY
 }
 
-// createTransparentSpriteImage creates a new image from the sprite with transparent pixels applied
+// createTransparentSpriteImage creates a transparent version of a sprite, with caching
 func createTransparentSpriteImage(tileImage *ebiten.Image) *ebiten.Image {
-	// Create a temporary image with transparency for the transparent color
-	tempImage := ebiten.NewImage(tileImage.Bounds().Dx(), tileImage.Bounds().Dy())
+	spriteCacheMutex.RLock()
+	if cached, exists := spriteCache[tileImage]; exists {
+		spriteCacheMutex.RUnlock()
+		return cached
+	}
+	spriteCacheMutex.RUnlock()
 
-	// Copy the sprite image to the temporary image, applying transparency
-	for y := 0; y < tileImage.Bounds().Dy(); y++ {
-		for x := 0; x < tileImage.Bounds().Dx(); x++ {
-			// Get the color at this position
-			pixelColor := tileImage.At(x, y)
+	// Create new transparent image
+	width := tileImage.Bounds().Dx()
+	height := tileImage.Bounds().Dy()
+	tempImage := ebiten.NewImage(width, height)
 
-			// Check if this pixel is transparent based on the palette transparency settings
-			isTransparent := false
+	// Get all pixels from source image in batch
+	sourcePixels := make([]byte, width*height*4)
+	tileImage.ReadPixels(sourcePixels)
 
-			// Find which color index this pixel matches
-			for i, paletteColor := range pico8Palette {
-				if colorEquals(pixelColor, paletteColor) {
-					// Check if this color is set to be transparent
-					if i < len(paletteTransparency) && paletteTransparency[i] {
-						isTransparent = true
-					}
-					break
-				}
-			}
+	// Create destination pixel buffer
+	destPixels := make([]byte, width*height*4)
 
-			// Only draw non-transparent pixels
-			if !isTransparent {
-				tempImage.Set(x, y, pixelColor)
-			}
+	// Process pixels in memory (much faster than individual At()/Set() calls)
+	for i := 0; i < len(sourcePixels); i += 4 {
+		r, g, b, a := sourcePixels[i], sourcePixels[i+1], sourcePixels[i+2], sourcePixels[i+3]
+
+		// Check if this pixel should be transparent (color 0 or fully transparent)
+		if a == 0 || (r == 0 && g == 0 && b == 0 && a == 255) {
+			// Skip setting transparent pixels - leave as 0
+			continue
 		}
+
+		// Copy pixel to destination
+		destPixels[i] = r   // Red
+		destPixels[i+1] = g // Green
+		destPixels[i+2] = b // Blue
+		destPixels[i+3] = a // Alpha
 	}
 
+	// Upload all pixels to GPU in one operation
+	tempImage.WritePixels(destPixels)
+
+	// Cache the result
+	spriteCacheMutex.Lock()
+	spriteCache[tileImage] = tempImage
+	spriteCacheMutex.Unlock()
+
 	return tempImage
+}
+
+// ClearSpriteCache clears the sprite cache (useful for memory management)
+func ClearSpriteCache() {
+	spriteCacheMutex.Lock()
+	spriteCache = make(map[*ebiten.Image]*ebiten.Image)
+	spriteCacheMutex.Unlock()
 }
 
 // setupDrawOptions creates and configures the drawing options for a sprite
@@ -329,15 +364,18 @@ func getSpriteImage(spriteID int) *ebiten.Image {
 	return nil
 }
 
-// Sget returns the color number (0-15) of a pixel at the specified coordinates on the spritesheet.
-// If the coordinates are outside the spritesheet bounds, it returns 0.
+// Sget returns the PICO-8 color index (0-15) of the pixel at the specified coordinates on the spritesheet.
+// This mimics PICO-8's sget(x, y) function.
 //
 // x: the distance from the left side of the spritesheet (in pixels).
 // y: the distance from the top side of the spritesheet (in pixels).
 //
+// Returns:
+//   - int: The color index (0-15) of the pixel at the specified coordinates.
+//   - If the coordinates are out of bounds or no sprite is found, returns 0.
+//
 // Example:
 //
-//	// Get the color of pixel at (10,20) on the spritesheet
 //	pixel_color := Sget(10, 20) // Returns color index (0-15) if pixel exists
 func Sget[X Number, Y Number](x X, y Y) int {
 	// Convert generic x, y to required types
@@ -368,7 +406,35 @@ func Sget[X Number, Y Number](x X, y Y) int {
 	// Find the sprite with the matching ID
 	for _, sprite := range currentSprites {
 		if sprite.ID == spriteCellID {
-			// Get the color at the specified pixel within this sprite
+			// Try to get pixel from cache first (batch reading optimization)
+			spritePixelCacheMutex.RLock()
+			if spriteCacheValid[spriteCellID] && spritePixelCache[spriteCellID] != nil {
+				cacheSize := spritePixelCacheSize[spriteCellID]
+				if cacheSize > 0 {
+					offset := (localY*8 + localX) * 4
+					if offset+3 < len(spritePixelCache[spriteCellID]) {
+						r := spritePixelCache[spriteCellID][offset]
+						g := spritePixelCache[spriteCellID][offset+1]
+						b := spritePixelCache[spriteCellID][offset+2]
+						a := spritePixelCache[spriteCellID][offset+3]
+						spritePixelCacheMutex.RUnlock()
+
+						// Create color from RGBA values
+						pixelColor := color.RGBA{r, g, b, a}
+
+						// Find the matching color in the PICO-8 palette
+						for i, color := range pico8Palette {
+							if colorEquals(pixelColor, color) {
+								return i // Return the color index (0-15)
+							}
+						}
+						return 0
+					}
+				}
+			}
+			spritePixelCacheMutex.RUnlock()
+
+			// Fallback to individual pixel read if cache is not available
 			pixelColor := sprite.Image.At(localX, localY)
 
 			// Find the matching color in the PICO-8 palette
@@ -678,8 +744,8 @@ func Sset[X Number, Y Number](x X, y Y, colorIndex ...int) {
 	for i := range currentSprites {
 		sprite := &currentSprites[i]
 		if sprite.ID == spriteCellID {
-			// Set the pixel color within this sprite
-			sprite.Image.Set(localX, localY, pico8Palette[colorToUse])
+			// Queue sprite modification instead of immediate GPU upload
+			queueSpriteModification(sprite.Image, localX, localY, pico8Palette[colorToUse])
 			return
 		}
 	}
@@ -796,7 +862,10 @@ func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *e
 	// Clear the image with transparent color
 	sourceImage.Fill(color.RGBA{0, 0, 0, 0})
 
-	// Copy the specified region from the spritesheet to the temporary image
+	// Create pixel buffer for batch operations
+	pixels := make([]byte, sourceWidth*sourceHeight*4)
+
+	// Process all pixels in batch
 	for y := 0; y < sourceHeight; y++ {
 		for x := 0; x < sourceWidth; x++ {
 			// Get the color at this position on the spritesheet
@@ -809,11 +878,19 @@ func createSpriteSourceImage(sourceX, sourceY, sourceWidth, sourceHeight int) *e
 			}
 
 			if colorIndex >= 0 && colorIndex < len(pico8Palette) {
-				// Set the pixel in the temporary image
-				sourceImage.Set(x, y, pico8Palette[colorIndex])
+				// Set the pixel in the buffer
+				offset := (y*sourceWidth + x) * 4
+				r, g, b, a := pico8Palette[colorIndex].RGBA()
+				pixels[offset] = uint8(r >> 8)   // Red
+				pixels[offset+1] = uint8(g >> 8) // Green
+				pixels[offset+2] = uint8(b >> 8) // Blue
+				pixels[offset+3] = uint8(a >> 8) // Alpha
 			}
 		}
 	}
+
+	// Upload all pixels to GPU in one operation
+	sourceImage.WritePixels(pixels)
 
 	return sourceImage
 }
@@ -922,4 +999,149 @@ func Sspr[SX Number, SY Number, SW Number, SH Number, DX Number, DY Number](sx S
 
 	// Draw the image to the screen
 	currentScreen.DrawImage(sourceImage, op)
+}
+
+// queueSpriteModification queues a pixel modification for batch processing
+func queueSpriteModification(sprite *ebiten.Image, x, y int, clr color.Color) {
+	spriteModMutex.Lock()
+	defer spriteModMutex.Unlock()
+
+	spriteModifications[sprite] = append(spriteModifications[sprite], pixelMod{x, y, clr})
+
+	// Invalidate sprite pixel cache since we're modifying the sprite
+	// Find sprite ID by searching through currentSprites
+	for _, spriteInfo := range currentSprites {
+		if spriteInfo.Image == sprite {
+			invalidateSpritePixelCache(spriteInfo.ID)
+			break
+		}
+	}
+}
+
+// flushSpriteModifications applies all pending sprite modifications in batch
+func flushSpriteModifications() {
+	spriteModMutex.Lock()
+	defer spriteModMutex.Unlock()
+
+	for sprite, mods := range spriteModifications {
+		if len(mods) > 0 {
+			// Get current pixels from GPU
+			width := sprite.Bounds().Dx()
+			height := sprite.Bounds().Dy()
+			pixels := make([]byte, width*height*4)
+			sprite.ReadPixels(pixels)
+
+			// Apply all modifications to the pixel buffer
+			for _, mod := range mods {
+				if mod.x >= 0 && mod.x < width && mod.y >= 0 && mod.y < height {
+					offset := (mod.y*width + mod.x) * 4
+					r, g, b, a := mod.color.RGBA()
+					pixels[offset] = uint8(r >> 8)   // Red
+					pixels[offset+1] = uint8(g >> 8) // Green
+					pixels[offset+2] = uint8(b >> 8) // Blue
+					pixels[offset+3] = uint8(a >> 8) // Alpha
+				}
+			}
+
+			// Upload all changes back to GPU in one operation
+			sprite.WritePixels(pixels)
+
+			// Update sprite pixel cache after modifications
+			// Find sprite ID by searching through currentSprites
+			for _, spriteInfo := range currentSprites {
+				if spriteInfo.Image == sprite {
+					updateSpritePixelCache(spriteInfo.ID, sprite)
+					break
+				}
+			}
+		}
+	}
+
+	// Clear the modifications map
+	spriteModifications = make(map[*ebiten.Image][]pixelMod)
+}
+
+// initSpritePixelCache initializes the sprite pixel cache for batch reading operations
+func initSpritePixelCache(spriteID int, sprite *ebiten.Image) {
+	spritePixelCacheMutex.Lock()
+	defer spritePixelCacheMutex.Unlock()
+
+	width := sprite.Bounds().Dx()
+	height := sprite.Bounds().Dy()
+	cacheSize := width * height * 4
+
+	if spritePixelCacheSize[spriteID] != cacheSize {
+		spritePixelCache[spriteID] = make([]byte, cacheSize)
+		spritePixelCacheSize[spriteID] = cacheSize
+		spriteCacheValid[spriteID] = false
+	}
+}
+
+// updateSpritePixelCache reads all pixels from a sprite into the cache
+func updateSpritePixelCache(spriteID int, sprite *ebiten.Image) {
+	spritePixelCacheMutex.Lock()
+	defer spritePixelCacheMutex.Unlock()
+
+	if sprite == nil || spritePixelCache[spriteID] == nil {
+		spriteCacheValid[spriteID] = false
+		return
+	}
+
+	// Read all pixels from GPU in one batch operation
+	sprite.ReadPixels(spritePixelCache[spriteID])
+	spriteCacheValid[spriteID] = true
+}
+
+// invalidateSpritePixelCache marks a sprite's pixel cache as invalid
+func invalidateSpritePixelCache(spriteID int) {
+	spritePixelCacheMutex.Lock()
+	defer spritePixelCacheMutex.Unlock()
+	spriteCacheValid[spriteID] = false
+}
+
+// clearSpritePixelCache clears all sprite pixel caches
+func clearSpritePixelCache() {
+	spritePixelCacheMutex.Lock()
+	defer spritePixelCacheMutex.Unlock()
+
+	spritePixelCache = make(map[int][]byte)
+	spritePixelCacheSize = make(map[int]int)
+	spriteCacheValid = make(map[int]bool)
+}
+
+// GetSpritePixelCacheStats returns statistics about sprite pixel caches
+func GetSpritePixelCacheStats() (totalSprites int, validSprites int, totalSize int) {
+	spritePixelCacheMutex.RLock()
+	defer spritePixelCacheMutex.RUnlock()
+
+	totalSprites = len(spritePixelCache)
+	validSprites = 0
+	totalSize = 0
+
+	for spriteID, cache := range spritePixelCache {
+		if spriteCacheValid[spriteID] {
+			validSprites++
+		}
+		totalSize += len(cache)
+	}
+
+	return totalSprites, validSprites, totalSize
+}
+
+// ForceUpdateSpritePixelCache forces an update of all sprite pixel caches
+func ForceUpdateSpritePixelCache() {
+	if currentSprites == nil {
+		return
+	}
+
+	for _, sprite := range currentSprites {
+		updateSpritePixelCache(sprite.ID, sprite.Image)
+	}
+}
+
+// ClearAllCaches clears all pixel caches (screen and sprites)
+func ClearAllCaches() {
+	clearSpritePixelCache()
+	invalidateScreenPixelCache()
+	ClearSpriteCache()
 }
