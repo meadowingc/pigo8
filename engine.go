@@ -25,13 +25,15 @@ const (
 
 // Settings defines configurable parameters for the PIGO8 console.
 type Settings struct {
-	ScaleFactor  int    // Integer scaling factor for the window (Default: 4).
-	WindowTitle  string // Title displayed on the window bar (Default: "PIGO-8 Game").
-	TargetFPS    int    // Target ticks per second (Default: 30).
-	ScreenWidth  int    // Custom screen width (Default: 128 for PICO-8 compatibility).
-	ScreenHeight int    // Custom screen height (Default: 128 for PICO-8 compatibility).
-	Multiplayer  bool   // Enable multiplayer networking (Default: false).
-	Fullscreen   bool   // Start the game in fullscreen mode (Default: false).
+	ScaleFactor  int               // Integer scaling factor for the window (Default: 4).
+	WindowTitle  string            // Title displayed on the window bar (Default: "PIGO-8 Game").
+	TargetFPS    int               // Target ticks per second (Default: 30).
+	ScreenWidth  int               // Custom screen width (Default: 128 for PICO-8 compatibility).
+	ScreenHeight int               // Custom screen height (Default: 128 for PICO-8 compatibility).
+	Multiplayer  bool              // Enable multiplayer networking (Default: false).
+	Fullscreen   bool              // Start the game in fullscreen mode (Default: false).
+	ColorSpace   ebiten.ColorSpace // Color space for rendering (Default: ColorSpaceDefault).
+	DisableHiDPI bool              // Disable HiDPI scaling (Default: false).
 }
 
 // NewSettings creates a new Settings object with default values.
@@ -44,6 +46,8 @@ func NewSettings() *Settings {
 		ScreenHeight: defaultViewportHeight, // Default PICO-8 height
 		Multiplayer:  false,                 // Networking disabled by default
 		Fullscreen:   false,                 // Windowed mode by default
+		ColorSpace:   ebiten.ColorSpaceDefault,
+		DisableHiDPI: true, // Better performance for retro-style games
 	}
 }
 
@@ -395,19 +399,11 @@ func PlayGameWith(settings *Settings) {
 	loadPaletteFromHexFile()
 
 	// Configure Ebitengine window using Settings object
-	ebiten.SetWindowTitle(cfg.WindowTitle)
 	winWidth := screenWidth * cfg.ScaleFactor
 	winHeight := screenHeight * cfg.ScaleFactor
 	if winWidth <= 0 || winHeight <= 0 {
 		log.Printf("Warning: Calculated window size (%dx%d based on ScaleFactor %d) is non-positive. Using default %dx%d.", winWidth, winHeight, cfg.ScaleFactor, defaultViewportWidth, defaultViewportHeight)
 		winWidth, winHeight = defaultViewportWidth, defaultViewportHeight
-	}
-	ebiten.SetWindowSize(winWidth, winHeight)
-	ebiten.SetTPS(cfg.TargetFPS)
-
-	// Set fullscreen mode if enabled
-	if cfg.Fullscreen {
-		ebiten.SetFullscreen(true)
 	}
 
 	// Calculate time increment based on target FPS
@@ -417,8 +413,24 @@ func PlayGameWith(settings *Settings) {
 		initialized: false,
 	}
 
+	// Configure Ebitengine window using Settings object
+	ebiten.SetWindowTitle(cfg.WindowTitle)
+	ebiten.SetWindowSize(winWidth, winHeight)
+	ebiten.SetTPS(cfg.TargetFPS)
+
+	// Set fullscreen mode if enabled
+	if cfg.Fullscreen {
+		ebiten.SetFullscreen(true)
+	}
+
+	// Use RunGameOptions for new v2.8 features
+	opts := &ebiten.RunGameOptions{
+		ColorSpace:   cfg.ColorSpace,
+		DisableHiDPI: cfg.DisableHiDPI,
+	}
+
 	log.Println("Booting PIGO8 console...")
-	err := ebiten.RunGame(internalGame)
+	err := ebiten.RunGameWithOptions(internalGame, opts)
 	if err != nil {
 		log.Panicf("pico8.PlayGameWith: Ebitengine loop failed: %v", err)
 	}
