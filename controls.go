@@ -339,7 +339,7 @@ func handleGamepadStandardButtonInput(buttonIndex int, gamepadID ebiten.GamepadI
 //
 // buttonIndex: The PICO-8 button index (0-15).
 // playerIndex: Optional PICO-8 player index (0-7). Defaults to 0 (player 1) if omitted.
-func Btn(buttonIndex int, playerIndex ...int) bool {
+func Btn(buttonIndex int, _ ...int) bool {
 	return getCachedButtonState(buttonIndex)
 }
 
@@ -377,7 +377,7 @@ func Btn(buttonIndex int, playerIndex ...int) bool {
 //	if Btnp(START, 1) {
 //		// Pause game for player 1
 //	}
-func Btnp(buttonIndex int, playerIndex ...int) bool {
+func Btnp(buttonIndex int, _ ...int) bool {
 	// Check if button is pressed this frame but wasn't pressed last frame
 	current := getCachedButtonState(buttonIndex)
 	previous := getCachedButtonStatePrev(buttonIndex)

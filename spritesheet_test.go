@@ -47,7 +47,7 @@ func TestLoadSpritesheetFromData_Valid(t *testing.T) {
 		]
 	}`)
 
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	require.NoError(t, err)
 	require.NotNil(t, sprites)
 	require.Len(t, sprites, 2, "Should only load 'used: true' sprites")
@@ -81,7 +81,7 @@ func TestLoadSpritesheetFromData_Valid(t *testing.T) {
 }
 
 func TestLoadSpritesheetFromData_EmptyData(t *testing.T) {
-	sprites, err := loadSpritesheetFromData([]byte{})
+	sprites, err := loadSpritesheetFromDataForTest([]byte{})
 	require.Error(t, err)
 	assert.Nil(t, sprites)
 	assert.Contains(t, err.Error(), "provided spritesheet data is empty")
@@ -89,7 +89,7 @@ func TestLoadSpritesheetFromData_EmptyData(t *testing.T) {
 
 func TestLoadSpritesheetFromData_InvalidJson(t *testing.T) {
 	jsonData := []byte(`{"sprites": [`) // Malformed JSON
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	require.Error(t, err)
 	assert.Nil(t, sprites)
 	assert.Contains(t, err.Error(), "error unmarshalling provided spritesheet data")
@@ -98,7 +98,7 @@ func TestLoadSpritesheetFromData_InvalidJson(t *testing.T) {
 func TestLoadSpritesheetFromData_NoSpritesArray(t *testing.T) {
 	jsonData := []byte(`{"other_key": "value"}`)
 	// This technically unmarshals correctly but results in an empty sheet.Sprites
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	require.NoError(t, err) // No error during unmarshal
 	assert.NotNil(t, sprites)
 	assert.Len(t, sprites, 0)
@@ -107,7 +107,7 @@ func TestLoadSpritesheetFromData_NoSpritesArray(t *testing.T) {
 
 func TestLoadSpritesheetFromData_SpritesArrayEmpty(t *testing.T) {
 	jsonData := []byte(`{"sprites": []}`)
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	require.NoError(t, err) // No error during unmarshal
 	assert.NotNil(t, sprites)
 	assert.Len(t, sprites, 0)
@@ -123,7 +123,7 @@ func TestLoadSpritesheetFromData_NoneUsed(t *testing.T) {
 			}
 		]
 	}`)
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	assert.NoError(t, err)
 	// assert.NotNil(t, sprites) // Temporarily removed for debugging
 	assert.Len(t, sprites, 0)
@@ -143,7 +143,7 @@ func TestLoadSpritesheetFromData_UsedButEmptyPixels(t *testing.T) {
             }
 		]
 	}`)
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	assert.NoError(t, err)
 	// assert.NotNil(t, sprites) // Temporarily removed for debugging
 	assert.Len(t, sprites, 0) // Both sprites should be skipped
@@ -159,7 +159,7 @@ func TestLoadSpritesheetFromData_UsedWithInvalidColorIndex(t *testing.T) {
 			}
 		]
 	}`)
-	sprites, err := loadSpritesheetFromData(jsonData)
+	sprites, err := loadSpritesheetFromDataForTest(jsonData)
 	require.NoError(t, err)
 	require.NotNil(t, sprites)
 	require.Len(t, sprites, 1) // Sprite is still created
@@ -207,7 +207,7 @@ func TestLoadSpritesheet_ValidFile(t *testing.T) {
 			_ = os.Rename("spritesheet.json", "valid_spritesheet.json") // Restore name
 		})
 
-		sprites, err := loadSpritesheet()
+		sprites, err := loadSpritesheetForTest()
 		require.NoError(t, err)
 		require.NotNil(t, sprites)
 		assert.Len(t, sprites, 1, "Should load the one 'used: true' sprite from valid_spritesheet.json")
@@ -222,7 +222,7 @@ func TestLoadSpritesheet_EmptyFileContent(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = os.Rename("spritesheet.json", "empty_spritesheet.json") })
 
-		sprites, err := loadSpritesheet()
+		sprites, err := loadSpritesheetForTest()
 		require.NoError(t, err) // Loading an empty array is not an error itself
 		require.NotNil(t, sprites)
 		assert.Len(t, sprites, 0)

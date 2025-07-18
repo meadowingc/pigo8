@@ -10,20 +10,20 @@ import (
 	p8 "github.com/drpaneas/pigo8"
 )
 
-type BatchPerformanceDemo struct {
+type batchPerformanceDemo struct {
 	frameCount int
 	startTime  time.Time
 	mode       int // 0 = individual pixels, 1 = batch operations
 	readMode   int // 0 = individual reads, 1 = batch reads
 }
 
-func (d *BatchPerformanceDemo) Init() {
+func (d *batchPerformanceDemo) Init() {
 	d.startTime = time.Now()
 	d.mode = 1     // Start with batch mode
 	d.readMode = 1 // Start with batch read mode
 }
 
-func (d *BatchPerformanceDemo) Update() {
+func (d *batchPerformanceDemo) Update() {
 	d.frameCount++
 
 	// Switch modes every 5 seconds
@@ -35,7 +35,7 @@ func (d *BatchPerformanceDemo) Update() {
 	}
 }
 
-func (d *BatchPerformanceDemo) Draw() {
+func (d *batchPerformanceDemo) Draw() {
 	// Clear screen
 	p8.Cls(1) // Dark blue background
 
@@ -48,27 +48,14 @@ func (d *BatchPerformanceDemo) Draw() {
 	}
 
 	// Test batch reading operations
-	if d.readMode == 1 {
-		// Batch reading mode - read pixels in a pattern
-		for y := 0; y < 64; y += 4 {
-			for x := 0; x < 64; x += 4 {
-				// Read pixels using batch operations (cached)
-				pixelColor := p8.Pget(x, y)
-				// Use the color for something (just to avoid compiler optimization)
-				if pixelColor > 8 {
-					p8.Pset(x+64, y+64, pixelColor)
-				}
-			}
-		}
-	} else {
-		// Individual reading mode - read pixels individually
-		for y := 0; y < 64; y += 4 {
-			for x := 0; x < 64; x += 4 {
-				// Read pixels using individual operations
-				pixelColor := p8.Pget(x, y)
-				if pixelColor > 8 {
-					p8.Pset(x+64, y+64, pixelColor)
-				}
+	// Both modes currently do the same thing since Pget is optimized
+	for y := 0; y < 64; y += 4 {
+		for x := 0; x < 64; x += 4 {
+			// Read pixels (optimized in both modes)
+			pixelColor := p8.Pget(x, y)
+			// Use the color for something (just to avoid compiler optimization)
+			if pixelColor > 8 {
+				p8.Pset(x+64, y+64, pixelColor)
 			}
 		}
 	}
@@ -119,7 +106,7 @@ func main() {
 	settings.TargetFPS = 60
 
 	// Insert the game
-	p8.InsertGame(&BatchPerformanceDemo{})
+	p8.InsertGame(&batchPerformanceDemo{})
 
 	// Run the game
 	p8.PlayGameWith(settings)

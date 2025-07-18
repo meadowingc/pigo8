@@ -9,7 +9,21 @@ import (
 )
 
 func TestMgetAndMset(t *testing.T) {
-	ensureStreamingSystemInitialized() // Ensure system is ready
+	// Initialize the streaming system without loading spritesheet (which requires game context)
+	streamingInitMutex.Lock()
+	defer streamingInitMutex.Unlock()
+
+	// Skip spritesheet loading for tests to avoid ReadPixels issue
+	if currentSprites == nil {
+		currentSprites = []spriteInfo{} // Empty sprites for testing
+	}
+
+	// Initialize the map system directly
+	if err := initializeStreamingMapSystem(); err != nil {
+		t.Fatalf("Failed to initialize streaming map system: %v", err)
+	}
+
+	streamingSystemInitialized = true
 
 	// Create a byte slice for the entire default map dimensions
 	testMapData := make([]byte, defaultPico8MapWidth*defaultPico8MapHeight)

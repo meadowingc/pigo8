@@ -78,6 +78,16 @@ type spriteInfo struct { // Exported
 // This allows users to load the spritesheet.json using go:embed or other methods
 // in their own code (enabling build-time checks) and pass the data directly.
 func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
+	return loadSpritesheetFromDataInternal(data, true)
+}
+
+// loadSpritesheetFromDataForTest is a test-specific version that skips pixel cache updates
+func loadSpritesheetFromDataForTest(data []byte) ([]spriteInfo, error) {
+	return loadSpritesheetFromDataInternal(data, false)
+}
+
+// loadSpritesheetFromDataInternal is the internal implementation
+func loadSpritesheetFromDataInternal(data []byte, updatePixelCache bool) ([]spriteInfo, error) {
 	// Basic check if data is empty
 	if len(data) == 0 {
 		return nil, fmt.Errorf("provided spritesheet data is empty")
@@ -183,7 +193,9 @@ func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 
 		// Initialize sprite pixel cache for batch reading operations
 		initSpritePixelCache(spriteData.ID, img)
-		updateSpritePixelCache(spriteData.ID, img)
+		if updatePixelCache {
+			updateSpritePixelCache(spriteData.ID, img)
+		}
 	}
 
 	if len(loadedSprites) == 0 &&
@@ -199,6 +211,16 @@ func loadSpritesheetFromData(data []byte) ([]spriteInfo, error) {
 // loadSpritesheet tries to load spritesheet.json from the current directory, then from common locations,
 // then from custom embedded resources, and finally falls back to default embedded resources.
 func loadSpritesheet() ([]spriteInfo, error) {
+	return loadSpritesheetInternal(true)
+}
+
+// loadSpritesheetForTest is a test-specific version that skips pixel cache updates
+func loadSpritesheetForTest() ([]spriteInfo, error) {
+	return loadSpritesheetInternal(false)
+}
+
+// loadSpritesheetInternal is the internal implementation
+func loadSpritesheetInternal(updatePixelCache bool) ([]spriteInfo, error) {
 	const spritesheetFilename = "spritesheet.json"
 
 	// First try to load from the file system
@@ -237,7 +259,7 @@ func loadSpritesheet() ([]spriteInfo, error) {
 	logMemory("after reading spritesheet file", false)
 
 	// Process the spritesheet data
-	sprites, err := loadSpritesheetFromData(data)
+	sprites, err := loadSpritesheetFromDataInternal(data, updatePixelCache)
 	if err != nil {
 		return nil, fmt.Errorf("error processing spritesheet data: %w", err)
 	}
