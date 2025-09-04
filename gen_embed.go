@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 func main() {
@@ -55,7 +54,7 @@ func init() {
 		content += "map.json"
 	}
 	content += `")`
-	
+
 	content += `
 }
 `
