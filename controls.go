@@ -402,6 +402,9 @@ func updateInputCache() {
 		buttonStatesPrev[k] = v
 	}
 
+	// Sync virtual (touch) buttons (no-op on non-wasm builds)
+	syncVirtualFromJS()
+
 	// Update current states for all buttons
 	for buttonIndex := 0; buttonIndex <= ButtonJoypadR5; buttonIndex++ {
 		buttonStates[buttonIndex] = checkButtonState(buttonIndex)
@@ -412,6 +415,10 @@ func updateInputCache() {
 
 // checkButtonState checks the actual button state (uncached)
 func checkButtonState(buttonIndex int) bool {
+	// Virtual/touch buttons
+	if getVirtualButton(buttonIndex) {
+		return true
+	}
 	// Handle mouse buttons
 	if isMouseButton(buttonIndex) {
 		return handleMouseInput(buttonIndex)
